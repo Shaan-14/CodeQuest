@@ -3,6 +3,7 @@
  * schema but different rows and is used by graders as HIDDEN data, so hard-coded answers fail.
  * `tables` documents each table for the in-game schema browser; a test verifies it matches real SQLite.
  */
+import { flatSql } from './flat';
 import { leagueSql } from './league';
 import { marketSql } from './market';
 import { worksSql } from './works';
@@ -52,6 +53,8 @@ const LEAGUE_TABLES = [
   t('player_stats', 'A player’s numbers for one season.', ['id', 'player_id - links to players', 'season_id - links to seasons', 'games_played', 'at_bats', 'hits', 'home_runs']),
 ];
 
+const FLAT_TABLES = [t('sales_flat', 'Every sale, with the customer’s details repeated on each row.', ['id', 'customer_name', 'customer_city', 'product', 'qty', 'price'])];
+
 const defs: DatabaseDef[] = [
   { id: 'works', title: 'Bytehaven Works', about: 'A factory: employees, machines, production runs and maintenance.', setup: worksSql(101), tables: WORKS_TABLES },
   { id: 'works-b', title: 'Bytehaven Works (hidden data)', about: 'Same schema, different data.', setup: worksSql(202), tables: WORKS_TABLES },
@@ -59,6 +62,8 @@ const defs: DatabaseDef[] = [
   { id: 'market-b', title: 'Bytehaven Market (hidden data)', about: 'Same schema, different data.', setup: marketSql(404), tables: MARKET_TABLES },
   { id: 'league', title: 'Bytehaven League', about: 'A sports league: teams, players, games and season statistics.', setup: leagueSql(505), tables: LEAGUE_TABLES },
   { id: 'league-b', title: 'Bytehaven League (hidden data)', about: 'Same schema, different data.', setup: leagueSql(606), tables: LEAGUE_TABLES },
+  { id: 'flat', title: 'Flat sales table', about: 'One wide table with repeated customer details. Time to normalise it.', setup: flatSql(707), tables: FLAT_TABLES },
+  { id: 'flat-b', title: 'Flat sales table (hidden data)', about: 'Same schema, different data.', setup: flatSql(808), tables: FLAT_TABLES },
   // Empty database for schema-design and CREATE TABLE practice.
   { id: 'blank', title: 'A blank database', about: 'Nothing in it yet. Build your own tables.', setup: '', tables: [] },
 ];

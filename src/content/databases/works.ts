@@ -1,4 +1,4 @@
-import { chance, day, insert, int, money, names, pick, rng } from './generate';
+import { chance, day, insert, int, money, names, pick, rng, uniqueMoney } from './generate';
 
 /**
  * "Bytehaven Works": a small factory. Departments, employees (with a manager hierarchy), machines,
@@ -66,21 +66,23 @@ export function worksSql(seed: number): string {
   // 4 heads (no manager), 4 supervisors reporting to heads, then technicians and operators.
   const people = names(r, 24);
   const emp: (string | number | null)[][] = [];
+  const usedRates = new Set<number>();
   for (let i = 0; i < 24; i++) {
     const id = i + 1;
     const dept = (i % 4) + 1;
     const role = i < 4 ? 'supervisor' : i < 8 ? 'supervisor' : i < 14 ? 'technician' : 'operator';
     const manager = i < 4 ? null : i < 8 ? dept : 4 + dept;
-    emp.push([id, people[i]!, dept, role, money(r, role === 'technician' ? 24 : role === 'operator' ? 16 : 32, role === 'technician' ? 38 : role === 'operator' ? 26 : 48), day(int(r, 0, 600)), manager]);
+    emp.push([id, people[i]!, dept, role, uniqueMoney(r, usedRates, role === 'technician' ? 24 : role === 'operator' ? 16 : 32, role === 'technician' ? 38 : role === 'operator' ? 26 : 48), day(int(r, 0, 600)), manager]);
   }
   sql += insert('employees', ['id', 'name', 'department_id', 'role', 'hourly_rate', 'hired_on', 'manager_id'], emp);
   const operators = emp.filter((e) => e[3] === 'operator').map((e) => e[0] as number);
   const technicians = emp.filter((e) => e[3] === 'technician').map((e) => e[0] as number);
 
   const machines: (string | number)[][] = [];
+  const usedCosts = new Set<number>();
   for (let i = 0; i < 10; i++) {
     const type = MACHINE_TYPES[i % MACHINE_TYPES.length]!;
-    machines.push([i + 1, `${type} ${String.fromCharCode(65 + (i % 3))}${i + 1}`, type, (i % 4) + 1, money(r, 12000, 95000), day(int(r, 0, 300))]);
+    machines.push([i + 1, `${type} ${String.fromCharCode(65 + (i % 3))}${i + 1}`, type, (i % 4) + 1, uniqueMoney(r, usedCosts, 12000, 95000), day(int(r, 0, 300))]);
   }
   sql += insert('machines', ['id', 'name', 'machine_type', 'department_id', 'purchase_cost', 'installed_on'], machines);
 
@@ -89,7 +91,8 @@ export function worksSql(seed: number): string {
   const runs: (string | number | null)[][] = [];
   for (let i = 0; i < 120; i++) {
     const made = int(r, 80, 600);
-    runs.push([i + 1, int(r, 1, 10), pick(r, operators), int(r, 1, PRODUCTS.length), day(int(r, 400, 700)), made, chance(r, 0.08) ? null : int(r, 0, Math.floor(made * 0.08)), money(r, 2, 9)]);
+    // Machines 9-10 are decommissioned and the last three operators are idle: nothing to match for them (LEFT JOIN practice).
+    runs.push([i + 1, int(r, 1, 8), pick(r, operators.slice(0, 7)), int(r, 1, PRODUCTS.length), day(int(r, 400, 700)), made, chance(r, 0.08) ? null : int(r, 0, Math.floor(made * 0.08)), money(r, 2, 9)]);
   }
   sql += insert('production_runs', ['id', 'machine_id', 'operator_id', 'product_id', 'run_date', 'units_made', 'units_defective', 'hours'], runs);
 

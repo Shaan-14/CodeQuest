@@ -1,4 +1,4 @@
-import { chance, day, insert, int, money, names, pick, rng } from './generate';
+import { chance, day, insert, int, names, pick, rng, uniqueMoney } from './generate';
 
 /**
  * "Bytehaven Market": customers, products, orders and order lines. Some customers have never ordered and
@@ -48,8 +48,17 @@ export function marketSql(seed: number): string {
   sql += insert('customers', ['id', 'name', 'city', 'joined_on'], who.map((n, i) => [i + 1, n, chance(r, 0.15) ? null : pick(r, CITIES), day(int(r, 0, 500))]));
 
   const products: (string | number)[][] = [];
+  const usedPrices = new Set<number>();
   let pid = 1;
-  for (const [cat, list] of Object.entries(CATEGORIES)) for (const n of list) products.push([pid++, n, cat, money(r, 3, 120), int(r, 0, 80)]);
+  for (const [cat, list] of Object.entries(CATEGORIES)) {
+    for (const n of list) {
+      const price = uniqueMoney(r, usedPrices, 3, 120);
+      const stock = int(r, 0, 80);
+      // Products 3, 8 and 13 are out of stock, so `stock > 0` filters really matter.
+      products.push([pid, n, cat, price, pid % 5 === 3 ? 0 : stock]);
+      pid++;
+    }
+  }
   sql += insert('products', ['id', 'name', 'category', 'price', 'stock'], products);
 
   // Customers 19-22 never order; products 15-16 never sell.

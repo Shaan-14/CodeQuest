@@ -11,8 +11,9 @@ import { getDatabase, sourcesFor } from './databases';
 import { areas, items, quests, achievementDefs } from './world';
 import { solutions as solutionsPhase1 } from './python/solutions.testdata';
 import { solutionsPhase2Python } from './python/solutions.phase2.testdata';
+import { solutionsSql } from './sql/solutions.testdata';
 
-const solutions: Record<string, { valid: string[]; wrong: string[] }> = { ...solutionsPhase1, ...solutionsPhase2Python };
+const solutions: Record<string, { valid: string[]; wrong: string[] }> = { ...solutionsPhase1, ...solutionsPhase2Python, ...solutionsSql };
 import { createPythonEngine, type PythonEngine } from '../learning/python/pythonEngine';
 
 let engine: PythonEngine;
@@ -132,6 +133,33 @@ describe('content structure', () => {
     for (const k of ['engineering', 'business', 'finance', 'science', 'manufacturing', 'automation', 'games', 'data analysis']) expect(contexts.has(k), k).toBe(true);
     // Baseball is occasional flavour, never the curriculum.
     expect(challenges.filter((c) => c.context === 'baseball').length / challenges.length).toBeLessThan(0.05);
+  });
+});
+
+describe('SQL challenges are well formed', () => {
+  const sqlChallenges = challenges.filter((c) => c.language === 'sql');
+  it('every reference query returns rows (a check can never pass vacuously) on visible and hidden data', () => {
+    for (const c of sqlChallenges) {
+      for (const k of c.checks) {
+        if (k.kind !== 'sqlResult') continue;
+        const db = k.db ?? c.db!;
+        const r = engine.run({ language: 'sql', code: k.expectQuery, db, sources: sourcesFor([db]) });
+        expect(r.error, `${c.id}/${k.name}: ${r.error}`).toBe('');
+        expect(r.sql!.at(-1)!.rows!.length, `${c.id}/${k.name} expects at least one row on ${db}`).toBeGreaterThan(0);
+      }
+    }
+  });
+  it('every SQL challenge names a database and every hidden twin has the same schema', () => {
+    for (const c of sqlChallenges) {
+      expect(c.db, c.id).toBeTruthy();
+      for (const k of c.checks) if ('db' in k && k.db && k.db !== c.db) expect(getDatabase(k.db)!.tables, `${c.id}: ${k.db}`).toEqual(getDatabase(c.db!)!.tables);
+    }
+  });
+  it('result checks include a hidden twin (to defeat hard-coded answers)', () => {
+    for (const c of sqlChallenges) {
+      const results = c.checks.filter((k) => k.kind === 'sqlResult');
+      if (results.length) expect(results.some((k) => 'visible' in k && k.visible === false), `${c.id} needs a hidden-data check`).toBe(true);
+    }
   });
 });
 

@@ -21,6 +21,13 @@ export type Rand = ReturnType<typeof rng>;
 export const int = (r: Rand, lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1));
 export const pick = <T,>(r: Rand, xs: readonly T[]): T => xs[Math.floor(r() * xs.length)]!;
 export const money = (r: Rand, lo: number, hi: number) => Math.round((lo + r() * (hi - lo)) * 100) / 100;
+/** Like `money`, but never returns a value already in `used` (so ORDER BY ... LIMIT has no ties). */
+export function uniqueMoney(r: Rand, used: Set<number>, lo: number, hi: number): number {
+  let v = money(r, lo, hi);
+  while (used.has(v)) v = Math.round((v + 0.01) * 100) / 100;
+  used.add(v);
+  return v;
+}
 export const chance = (r: Rand, p: number) => r() < p;
 
 /** ISO date `offset` days after 2023-01-01. */

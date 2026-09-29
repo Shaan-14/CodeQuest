@@ -58,6 +58,29 @@ describe('game databases', () => {
       expect(rows(m, 'SELECT count(*) FROM customers WHERE city IS NULL')[0]![0], m).toBeGreaterThan(0);
     }
   });
+  it('has tie-free ordering columns where challenges rely on ORDER BY ... LIMIT', () => {
+    const unique = (db: string, table: string, col: string) => {
+      const [total, distinct] = rows(db, `SELECT COUNT(${col}), COUNT(DISTINCT ${col}) FROM ${table}`)[0]!;
+      expect(distinct, `${db}.${table}.${col} must have no ties`).toBe(total);
+    };
+    for (const w of ['works', 'works-b']) { unique(w, 'machines', 'purchase_cost'); unique(w, 'employees', 'hourly_rate'); }
+    for (const m of ['market', 'market-b']) unique(m, 'products', 'price');
+  });
+  it('leaves some rows unmatched so LEFT JOIN practice is meaningful', () => {
+    for (const w of ['works', 'works-b']) {
+      expect(rows(w, 'SELECT COUNT(*) FROM machines m LEFT JOIN production_runs r ON r.machine_id = m.id WHERE r.id IS NULL')[0]![0], w).toBeGreaterThan(0);
+      expect(rows(w, "SELECT COUNT(*) FROM employees e LEFT JOIN production_runs r ON r.operator_id = e.id WHERE e.role = 'operator' AND r.id IS NULL")[0]![0], w).toBeGreaterThan(0);
+    }
+  });
+  it('has out-of-stock products', () => {
+    for (const m of ['market', 'market-b']) expect(rows(m, 'SELECT COUNT(*) FROM products WHERE stock = 0')[0]![0], m).toBeGreaterThan(0);
+  });
+  it('the flat table repeats customer details, so it is worth normalising', () => {
+    for (const f of ['flat', 'flat-b']) {
+      const [rowsN, customers] = rows(f, 'SELECT COUNT(*), COUNT(DISTINCT customer_name) FROM sales_flat')[0]!;
+      expect(rowsN, f).toBeGreaterThan((customers as number) * 2);
+    }
+  });
   it('are a sensible size for a browser (small setup SQL)', () => {
     for (const d of databases) expect(d.setup.length, d.id).toBeLessThan(60_000);
   });
