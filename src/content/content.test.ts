@@ -6,9 +6,13 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadPyodide } from 'pyodide';
 import { bundles, challenges, getChallenge, getLesson, lessons, objectives, skills, variantsOf } from './index';
-import { objectiveOf } from './helpers';
+import { databasesUsedBy, objectiveOf } from './helpers';
+import { getDatabase, sourcesFor } from './databases';
 import { areas, items, quests, achievementDefs } from './world';
-import { solutions } from './python/solutions.testdata';
+import { solutions as solutionsPhase1 } from './python/solutions.testdata';
+import { solutionsPhase2Python } from './python/solutions.phase2.testdata';
+
+const solutions: Record<string, { valid: string[]; wrong: string[] }> = { ...solutionsPhase1, ...solutionsPhase2Python };
 import { createPythonEngine, type PythonEngine } from '../learning/python/pythonEngine';
 
 let engine: PythonEngine;
@@ -18,7 +22,10 @@ beforeAll(async () => {
 
 const grade = (code: string, id: string) => {
   const c = getChallenge(id)!;
-  return engine.grade({ code, checks: c.checks, constraints: c.constraints });
+  return engine.grade({
+    language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures,
+    sources: sourcesFor(databasesUsedBy(c)), db: c.db,
+  });
 };
 
 describe('content structure', () => {
@@ -100,17 +107,31 @@ describe('content structure', () => {
     }
   });
   it('mastery requirements are achievable by the shipped independent-capable challenges', () => {
-    for (const s of skills) {
-      const capable = challenges.filter((c) => c.mode !== 'learning' && c.skillIds.includes(s.id));
-      const r = s.masteryRequirements;
-      expect(capable.length, `${s.id} distinct`).toBeGreaterThanOrEqual(r.distinctChallenges);
-      expect(capable.some((c) => c.difficulty >= r.minDifficulty), `${s.id} difficulty`).toBe(true);
+    for (const sk of skills) {
+      const capable = challenges.filter((c) => c.mode !== 'learning' && c.skillIds.includes(sk.id));
+      const r = sk.masteryRequirements;
+      expect(new Set(capable.map((c) => c.id)).size, `${sk.id}: distinct challenges`).toBeGreaterThanOrEqual(Math.max(r.distinctChallenges, r.independentPasses));
+      expect(new Set(capable.map((c) => objectiveOf(c))).size, `${sk.id}: distinct objectives`).toBeGreaterThanOrEqual(r.distinctObjectives ?? 1);
+      expect(new Set(capable.map((c) => c.context)).size, `${sk.id}: distinct contexts`).toBeGreaterThanOrEqual(r.distinctContexts ?? 1);
+      expect(capable.some((c) => c.difficulty >= r.minDifficulty), `${sk.id}: difficulty`).toBe(true);
+    }
+  });
+  it('every skill is exercised by at least one challenge, and every challenge skill exists', () => {
+    const used = new Set(challenges.flatMap((c) => c.skillIds));
+    for (const sk of skills) expect(used.has(sk.id), `${sk.id} has no challenges`).toBe(true);
+  });
+  it('databases referenced by challenges and demos exist', () => {
+    for (const c of challenges) for (const id of databasesUsedBy(c)) expect(getDatabase(id), `${c.id} -> ${id}`).toBeDefined();
+    for (const l of lessons) for (const st of l.steps) if (st.kind === 'demo') {
+      if (st.db) expect(getDatabase(st.db), `${l.id} demo db`).toBeDefined();
+      for (const d of st.fixtures?.databases ?? []) expect(getDatabase(d.split(':')[0]!), `${l.id} demo fixture ${d}`).toBeDefined();
     }
   });
   it('uses a variety of real-world contexts, not only baseball', () => {
     const contexts = new Set(challenges.map((c) => c.context));
     for (const k of ['engineering', 'business', 'finance', 'science', 'manufacturing', 'automation', 'games', 'data analysis']) expect(contexts.has(k), k).toBe(true);
-    expect(challenges.filter((c) => c.context === 'baseball').length).toBeLessThanOrEqual(2);
+    // Baseball is occasional flavour, never the curriculum.
+    expect(challenges.filter((c) => c.context === 'baseball').length / challenges.length).toBeLessThan(0.05);
   });
 });
 
@@ -144,8 +165,9 @@ describe('challenges behave correctly in real Python', () => {
     for (const l of lessons) {
       for (const s of l.steps) {
         if (s.kind !== 'demo') continue;
-        const r = engine.run({ code: s.code, stdin: s.stdin });
-        expect(r.ok, `${l.id}: ${s.title}`).toBe(!s.expectsError);
+        const lang = s.language ?? l.language;
+        const r = engine.run({ language: lang, code: s.code, stdin: s.stdin, fixtures: s.fixtures, db: s.db, sources: sourcesFor([...(s.fixtures?.databases ?? []).map((d) => d.split(':')[0]!), ...(s.db ? [s.db] : [])]) });
+        expect(r.ok, `${l.id}: ${s.title}: ${r.error}`).toBe(!s.expectsError);
       }
     }
   });

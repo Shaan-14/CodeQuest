@@ -1,0 +1,115 @@
+import { calls, text } from '../helpers';
+import type { LessonBundle } from '../schema';
+
+export const bundle: LessonBundle = {
+  lesson: {
+    id: 'py-17-records', title: 'Working With Records', language: 'python', skillId: 'py.records',
+    blurb: 'Lists of dictionaries: totals, best items, summaries by group, and comprehensions.', prerequisites: ['py-16-dicts'], xpReward: 45,
+    reference: {
+      title: 'Records, sorting and comprehensions',
+      body: text(
+        'A list of dictionaries is how most real data looks: `orders = [{"item": "bolt", "qty": 3, "price": 2.5}, ...]`. Loop with `for o in orders:` and read fields with `o["qty"]`.',
+        '`max(records, key=...)` / `min` / `sorted(records, key=...)` compare records by a value you choose. The `key` is a small function: `lambda r: r["price"]` means “given r, use r["price"]”. Add `reverse=True` to `sorted` for biggest first.',
+        'A **list comprehension** builds a list in one line: `[x * 2 for x in xs if x > 0]` = “x * 2, for each x in xs, but only if x > 0”.',
+      ),
+      example: 'names = [u["name"].upper() for u in users if u["active"]]',
+    },
+    steps: [
+      {
+        kind: 'teach', title: 'Real data is lists of records',
+        body: text(
+          'A spreadsheet, a database table and a JSON file all look alike: many **rows**, each with the same named **fields**. In Python, a row is a dictionary and the table is a list of them. Almost everything in data work is a variation on four moves: **filter** rows, **transform** them, **summarise** them, and **sort** them.',
+        ),
+      },
+      {
+        kind: 'demo', title: 'Summarising records',
+        body: text('Read the code, predict the output, then run it.'),
+        code: 'orders = [\n    {"item": "bolt", "qty": 10, "price": 0.5},\n    {"item": "gear", "qty": 2, "price": 12.0},\n    {"item": "nut", "qty": 40, "price": 0.1},\n]\ntotal = 0\nfor o in orders:\n    total += o["qty"] * o["price"]\nprint(total)\nbest = max(orders, key=lambda o: o["qty"] * o["price"])\nprint(best["item"])\nprint(sorted(o["item"] for o in orders))',
+        notice: 'The loop built a total. `max(..., key=...)` returned the whole record with the biggest value of the expression, so we read `["item"]` from it. `lambda o: ...` is just a tiny unnamed function used as the key.',
+      },
+      {
+        kind: 'demo', title: 'A comprehension',
+        body: text('The same idea as a loop with `append`, in one line. Compare the two.'),
+        code: 'prices = [4.5, 12.0, 0.8, 30.0]\ncheap_loop = []\nfor p in prices:\n    if p < 10:\n        cheap_loop.append(p * 2)\ncheap = [p * 2 for p in prices if p < 10]\nprint(cheap_loop)\nprint(cheap)\nprint(cheap == cheap_loop)',
+        notice: 'Both produced the same list. The comprehension reads: “`p * 2` for each `p` in `prices` that is under 10”. Use whichever is clearer; comprehensions are best for simple transformations.',
+      },
+      { kind: 'challenge', challengeId: 'py-17-revenue' },
+      { kind: 'challenge', challengeId: 'py-17-top-seller' },
+      { kind: 'challenge', challengeId: 'py-17-spend-per-customer' },
+      { kind: 'challenge', challengeId: 'py-17-active-names' },
+    ],
+  },
+  objectives: [
+    { id: 'py-obj-best-record', title: 'Find the best record', summary: 'Pick the record with the largest value of some measure, handling ties and empty data.' },
+    { id: 'py-obj-summarise-by', title: 'Summarise records by group', summary: 'Total a numeric field for each value of another field, into a dictionary.' },
+    { id: 'py-obj-comprehension', title: 'Transform a list with a comprehension', summary: 'Filter and transform items in a single list comprehension.' },
+  ],
+  challenges: [
+    {
+      id: 'py-17-revenue', title: 'Total Revenue', mode: 'learning', language: 'python', skillIds: ['py.records', 'py.loops', 'py.functions'], concepts: ['list of dicts', 'loop', 'accumulator'], difficulty: 2, context: 'business',
+      prompt: text('Write `total_revenue(orders)`. Each order is a dictionary with `"qty"` and `"price"`. Return the total of `qty * price` across all orders (0 for an empty list).'),
+      expectedBehavior: 'total_revenue([{"qty": 2, "price": 5.0}, {"qty": 1, "price": 3.5}]) returns 13.5.',
+      guidedSteps: ['Start a total at 0.', 'Loop through the orders.', 'Add `order["qty"] * order["price"]` each time.', 'Return the total.'],
+      starterCode: 'def total_revenue(orders):\n    pass\n',
+      hints: ['This is the same accumulator pattern you used for averages, on dictionaries.', 'Each order is a dictionary, so its fields are read with square brackets and a string key.', '`total += o["qty"] * o["price"]` inside `for o in orders:`.'],
+      checks: calls('total_revenue', [[[[{ qty: 2, price: 5.0 }, { qty: 1, price: 3.5 }]], 13.5], [[[]], 0], [[[{ qty: 0, price: 99 }]], 0], [[[{ qty: 3, price: 0.5 }, { qty: 4, price: 0.25 }]], 2.5]], 2, { approx: 1e-9 }),
+      xpReward: 45, coinReward: 6,
+    },
+    {
+      id: 'py-17-top-seller', objectiveId: 'py-obj-best-record', title: 'Top Seller', mode: 'challenge', language: 'python', skillIds: ['py.records', 'py.functions'], concepts: ['list of dicts', 'max', 'key function', 'edge cases'], difficulty: 3, context: 'business',
+      prompt: text('Each product is a dictionary like `{"name": "Gear", "units": 40}`. Write `top_seller(products)` that returns the **name** of the product with the most units. If two are tied, return the one that comes first in the list. If the list is empty, return `None`.'),
+      expectedBehavior: 'top_seller([{"name": "Gear", "units": 40}, {"name": "Bolt", "units": 95}]) returns "Bolt".',
+      starterCode: '',
+      hints: ['Two things to handle: choosing the best, and the empty list.', '`max` can compare dictionaries by a value you choose via its `key=` argument, and it returns the first of equal items.', 'Check for an empty list first (`if not products:`). Otherwise `max(products, key=lambda p: p["units"])["name"]`.'],
+      checks: calls('top_seller', [[[[{ name: 'Gear', units: 40 }, { name: 'Bolt', units: 95 }]], 'Bolt'], [[[]], null], [[[{ name: 'A', units: 5 }, { name: 'B', units: 5 }]], 'A'], [[[{ name: 'Only', units: 0 }]], 'Only'], [[[{ name: 'X', units: 1 }, { name: 'Y', units: 3 }, { name: 'Z', units: 2 }]], 'Y']], 2),
+      xpReward: 65, coinReward: 10,
+    },
+    {
+      id: 'py-17-fastest-machine', objectiveId: 'py-obj-best-record', title: 'Fastest Machine', mode: 'challenge', language: 'python', skillIds: ['py.records', 'py.functions'], concepts: ['list of dicts', 'max', 'key function', 'edge cases'], difficulty: 3, context: 'manufacturing',
+      prompt: text('Each machine record is like `{"name": "Press 1", "units": 900, "hours": 6}`. Write `fastest_machine(machines)` that returns the **name** of the machine with the highest **units per hour**. Ties go to the earlier machine. An empty list gives `None`.'),
+      expectedBehavior: 'fastest_machine([{"name": "P1", "units": 900, "hours": 6}, {"name": "P2", "units": 500, "hours": 2}]) returns "P2" (250 per hour beats 150).',
+      starterCode: '',
+      hints: ['The value to compare is not stored in the record. It has to be calculated from two fields.', 'The `key=` function can do a calculation, not just read a field.', '`max(machines, key=lambda m: m["units"] / m["hours"])["name"]`, after handling the empty case.'],
+      checks: calls('fastest_machine', [[[[{ name: 'P1', units: 900, hours: 6 }, { name: 'P2', units: 500, hours: 2 }]], 'P2'], [[[]], null], [[[{ name: 'A', units: 10, hours: 1 }, { name: 'B', units: 20, hours: 2 }]], 'A'], [[[{ name: 'Solo', units: 1, hours: 4 }]], 'Solo'], [[[{ name: 'L', units: 100, hours: 10 }, { name: 'M', units: 9, hours: 1 }, { name: 'N', units: 5, hours: 1 }]], 'L']], 2),
+      xpReward: 65, coinReward: 10,
+    },
+    {
+      id: 'py-17-spend-per-customer', objectiveId: 'py-obj-summarise-by', title: 'Spend per Customer', mode: 'challenge', language: 'python', skillIds: ['py.records', 'py.dicts', 'py.functions'], concepts: ['list of dicts', 'group', 'sum', 'dict'], difficulty: 3, context: 'finance',
+      prompt: text('A payment system logs transactions like `{"customer": "Ada", "amount": 12.5}`. Write `spend_per_customer(transactions)` that returns a dictionary mapping each customer to their **total** spend.'),
+      expectedBehavior: 'spend_per_customer([{"customer": "Ada", "amount": 10}, {"customer": "Bo", "amount": 4}, {"customer": "Ada", "amount": 2.5}]) returns {"Ada": 12.5, "Bo": 4}.',
+      starterCode: '',
+      hints: ['You need one running total per customer.', 'A dictionary can hold the totals. `.get(key, 0)` supplies a starting point for new customers.', '`totals[c] = totals.get(c, 0) + t["amount"]` for each transaction, then return `totals`.'],
+      checks: calls('spend_per_customer', [[[[{ customer: 'Ada', amount: 10 }, { customer: 'Bo', amount: 4 }, { customer: 'Ada', amount: 2.5 }]], { Ada: 12.5, Bo: 4 }], [[[]], {}], [[[{ customer: 'Z', amount: 0 }]], { Z: 0 }], [[[{ customer: 'A', amount: 1.5 }, { customer: 'B', amount: 2 }, { customer: 'A', amount: 1.5 }, { customer: 'B', amount: 3 }]], { A: 3, B: 5 }]], 2, { approx: 1e-9 }),
+      xpReward: 65, coinReward: 10,
+    },
+    {
+      id: 'py-17-downtime-per-machine', objectiveId: 'py-obj-summarise-by', title: 'Downtime per Machine', mode: 'challenge', language: 'python', skillIds: ['py.records', 'py.dicts', 'py.functions'], concepts: ['list of dicts', 'group', 'sum', 'dict'], difficulty: 3, context: 'manufacturing',
+      prompt: text('A maintenance log has records like `{"machine": "M1", "hours": 2.5}`. Some entries have `"hours": None` because the downtime was never recorded. Write `downtime_per_machine(events)` that returns a dictionary mapping each machine to its **total recorded hours**. Entries with no hours are ignored, but a machine that only has unrecorded entries still appears, with `0`.'),
+      expectedBehavior: 'downtime_per_machine([{"machine": "M1", "hours": 2}, {"machine": "M1", "hours": None}, {"machine": "M2", "hours": None}]) returns {"M1": 2, "M2": 0}.',
+      starterCode: '',
+      hints: ['Two rules pull against each other: every machine must appear, and missing hours must not be added.', 'Make sure the machine has an entry in the dictionary BEFORE you decide whether to add hours.', 'Start the machine at 0 with `.get(m, 0)`, and only add when `hours` is not `None`.'],
+      checks: calls('downtime_per_machine', [[[[{ machine: 'M1', hours: 2 }, { machine: 'M1', hours: null }, { machine: 'M2', hours: null }]], { M1: 2, M2: 0 }], [[[]], {}], [[[{ machine: 'A', hours: 1.5 }, { machine: 'A', hours: 2.5 }]], { A: 4 }], [[[{ machine: 'B', hours: 0 }, { machine: 'C', hours: 3 }, { machine: 'B', hours: 1 }]], { B: 1, C: 3 }]], 2, { approx: 1e-9 }),
+      xpReward: 65, coinReward: 10,
+    },
+    {
+      id: 'py-17-active-names', objectiveId: 'py-obj-comprehension', title: 'Active Users', mode: 'challenge', language: 'python', skillIds: ['py.records', 'py.lists', 'py.functions'], concepts: ['list comprehension', 'filter', 'transform'], difficulty: 2, context: 'software',
+      prompt: text('Each user is a dictionary like `{"name": "Ada", "active": True}`. Write `active_names(users)` that returns a list of the **upper-case** names of the active users, in their original order.', 'Use a list comprehension.'),
+      expectedBehavior: 'active_names([{"name": "Ada", "active": True}, {"name": "Bo", "active": False}]) returns ["ADA"].',
+      starterCode: '',
+      hints: ['A comprehension has three parts: what to produce, what to loop over, and (optionally) a test.', 'The loop is over the users, the test is on the `"active"` field, and the item produced is a changed version of the name.', '`[u["name"].upper() for u in users if u["active"]]`'],
+      checks: calls('active_names', [[[[{ name: 'Ada', active: true }, { name: 'Bo', active: false }]], ['ADA']], [[[]], []], [[[{ name: 'x', active: false }]], []], [[[{ name: 'a', active: true }, { name: 'b', active: true }, { name: 'c', active: false }]], ['A', 'B']], [[[{ name: 'Mixed Case', active: true }]], ['MIXED CASE']]], 2),
+      constraints: [{ type: 'requires', node: 'ListComp', message: 'Use a list comprehension (`[... for ... in ...]`).' }],
+      xpReward: 55, coinReward: 8,
+    },
+    {
+      id: 'py-17-passing-scores', objectiveId: 'py-obj-comprehension', title: 'Curve the Scores', mode: 'challenge', language: 'python', skillIds: ['py.records', 'py.lists', 'py.functions'], concepts: ['list comprehension', 'filter', 'transform'], difficulty: 2, context: 'education',
+      prompt: text('A teacher curves exam scores. Write `curve(scores)` that first drops every score below `40`, then adds `5` marks to each remaining score (never going above `100`), and returns the list in the original order.', 'Use a list comprehension.'),
+      expectedBehavior: 'curve([30, 40, 70, 98]) returns [45, 75, 100].',
+      starterCode: '',
+      hints: ['The filter rule and the transform rule are separate: one decides IF an item is kept, the other decides WHAT is kept.', 'The filter belongs at the end of the comprehension; the transformation at the start.', '`[min(100, s + 5) for s in scores if s >= 40]`'],
+      checks: calls('curve', [[[[30, 40, 70, 98]], [45, 75, 100]], [[[]], []], [[[39, 10]], []], [[[95, 100, 60]], [100, 100, 65]], [[[40]], [45]]], 2),
+      constraints: [{ type: 'requires', node: 'ListComp', message: 'Use a list comprehension (`[... for ... in ...]`).' }],
+      xpReward: 55, coinReward: 8,
+    },
+  ],
+};

@@ -33,7 +33,11 @@ export type LearningMode = 'learning' | 'challenge' | 'independent';
 export interface Fixtures {
   /** Virtual files (text) created before the run, e.g. a CSV to clean. Path -> content. */
   files?: Record<string, string>;
-  /** Database ids (content/databases) materialised as SQLite files `<id>.db`, e.g. 'works' -> works.db. */
+  /**
+   * Database ids (content/databases) materialised as SQLite files `<id>.db`, e.g. 'works' -> works.db.
+   * `id:alias` saves database `id` as `<alias>.db`, so a HIDDEN twin can stand in under the visible name
+   * ('works-b:works' -> works.db holding the hidden data).
+   */
   databases?: string[];
 }
 
@@ -252,6 +256,12 @@ export interface DemoStep {
   body: string;
   code: string;
   stdin?: string[];
+  /** Language of the demo; defaults to the lesson's language. */
+  language?: Language;
+  /** Files/databases available to the demo (e.g. a CSV to read, or the database a query runs against). */
+  fixtures?: Fixtures;
+  /** Database a SQL demo runs against. */
+  db?: string;
   /** Short line shown after running, pointing out what to notice. */
   notice: string;
   /** True for demos that intentionally crash, to show a real error message. */

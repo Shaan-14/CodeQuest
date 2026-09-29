@@ -130,8 +130,10 @@ def _workspace(fixtures):
             with open(rel, "w", encoding="utf-8", newline="") as fh:
                 fh.write(content)
         sources = fixtures.get("sources") or {}
-        for name in fixtures.get("databases") or []:
-            _build_database(name + ".db", sources[name])
+        for entry in fixtures.get("databases") or []:
+            # "works-b:works" materialises database `works-b` as works.db (a hidden twin under the visible name)
+            src, _, alias = entry.partition(":")
+            _build_database((alias or src) + ".db", sources[src])
         yield root
     finally:
         os.chdir(old)

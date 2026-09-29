@@ -19,8 +19,15 @@ import { bundle as l11 } from './python/11-for-range';
 import { bundle as l12 } from './python/12-functions';
 import { bundle as l13 } from './python/13-wake-robot';
 import { bundle as l14 } from './python/14-independent-trial';
+import { bundle as l15 } from './python/15-lists';
+import { bundle as l16 } from './python/16-dicts';
+import { bundle as l17 } from './python/17-records';
+import { bundle as l18 } from './python/18-function-design';
+import { bundle as l19 } from './python/19-debugging';
+import { bundle as l20 } from './python/20-files';
+import { bundle as l21 } from './python/21-cleaning';
 
-export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14];
+export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21];
 
 export const lessons: Lesson[] = bundles.map((b) => b.lesson);
 export const challenges: Challenge[] = bundles.flatMap((b) => b.challenges);

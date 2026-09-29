@@ -1,25 +1,65 @@
 import type { Skill } from './schema';
 
-const req = (independentPasses: number, distinctChallenges: number, minDifficulty: number) => ({
+const req = (independentPasses: number, distinctChallenges: number, minDifficulty: number, distinctObjectives = 1, distinctContexts = 1) => ({
   independentPasses,
   distinctChallenges,
   minDifficulty,
+  distinctObjectives,
+  distinctContexts,
+});
+
+const S = (id: string, title: string, category: string, prerequisites: string[], masteryRequirements: ReturnType<typeof req>): Skill => ({
+  id, title, area: id.split('.')[0]!, category, prerequisites, masteryRequirements,
 });
 
 /**
- * Skills the evidence system tracks. `masteryRequirements` says what independent performance
- * counts as "demonstrated" (see learning/mastery.ts). Requirements must be satisfiable by the
- * shipped challenges — content.test.ts checks this.
+ * Skills the evidence system tracks. `masteryRequirements` says what independent performance counts as
+ * "demonstrated" (see learning/mastery.ts): hint-free passes across enough different challenges, learning
+ * objectives and real-world contexts. Requirements must be satisfiable by the shipped challenges;
+ * content.test.ts checks this. Categories group the Skills screen.
  */
 export const skills: Skill[] = [
-  { id: 'py.output', title: 'Output & first programs', area: 'python', category: 'Python foundations', prerequisites: [], masteryRequirements: req(1, 1, 1) },
-  { id: 'py.debugging', title: 'Reading errors & debugging', area: 'python', category: 'Python foundations', prerequisites: ['py.output'], masteryRequirements: req(1, 1, 2) },
-  { id: 'py.variables', title: 'Variables & values', area: 'python', category: 'Python foundations', prerequisites: ['py.output'], masteryRequirements: req(2, 2, 2) },
-  { id: 'py.strings', title: 'Strings & text', area: 'python', category: 'Python foundations', prerequisites: ['py.variables'], masteryRequirements: req(2, 2, 2) },
-  { id: 'py.numbers', title: 'Numbers & arithmetic', area: 'python', category: 'Python foundations', prerequisites: ['py.variables'], masteryRequirements: req(2, 2, 2) },
-  { id: 'py.input', title: 'Input & type conversion', area: 'python', category: 'Python foundations', prerequisites: ['py.numbers', 'py.strings'], masteryRequirements: req(2, 2, 2) },
-  { id: 'py.logic', title: 'Booleans & comparisons', area: 'python', category: 'Python foundations', prerequisites: ['py.numbers'], masteryRequirements: req(2, 2, 2) },
-  { id: 'py.conditionals', title: 'Decisions (if / elif / else)', area: 'python', category: 'Python foundations', prerequisites: ['py.logic', 'py.input'], masteryRequirements: req(2, 2, 2) },
-  { id: 'py.loops', title: 'Loops (while / for / range)', area: 'python', category: 'Python foundations', prerequisites: ['py.conditionals'], masteryRequirements: req(2, 2, 2) },
-  { id: 'py.functions', title: 'Functions', area: 'python', category: 'Python foundations', prerequisites: ['py.conditionals'], masteryRequirements: req(2, 2, 2) },
+  // ---- Python (language basics)
+  S('py.output', 'Output & first programs', 'Python', [], req(1, 1, 1)),
+  S('py.variables', 'Variables & values', 'Python', ['py.output'], req(2, 2, 2, 2, 2)),
+  S('py.strings', 'Strings & text', 'Python', ['py.variables'], req(2, 2, 2, 2, 2)),
+  S('py.numbers', 'Numbers & arithmetic', 'Python', ['py.variables'], req(3, 3, 2, 3, 2)),
+  S('py.input', 'Input & type conversion', 'Python', ['py.numbers', 'py.strings'], req(3, 3, 2, 2, 2)),
+  S('py.modules', 'Modules & the standard library', 'Python', ['py.functions'], req(2, 2, 3, 2, 2)),
+  // ---- Programming (concepts that transfer to every language)
+  S('py.logic', 'Booleans & comparisons', 'Programming', ['py.numbers'], req(2, 2, 2, 2, 2)),
+  S('py.conditionals', 'Decisions (if / elif / else)', 'Programming', ['py.logic', 'py.input'], req(3, 3, 2, 3, 2)),
+  S('py.loops', 'Loops (while / for / range)', 'Programming', ['py.conditionals'], req(3, 3, 2, 3, 2)),
+  S('py.functions', 'Functions', 'Programming', ['py.conditionals'], req(3, 3, 3, 3, 3)),
+  // ---- Data structures
+  S('py.lists', 'Lists', 'Data Structures', ['py.loops'], req(3, 3, 2, 3, 3)),
+  S('py.dicts', 'Dictionaries, tuples & sets', 'Data Structures', ['py.lists'], req(3, 3, 3, 3, 3)),
+  S('py.records', 'Records: filter, sort, summarise', 'Data Structures', ['py.dicts'], req(3, 3, 3, 3, 3)),
+  // ---- Debugging
+  S('py.debugging', 'Reading errors & debugging', 'Debugging', ['py.output'], req(2, 2, 2, 2, 2)),
+  S('py.defensive', 'Defensive code: exceptions & edge cases', 'Debugging', ['py.functions'], req(2, 2, 3, 2, 2)),
+  // ---- Problem solving
+  S('ps.decomposition', 'Breaking problems into parts', 'Problem Solving', ['py.functions'], req(2, 2, 3, 2, 2)),
+  S('ps.research', 'Finding tools in documentation', 'Problem Solving', ['py.modules'], req(2, 2, 3, 2, 2)),
+  // ---- Testing
+  S('test.assertions', 'Assertions & test cases', 'Testing', ['py.functions'], req(1, 1, 2)),
+  S('test.writing', 'Writing tests that catch bugs', 'Testing', ['test.assertions'], req(2, 2, 3, 2, 2)),
+  // ---- Software design
+  S('sd.functions', 'Designing functions', 'Software Design', ['py.functions'], req(3, 3, 3, 3, 3)),
+  S('sd.oop', 'Classes & objects', 'Software Design', ['sd.functions'], req(3, 3, 3, 3, 3)),
+  // ---- Data engineering
+  S('de.files', 'Files, CSV & JSON', 'Data Engineering', ['py.dicts'], req(3, 3, 2, 3, 3)),
+  S('de.cleaning', 'Cleaning & validating data', 'Data Engineering', ['de.files', 'py.defensive'], req(2, 2, 3, 2, 2)),
+  S('de.pipelines', 'Pipelines: ETL, ELT & reliability', 'Data Engineering', ['de.cleaning', 'db.design'], req(2, 2, 3, 2, 2)),
+  S('de.integration', 'Python + SQL together', 'Data Engineering', ['sql.aggregate', 'de.files'], req(2, 2, 3, 2, 2)),
+  // ---- SQL
+  S('sql.select', 'Selecting, filtering & sorting', 'SQL', [], req(3, 3, 2, 3, 3)),
+  S('sql.aggregate', 'Aggregation & grouping', 'SQL', ['sql.select'], req(3, 3, 3, 3, 3)),
+  S('sql.joins', 'Joining tables', 'SQL', ['sql.aggregate'], req(3, 3, 3, 3, 3)),
+  S('sql.advanced', 'CASE, subqueries, CTEs & windows', 'SQL', ['sql.joins'], req(3, 3, 3, 3, 3)),
+  S('sql.modify', 'Changing data safely', 'SQL', ['sql.select'], req(2, 2, 2, 2, 2)),
+  // ---- Databases
+  S('db.design', 'Designing schemas', 'Databases', ['sql.joins'], req(2, 2, 3, 2, 2)),
+  S('db.integrity', 'Constraints, integrity & transactions', 'Databases', ['db.design'], req(2, 2, 3, 2, 2)),
+  S('db.performance', 'Indexes & query performance', 'Databases', ['db.design'], req(2, 2, 3, 2, 2)),
 ];
