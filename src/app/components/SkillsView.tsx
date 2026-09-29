@@ -1,4 +1,4 @@
-import { getSkill, skills } from '../../content';
+import { skills } from '../../content';
 import { detectPatterns, summarizeSkill, type SkillStatus } from '../../learning/mastery';
 import { useGame } from '../../game/store';
 
@@ -46,7 +46,6 @@ export function SkillsView() {
           </div>
         );
       })}
-      {!getSkill('py.output') && null}
     </div>
   );
 }

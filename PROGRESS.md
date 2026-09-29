@@ -30,11 +30,11 @@ _Last updated: end of Phase 1._
 1 first program (what programming is, execution order, print) · 2 reading errors/debugging · 3 variables · 4 strings/f-strings · 5 ints/floats/arithmetic/operators · 6 input & type conversion · 7 booleans/comparisons/and-or-not · 8 if/else · 9 elif · 10 while · 11 for/range · 12 functions · 13 control program (capstone) · 14 Independent Trial. Contexts include engineering, manufacturing, business, finance, science, data analysis, automation, games, logistics, with one baseball problem.
 
 ## Tests performed
-- `npm run typecheck`, `npm test`, `npm run build`, `npm run e2e`: see results in the final report of the session; numbers are refreshed below.
 - **Unit** (save/migration/corruption, progression, mastery, all game actions) and **real-Python content validation** (every challenge: starter fails, valid solutions pass, wrong attempts fail, hints don't leak solutions, demos run, mode rules, mastery requirements achievable).
 - **End-to-end in real Chromium** (`npm run e2e`): startup, character creation, mentor, map and locks, lesson flow, real Python output and errors, failing then passing submissions, hints and evidence, hint-free replay, infinite loop and output flood handling, Focus exhaustion/rest, shop/pack, save/reload persistence, export/import/reset, corrupt save, independent trial has no hints/named tools, the skills view shows no XP, a full playthrough of all lessons, and no horizontal overflow at phone width. Screenshots were reviewed by hand.
 
-TEST_COUNTS_PLACEHOLDER
+**Final results (end of Phase 1):** typecheck clean; `npm test` 261 passed in 6 files (incl. 198 real-Python content checks); production build OK (~490KB JS, gzip 166KB, plus the lazily loaded Python runtime); `npm run e2e` 16 of 16 passed against the production build (with CSP): full playthrough finished at Level 7, 2303 XP, 32 evidence records.
+During testing the e2e run found and fixed: a missing favicon (404), an untruthful message that called learning-mode passes "independent" evidence (now "guided"), the Focus warning being hidden below a sticky footer, and tall sticky bars on phones.
 
 ## Known limitations / issues
 - **Not tamper-proof**: player code shares an origin with the game; a determined player can forge results or edit their save. Fine for a single-player tool; needs server-side grading for any competitive/trusted feature. (ARCHITECTURE.md, Security model.)

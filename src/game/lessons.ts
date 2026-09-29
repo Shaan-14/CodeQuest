@@ -1,4 +1,4 @@
-import { challenges, lessons } from '../content';
+import { lessons } from '../content';
 import type { Lesson } from '../content/schema';
 import type { SaveData } from '../core/save';
 
@@ -26,8 +26,4 @@ export function nextLesson(save: SaveData): Lesson | undefined {
     const s = lessonStatus(save, l);
     return s === 'available' || s === 'in-progress';
   });
-}
-
-export function challengeCount(): number {
-  return challenges.length;
 }
