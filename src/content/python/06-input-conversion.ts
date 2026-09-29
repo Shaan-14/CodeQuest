@@ -56,7 +56,7 @@ export const bundle: LessonBundle = {
       xpReward: 30, coinReward: 5,
     },
     {
-      id: 'py-06-ticket-total', title: 'Ticket Total', mode: 'challenge', language: 'python', skillIds: ['py.input', 'py.numbers'], concepts: ['int conversion', 'input'], difficulty: 2, context: 'business',
+      id: 'py-06-ticket-total', objectiveId: 'py-obj-int-input', title: 'Ticket Total', mode: 'challenge', language: 'python', skillIds: ['py.input', 'py.numbers'], concepts: ['int conversion', 'input'], difficulty: 2, context: 'business',
       prompt: text('The Academy fair sells tickets at `12` coins each. The cashier types the number of tickets. Print the total cost like this:', '`Total: 36`', '(that is the output when 3 tickets are bought).'),
       expectedBehavior: 'Reads one whole number; prints `Total: ` followed by the number times 12.',
       sampleInput: ['3'],
@@ -70,7 +70,7 @@ export const bundle: LessonBundle = {
       xpReward: 45, coinReward: 8,
     },
     {
-      id: 'py-06-temperature', title: 'Lab Thermometer', mode: 'challenge', language: 'python', skillIds: ['py.input', 'py.numbers'], concepts: ['float conversion', 'formula'], difficulty: 3, context: 'science',
+      id: 'py-06-temperature', objectiveId: 'py-obj-float-formula', title: 'Lab Thermometer', mode: 'challenge', language: 'python', skillIds: ['py.input', 'py.numbers'], concepts: ['float conversion', 'formula'], difficulty: 3, context: 'science',
       prompt: text('A lab thermometer reports Celsius, but the equipment manual needs Fahrenheit. Read a temperature in Celsius and print the Fahrenheit value.', 'Fahrenheit = Celsius × 9 ÷ 5 + 32', 'Print just the number, as Python shows it (for 100 Celsius that is `212.0`).'),
       expectedBehavior: 'For 100 prints 212.0, for 0 prints 32.0, for -40 prints -40.0.',
       sampleInput: ['100'],
@@ -84,5 +84,38 @@ export const bundle: LessonBundle = {
       ],
       xpReward: 60, coinReward: 10,
     },
+    {
+      id: 'py-06-fuel-cost', objectiveId: 'py-obj-int-input', title: 'Fuel Cost', mode: 'challenge', language: 'python', skillIds: ['py.input', 'py.numbers'], concepts: ['int conversion', 'input'], difficulty: 2, context: 'engineering',
+      prompt: text('A generator burns fuel that costs `3` coins per litre. An operator types how many litres were used. Print the cost like this:', '`Cost: 21`', '(that is the output when 7 litres are used).'),
+      expectedBehavior: 'Reads one whole number; prints `Cost: ` followed by the number times 3.',
+      sampleInput: ['7'],
+      starterCode: '',
+      hints: ['What type does `input()` give back?', 'You can only multiply a number by 3 in the way you want after converting the text.', 'Wrap the input in `int(...)`, multiply, and print with `Cost: ` in front.'],
+      checks: [
+        { kind: 'output', name: '7 litres', stdin: ['7'], expect: 'Cost: 21' },
+        { kind: 'output', name: '12 litres', stdin: ['12'], expect: 'Cost: 36', visible: false },
+        { kind: 'output', name: '0 litres', stdin: ['0'], expect: 'Cost: 0', visible: false },
+      ],
+      xpReward: 45, coinReward: 8,
+    },
+    {
+      id: 'py-06-inches', objectiveId: 'py-obj-float-formula', title: 'Metric Ruler', mode: 'challenge', language: 'python', skillIds: ['py.input', 'py.numbers'], concepts: ['float conversion', 'formula'], difficulty: 3, context: 'engineering',
+      prompt: text('A workshop drawing is in inches, but the machine needs centimetres. Read a length in inches (it may have a decimal point) and print it in centimetres.', 'Centimetres = inches × 2.54', 'Print just the number, as Python shows it (for 100 inches that is `254.0`).'),
+      expectedBehavior: 'For 100 prints 254.0, for 10 prints 25.4, for 0 prints 0.0.',
+      sampleInput: ['100'],
+      starterCode: '',
+      hints: ['Convert the input to a number first. The measurement might have a decimal point.', 'Multiply by the conversion factor.', '`float(input())` reads a decimal number.'],
+      checks: [
+        { kind: 'output', name: '100 inches', stdin: ['100'], expect: '254.0' },
+        { kind: 'output', name: '10 inches', stdin: ['10'], expect: '25.4', visible: false },
+        { kind: 'output', name: '0 inches', stdin: ['0'], expect: '0.0', visible: false },
+        { kind: 'output', name: 'Decimal input', stdin: ['2.5'], expect: '6.35', visible: false, feedback: 'Measurements can have decimals. Which conversion function keeps them?' },
+      ],
+      xpReward: 60, coinReward: 10,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-int-input', title: 'Read a number and calculate with it', summary: 'input() returns text; convert it before doing arithmetic.' },
+    { id: 'py-obj-float-formula', title: 'Apply a formula to a decimal input', summary: 'Read a decimal number and apply a formula to it.' },
   ],
 };

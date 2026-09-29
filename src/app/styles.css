@@ -238,3 +238,17 @@ pre.console-error { background: #0a0c1a; padding: .5rem; border-radius: 6px; whi
   .worldmap { min-height: 420px; aspect-ratio: 4 / 5; } .pin-icon { width: 46px; height: 46px; font-size: 1.4rem; } .pin-label { font-size: .65rem; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ---------- retry / variants / practice ---------- */
+.variant-chip { font-size: .72rem; font-weight: 800; padding: .1rem .5rem; border-radius: 99px; border: 2px solid var(--line); background: var(--bg2); color: var(--muted); }
+.retry-actions { margin-top: .5rem; display: grid; gap: .4rem; justify-items: start; }
+.rec-list { display: grid; gap: .6rem; margin-bottom: 1rem; }
+.rec { display: flex; gap: .8rem; align-items: center; justify-content: space-between; background: #2a2540; border: 3px solid var(--edge); border-left: 6px solid var(--gold); border-radius: 10px; padding: .6rem .8rem; }
+.rec.retry { border-left-color: var(--bad); } .rec.less-support { border-left-color: var(--warn); } .rec.revisit { border-left-color: var(--accent); } .rec.harder { border-left-color: var(--good); }
+.rec-why { font-size: .85rem; color: var(--muted); }
+.practice-group h3 { margin: 1rem 0 .4rem; color: var(--gold); }
+.objective { display: flex; gap: .8rem; align-items: center; justify-content: space-between; background: var(--panel); border: 3px solid var(--edge); border-radius: 10px; padding: .55rem .8rem; margin-bottom: .5rem; box-shadow: inset 0 0 0 2px var(--line); }
+.objective-main { display: grid; }
+@media (max-width: 900px) { .rec, .objective { flex-direction: column; align-items: flex-start; } }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: .5rem; }
+.skill-category h3 { margin: 1rem 0 .4rem; color: var(--gold); }

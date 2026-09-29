@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface PlayerProfile {
   name: string;
@@ -41,6 +41,8 @@ export interface ChallengeProgress {
   hintsUsed: number;
   passed: boolean;
   passedAt?: string;
+  /** Reference-manual entries opened while working on this challenge (research behaviour). */
+  lookups?: number;
   /** Hints used on the best (least-assisted) passing attempt. */
   bestHintsUsed?: number;
   /** XP/coins already paid out for this challenge (so a later, more independent solve pays the difference only). */
@@ -92,6 +94,18 @@ export type KeyValueStore = Pick<Storage, 'getItem' | 'setItem'>;
 const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string, unknown>> = {
   // v1 was the Phase 0 shell (`{ version, launches }`): it held no player data, so start fresh.
   1: () => ({ ...newSave() }),
+  // v2 -> v3 (Phase 2): evidence records gained objectiveId/context/lookups/priorFailures/project.
+  // `context` cannot be known here (content lives in the game layer); backfillEvidence() fills it at load.
+  2: (old) => {
+    const seen = new Map<string, number>(); // objective -> failed attempts so far
+    const evidence = ((old.evidence as Record<string, unknown>[] | undefined) ?? []).map((r) => {
+      const objectiveId = (r.objectiveId as string | undefined) ?? (r.challengeId as string);
+      const priorFailures = seen.get(objectiveId) ?? 0;
+      if (!r.passed) seen.set(objectiveId, priorFailures + 1);
+      return { objectiveId, context: '', lookups: 0, priorFailures, project: false, ...r };
+    });
+    return { ...old, evidence };
+  },
 };
 
 export function migrate(raw: unknown): SaveData | null {

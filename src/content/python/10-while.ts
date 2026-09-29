@@ -45,7 +45,7 @@ export const bundle: LessonBundle = {
       xpReward: 35, coinReward: 5,
     },
     {
-      id: 'py-10-savings-goal', title: 'Savings Goal', mode: 'challenge', language: 'python', skillIds: ['py.loops', 'py.numbers', 'py.variables'], concepts: ['while', 'accumulator'], difficulty: 2, context: 'finance',
+      id: 'py-10-savings-goal', objectiveId: 'py-obj-while-accumulate', title: 'Savings Goal', mode: 'challenge', language: 'python', skillIds: ['py.loops', 'py.numbers', 'py.variables'], concepts: ['while', 'accumulator'], difficulty: 2, context: 'finance',
       prompt: text('You have `100` coins and deposit `30` more each month. How many months until you have at least `500`? Use a loop to simulate it and print:', '`Months: N`', 'where N is the number of months you calculated (not typed in by hand).'),
       expectedBehavior: 'Prints Months: followed by the correct number.',
       starterCode: 'balance = 100\ngoal = 500\n',
@@ -69,5 +69,18 @@ export const bundle: LessonBundle = {
       constraints: [{ type: 'requires', node: 'While', message: 'Use a while loop.' }],
       xpReward: 65, coinReward: 10,
     },
+    {
+      id: 'py-10-tank-fill', objectiveId: 'py-obj-while-accumulate', title: 'Filling the Tank', mode: 'challenge', language: 'python', skillIds: ['py.loops', 'py.numbers', 'py.variables'], concepts: ['while', 'accumulator'], difficulty: 2, context: 'engineering',
+      prompt: text('A tank holds `20` litres. A pump adds `15` litres every minute. How many minutes until the tank contains at least `200` litres? Use a loop to simulate it and print:', '`Minutes: N`', 'where N is the number you calculated (not typed in by hand).'),
+      expectedBehavior: 'Prints Minutes: followed by the correct number.',
+      starterCode: 'level = 20\ntarget = 200\n',
+      hints: ['You need to count minutes while adding litres.', 'Keep pumping while the level is still below the target, and count each minute.', 'Two variables change inside the loop: the level and a minute counter. Print the counter after the loop.'],
+      checks: [{ kind: 'output', name: 'Minutes needed', expect: 'Minutes: 12', feedback: 'Simulate minute by minute. Does your count include the minute when the tank reaches the target?' }],
+      constraints: [{ type: 'requires', node: 'While', message: 'Use a while loop to simulate the minutes.' }],
+      xpReward: 50, coinReward: 8,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-while-accumulate', title: 'Loop until a goal is reached', summary: 'Use a while loop with a running total and a counter to simulate progress towards a goal.' },
   ],
 };

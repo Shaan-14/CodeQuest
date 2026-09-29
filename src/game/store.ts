@@ -6,6 +6,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { loadSave, writeSave, type KeyValueStore, type LoadStatus, type SaveData } from '../core/save';
 import type { GameEvent } from './events';
 import type { Result } from './actions';
+import { backfillEvidence } from './backfill';
 
 export interface Toast {
   id: number;
@@ -21,7 +22,7 @@ class GameStore {
 
   constructor(private storage: KeyValueStore) {
     const loaded = loadSave(storage);
-    this.save = loaded.save;
+    this.save = backfillEvidence(loaded.save);
     this.loadStatus = loaded.status;
   }
 

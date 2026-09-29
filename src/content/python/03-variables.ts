@@ -46,7 +46,7 @@ export const bundle: LessonBundle = {
       xpReward: 30, coinReward: 5,
     },
     {
-      id: 'py-03-overheating', title: 'Overheating', mode: 'challenge', language: 'python', skillIds: ['py.variables', 'py.output'], concepts: ['variable', 'reassignment', 'print with commas'], difficulty: 2, context: 'engineering',
+      id: 'py-03-overheating', objectiveId: 'py-obj-reassign', title: 'Overheating', mode: 'challenge', language: 'python', skillIds: ['py.variables', 'py.output'], concepts: ['variable', 'reassignment', 'print with commas'], difficulty: 2, context: 'engineering',
       prompt: text(
         'Bolt’s temperature sensor reads `20` when he starts. After a hard workout it reads `95`.',
         'Write a program that stores 20 in a variable called `temperature`, prints `Temperature: 20`, then updates the variable to 95 and prints `Temperature: 95`.',
@@ -60,5 +60,20 @@ export const bundle: LessonBundle = {
       ],
       xpReward: 45, coinReward: 8,
     },
+    {
+      id: 'py-03-scoreboard', objectiveId: 'py-obj-reassign', title: 'Scoreboard', mode: 'challenge', language: 'python', skillIds: ['py.variables', 'py.output'], concepts: ['variable', 'reassignment', 'print with commas'], difficulty: 2, context: 'games',
+      prompt: text('A game scoreboard starts every match at `0`. Halfway through, a player scores and the board shows `250`.', 'Write a program that stores 0 in a variable called `score`, prints `Score: 0`, then updates the variable to 250 and prints `Score: 250`.'),
+      expectedBehavior: 'Two lines: `Score: 0` then `Score: 250`. At the end, `score` holds 250.',
+      starterCode: '',
+      hints: ['Text and a variable can be printed together by separating them with a comma.', 'Assigning to an existing variable replaces its value.', 'Create it, print, assign again, print again.'],
+      checks: [
+        { kind: 'output', name: 'Both scores are printed', expect: 'Score: 0\nScore: 250' },
+        { kind: 'variable', name: 'Variable holds the final value', variable: 'score', expect: 250, feedback: 'After your program finishes, `score` should hold the newer value.' },
+      ],
+      xpReward: 45, coinReward: 8,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-reassign', title: 'Store, print and update a value', summary: 'Create a variable, use it, then replace its value.' },
   ],
 };

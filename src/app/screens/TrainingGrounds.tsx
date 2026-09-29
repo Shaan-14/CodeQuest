@@ -4,10 +4,11 @@ import { quests } from '../../content/world';
 import { getRunner } from '../../learning/python/runner';
 import { lessonEvidence, lessonStatus } from '../../game/lessons';
 import { useGame } from '../../game/store';
+import { Recommendations } from '../components/Recommendations';
 
 const STATUS_TEXT = { locked: 'Locked', available: 'Ready', 'in-progress': 'In progress', complete: 'Complete' } as const;
 
-export function TrainingGrounds({ onOpenLesson }: { onOpenLesson: (id: string) => void }) {
+export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard }: { onOpenLesson: (id: string) => void; onPractice: (challengeId: string) => void; onPracticeYard: () => void }) {
   const { save } = useGame();
   useEffect(() => void getRunner().warmUp().catch(() => undefined), []);
   const quest = quests[0]!;
@@ -28,6 +29,11 @@ export function TrainingGrounds({ onOpenLesson }: { onOpenLesson: (id: string) =
             <p class="muted">{awake ? 'Bolt is up and moving, thanks to your code.' : 'Every lesson you finish repairs another part of his control program.'}</p>
           </div>
         </section>
+        <div class="row-between">
+          <h2>Lessons</h2>
+          <button class="btn small" onClick={onPracticeYard} data-testid="practice-yard">🎯 Practice Yard</button>
+        </div>
+        <Recommendations onPractice={onPractice} onOpenLesson={onOpenLesson} max={2} />
         <ol class="stations">
           {lessons.map((l, i) => {
             const status = lessonStatus(save, l);

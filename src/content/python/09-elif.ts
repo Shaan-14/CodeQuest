@@ -51,7 +51,7 @@ export const bundle: LessonBundle = {
       xpReward: 40, coinReward: 6,
     },
     {
-      id: 'py-09-fizzbuzz', title: 'Fizz, Buzz, or Neither', mode: 'challenge', language: 'python', skillIds: ['py.conditionals', 'py.numbers', 'py.input'], concepts: ['elif', 'modulo', 'order of conditions'], difficulty: 3, context: 'games',
+      id: 'py-09-fizzbuzz', objectiveId: 'py-obj-condition-order', title: 'Fizz, Buzz, or Neither', mode: 'challenge', language: 'python', skillIds: ['py.conditionals', 'py.numbers', 'py.input'], concepts: ['elif', 'modulo', 'order of conditions'], difficulty: 3, context: 'games',
       prompt: text('A classic programming interview puzzle, dressed as a party game. Read a whole number. Then print:', '`FizzBuzz` if it is divisible by both 3 and 5\n`Fizz` if divisible by 3 only\n`Buzz` if divisible by 5 only\notherwise print the number itself.', '(15 -> FizzBuzz, 9 -> Fizz, 10 -> Buzz, 7 -> 7)'),
       expectedBehavior: 'One line of output following the rules for any whole number.',
       sampleInput: ['15'],
@@ -67,5 +67,25 @@ export const bundle: LessonBundle = {
       ],
       xpReward: 60, coinReward: 10,
     },
+    {
+      id: 'py-09-leap-year', objectiveId: 'py-obj-condition-order', title: 'Leap Year', mode: 'challenge', language: 'python', skillIds: ['py.conditionals', 'py.numbers', 'py.input'], concepts: ['elif', 'modulo', 'order of conditions'], difficulty: 3, context: 'software',
+      prompt: text('Calendar software must decide whether a year is a leap year. The rules, from the calendar’s definition:', 'A year divisible by 400 is a leap year.\nOtherwise, a year divisible by 100 is NOT a leap year.\nOtherwise, a year divisible by 4 is a leap year.\nOtherwise it is not.', 'Read a year and print `Leap` or `Not leap`. (2000 -> Leap, 1900 -> Not leap, 2024 -> Leap, 2023 -> Not leap)'),
+      expectedBehavior: 'One line: Leap or Not leap for any year.',
+      sampleInput: ['2024'],
+      starterCode: '',
+      hints: ['“Divisible by” is a job for the remainder operator.', 'A year can satisfy several rules at once. Which rule should be checked first so it is not swallowed by a broader one?', 'Check the most specific rule (400) before the broader ones.'],
+      checks: [
+        { kind: 'output', name: '2000', stdin: ['2000'], expect: 'Leap' },
+        { kind: 'output', name: '1900', stdin: ['1900'], expect: 'Not leap' },
+        { kind: 'output', name: '2024', stdin: ['2024'], expect: 'Leap' },
+        { kind: 'output', name: '2023', stdin: ['2023'], expect: 'Not leap' },
+        { kind: 'output', name: '2100', stdin: ['2100'], expect: 'Not leap', visible: false, feedback: 'A year can match more than one rule. Which rule should win?' },
+        { kind: 'output', name: '1600', stdin: ['1600'], expect: 'Leap', visible: false },
+      ],
+      xpReward: 60, coinReward: 10,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-condition-order', title: 'Order conditions from most to least specific', summary: 'When several rules can match, the order of an if/elif chain decides the answer.' },
   ],
 };

@@ -51,7 +51,7 @@ export const bundle: LessonBundle = {
       xpReward: 35, coinReward: 5,
     },
     {
-      id: 'py-12-announce', title: 'Roll Call', mode: 'challenge', language: 'python', skillIds: ['py.functions', 'py.strings'], concepts: ['def', 'print vs return', 'f-string'], difficulty: 2, context: 'general',
+      id: 'py-12-announce', objectiveId: 'py-obj-func-print', title: 'Roll Call', mode: 'challenge', language: 'python', skillIds: ['py.functions', 'py.strings'], concepts: ['def', 'print vs return', 'f-string'], difficulty: 2, context: 'general',
       prompt: text('Write a function `announce(name)` that **prints** (does not return) the line `Unit <name> reporting`, for example `Unit BOLT-7 reporting`.'),
       expectedBehavior: 'announce("BOLT-7") prints: Unit BOLT-7 reporting',
       starterCode: '',
@@ -64,7 +64,7 @@ export const bundle: LessonBundle = {
       xpReward: 45, coinReward: 8,
     },
     {
-      id: 'py-12-discount', title: 'Bulk Discount', mode: 'challenge', language: 'python', skillIds: ['py.functions', 'py.conditionals', 'py.numbers'], concepts: ['def', 'return', 'if', 'parameters'], difficulty: 3, context: 'business',
+      id: 'py-12-discount', objectiveId: 'py-obj-func-return-logic', title: 'Bulk Discount', mode: 'challenge', language: 'python', skillIds: ['py.functions', 'py.conditionals', 'py.numbers'], concepts: ['def', 'return', 'if', 'parameters'], difficulty: 3, context: 'business',
       prompt: text('Write a function `total_price(unit_price, quantity)` that returns the total cost. Orders of `10` or more items get `10%` off the whole total. Smaller orders pay full price.', 'It must *return* the total (a number), so other code can use it.'),
       expectedBehavior: 'total_price(5, 4) -> 20; total_price(5, 10) -> 45.0; total_price(2.5, 20) -> 45.0',
       starterCode: '',
@@ -78,5 +78,39 @@ export const bundle: LessonBundle = {
       constraints: [{ type: 'requires', node: 'FunctionDef', message: 'Define the function with def.' }],
       xpReward: 60, coinReward: 10,
     },
+    {
+      id: 'py-12-run-report', objectiveId: 'py-obj-func-print', title: 'Machine Run Report', mode: 'challenge', language: 'python', skillIds: ['py.functions', 'py.strings'], concepts: ['def', 'print vs return', 'f-string'], difficulty: 2, context: 'manufacturing',
+      prompt: text('Write a function `report(machine, minutes)` that **prints** (does not return) one line like `Machine M-4 ran 90 minutes`.'),
+      expectedBehavior: 'report("M-4", 90) prints: Machine M-4 ran 90 minutes',
+      starterCode: '',
+      hints: ['This function’s job is to show something, not to hand something back.', 'Put a `print` inside the function body.', 'Build the text from both parameters, with `+` and `str(...)` or an f-string.'],
+      checks: [
+        { kind: 'call', name: 'report("M-4", 90)', fn: 'report', args: ['M-4', 90], expectStdout: 'Machine M-4 ran 90 minutes' },
+        { kind: 'call', name: 'another machine', fn: 'report', args: ['Lathe', 5], expectStdout: 'Machine Lathe ran 5 minutes', visible: false },
+      ],
+      constraints: [{ type: 'requires', node: 'FunctionDef', message: 'Define the function with def.' }],
+      xpReward: 45, coinReward: 8,
+    },
+    {
+      id: 'py-12-shipping-fee', objectiveId: 'py-obj-func-return-logic', title: 'Shipping Fee', mode: 'challenge', language: 'python', skillIds: ['py.functions', 'py.conditionals', 'py.numbers'], concepts: ['def', 'return', 'if', 'parameters'], difficulty: 3, context: 'logistics',
+      prompt: text('Write a function `shipping_fee(weight)` that returns the fee for a parcel of `weight` kilograms:', 'up to 2 kg: `5`\nover 2 up to 10 kg: `9`\nover 10 kg: `9` plus `1.5` for every kilogram above 10', 'It must *return* the fee (a number), so other code can use it.'),
+      expectedBehavior: 'shipping_fee(1) -> 5; shipping_fee(2) -> 5; shipping_fee(6) -> 9; shipping_fee(12) -> 12.0',
+      starterCode: '',
+      hints: ['Three cases, and they are tested from the lightest upwards.', 'The third case is the only one that needs arithmetic on `weight`.', 'Use if / elif / else and return in each branch. Careful with which side of 2 and 10 the boundaries fall.'],
+      checks: [
+        { kind: 'call', name: 'shipping_fee(1)', fn: 'shipping_fee', args: [1], expect: 5, approx: 1e-9 },
+        { kind: 'call', name: 'shipping_fee(6)', fn: 'shipping_fee', args: [6], expect: 9, approx: 1e-9 },
+        { kind: 'call', name: 'shipping_fee(12)', fn: 'shipping_fee', args: [12], expect: 12, approx: 1e-9 },
+        { kind: 'call', name: 'boundary 2', fn: 'shipping_fee', args: [2], expect: 5, approx: 1e-9, visible: false, feedback: 'Is a 2 kg parcel “up to 2 kg”?' },
+        { kind: 'call', name: 'boundary 10', fn: 'shipping_fee', args: [10], expect: 9, approx: 1e-9, visible: false, feedback: 'Is a 10 kg parcel “over 10 kg”?' },
+        { kind: 'call', name: 'fractional weight', fn: 'shipping_fee', args: [10.5], expect: 9.75, approx: 1e-9, visible: false },
+      ],
+      constraints: [{ type: 'requires', node: 'FunctionDef', message: 'Define the function with def.' }],
+      xpReward: 60, coinReward: 10,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-func-print', title: 'A function that prints', summary: 'Write a function whose job is to show something (print), not return it.' },
+    { id: 'py-obj-func-return-logic', title: 'A function that returns a decision-based value', summary: 'Write a function with parameters that returns a value computed with a condition.' },
   ],
 };

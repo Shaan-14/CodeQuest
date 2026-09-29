@@ -46,7 +46,7 @@ export const bundle: LessonBundle = {
       xpReward: 30, coinReward: 5,
     },
     {
-      id: 'py-04-receipt', title: 'Order Receipt', mode: 'challenge', language: 'python', skillIds: ['py.strings', 'py.variables'], concepts: ['f-string', 'len'], difficulty: 2, context: 'business',
+      id: 'py-04-receipt', objectiveId: 'py-obj-fstring', title: 'Order Receipt', mode: 'challenge', language: 'python', skillIds: ['py.strings', 'py.variables'], concepts: ['f-string', 'len'], difficulty: 2, context: 'business',
       prompt: text(
         'The Academy shop prints receipts. Given these variables:',
         '`customer = "Dana Ortiz"`\n`items = 3`',
@@ -59,5 +59,18 @@ export const bundle: LessonBundle = {
       constraints: [{ type: 'requires', node: 'JoinedStr', message: 'Use an f-string (a string starting with f) to build the line.' }],
       xpReward: 45, coinReward: 8,
     },
+    {
+      id: 'py-04-label-printer', objectiveId: 'py-obj-fstring', title: 'Part Labels', mode: 'challenge', language: 'python', skillIds: ['py.strings', 'py.variables'], concepts: ['f-string', 'len'], difficulty: 2, context: 'manufacturing',
+      prompt: text('A factory label printer needs one line per crate. Given these variables:', '`part = "Gear"`\n`count = 12`', 'print `Part Gear x 12` using an f-string.'),
+      expectedBehavior: 'One line: Part Gear x 12',
+      starterCode: 'part = "Gear"\ncount = 12\n',
+      hints: ['An f-string starts with the letter `f` right before the opening quote.', 'Inside an f-string, `{part}` is replaced by the variable’s value.', 'Use both `{part}` and `{count}` inside a single f-string, with the fixed words around them.'],
+      checks: [{ kind: 'output', name: 'Label line', expect: 'Part Gear x 12' }],
+      constraints: [{ type: 'requires', node: 'JoinedStr', message: 'Use an f-string (a string starting with f) to build the line.' }],
+      xpReward: 45, coinReward: 8,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-fstring', title: 'Build a message with an f-string', summary: 'Combine text and variables into one line.' },
   ],
 };

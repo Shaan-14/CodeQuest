@@ -5,7 +5,8 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadPyodide } from 'pyodide';
-import { bundles, challenges, getChallenge, getLesson, lessons, skills } from './index';
+import { bundles, challenges, getChallenge, getLesson, lessons, objectives, skills, variantsOf } from './index';
+import { objectiveOf } from './helpers';
 import { areas, items, quests, achievementDefs } from './world';
 import { solutions } from './python/solutions.testdata';
 import { createPythonEngine, type PythonEngine } from '../learning/python/pythonEngine';
@@ -30,8 +31,35 @@ describe('content structure', () => {
     for (const b of bundles) {
       const own = new Set(b.challenges.map((c) => c.id));
       for (const step of b.lesson.steps) if (step.kind === 'challenge') expect(own.has(step.challengeId), `${b.lesson.id} -> ${step.challengeId}`).toBe(true);
-      for (const c of b.challenges) expect(b.lesson.steps.some((s) => s.kind === 'challenge' && s.challengeId === c.id), `${c.id} unused`).toBe(true);
+      const stepObjectives = new Set(b.lesson.steps.flatMap((s) => (s.kind === 'challenge' ? [objectiveOf(b.challenges.find((c) => c.id === s.challengeId)!)] : [])));
+      // Every challenge is either in a lesson step, or a VARIANT of an objective that is.
+      for (const c of b.challenges) expect(stepObjectives.has(objectiveOf(c)), `${c.id} is neither a step nor a variant of one`).toBe(true);
     }
+  });
+  it('variants of an objective test the same thing in different settings', () => {
+    let withVariants = 0;
+    for (const o of objectives) {
+      const vs = variantsOf(o.id);
+      expect(vs.length, o.id).toBeGreaterThan(0);
+      expect(o.title.length, o.id).toBeGreaterThan(3);
+      if (vs.length < 2) continue;
+      withVariants++;
+      const first = vs[0]!;
+      for (const v of vs) {
+        expect(v.mode, `${v.id} mode`).toBe(first.mode);
+        expect(v.difficulty, `${v.id} difficulty`).toBe(first.difficulty);
+        expect(v.language, `${v.id} language`).toBe(first.language);
+        expect([...v.skillIds].sort(), `${v.id} skills`).toEqual([...first.skillIds].sort());
+        expect([...v.concepts].sort(), `${v.id} concepts`).toEqual([...first.concepts].sort());
+      }
+      expect(new Set(vs.map((v) => v.context)).size, `${o.id}: variants must differ in real-world context`).toBe(vs.length);
+      expect(new Set(vs.map((v) => v.prompt)).size, `${o.id}: distinct prompts`).toBe(vs.length);
+      expect(new Set(vs.map((v) => JSON.stringify(v.checks))).size, `${o.id}: distinct tests`).toBe(vs.length);
+      // Each variant needs its own hidden checks where the primary has them.
+      const hidden = (c: typeof first) => c.checks.some((k) => 'visible' in k && k.visible === false);
+      if (hidden(first)) for (const v of vs) expect(hidden(v), `${v.id} needs hidden cases`).toBe(true);
+    }
+    expect(withVariants).toBeGreaterThanOrEqual(10);
   });
   it('prerequisites exist and come earlier', () => {
     lessons.forEach((l, i) => {

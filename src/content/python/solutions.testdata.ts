@@ -139,5 +139,63 @@ export const solutions: Record<string, { valid: string[]; wrong: string[] }> = {
     valid: ['total = 0\nbest = 0\nline = input()\nwhile line != "DONE":\n    n = int(line)\n    total += n\n    if n > best:\n        best = n\n    line = input()\nprint("Total:", total)\nprint("Busiest:", best)',
       'nums = []\nwhile True:\n    s = input()\n    if s == "DONE":\n        break\n    nums.append(int(s))\nprint(f"Total: {sum(nums)}")\nprint(f"Busiest: {max(nums)}")'],
     wrong: ['total = 0\nline = input()\nwhile line != "DONE":\n    total += int(line)\n    line = input()\nprint("Total:", total)\nprint("Busiest:", total)', 'total = 0\nbest = 1\nline = input()\nwhile line != "DONE":\n    n = int(line)\n    total += n\n    if n > best:\n        best = n\n    line = input()\nprint("Total:", total)\nprint("Busiest:", best)']
-  }
+  },
+
+  // ------------------------------------------------------------------ Phase 2: variants of Phase 1 objectives
+  'py-02-tidy-log': {
+    valid: ['print("Loading config")\nprint("Config OK")\nprint("Starting server")\nprint("Server OK")'],
+    wrong: ['print("Loading config")\n  print("Config OK")\nprint("Starting server")\nprint("Server OK")', 'print("Loading config")\nprint("Starting server")']
+  },
+  'py-03-scoreboard': {
+    valid: ['score = 0\nprint("Score:", score)\nscore = 250\nprint("Score:", score)', 'score = 0\nprint(f"Score: {score}")\nscore = 250\nprint(f"Score: {score}")'],
+    wrong: ['score = 0\nprint("Score:", score)\nprint("Score:", 250)', 'score = 250\nprint("Score:", score)']
+  },
+  'py-04-label-printer': {
+    valid: ['part = "Gear"\ncount = 12\nprint(f"Part {part} x {count}")'],
+    wrong: ['part = "Gear"\ncount = 12\nprint("Part " + part + " x " + str(count))', 'print("Part Gear x 12")']
+  },
+  'py-05-pallets': {
+    valid: ['cartons = 130\npallet_size = 24\nprint("Full pallets:", cartons // pallet_size)\nprint("Loose cartons:", cartons % pallet_size)',
+      'cartons = 130\npallet_size = 24\nfull = cartons // pallet_size\nprint(f"Full pallets: {full}")\nprint(f"Loose cartons: {cartons - full * pallet_size}")'],
+    wrong: ['cartons = 130\npallet_size = 24\nprint("Full pallets:", cartons / pallet_size)\nprint("Loose cartons:", cartons % pallet_size)', 'print("Full pallets: 5")\nprint("Loose cartons: 11")']
+  },
+  'py-06-fuel-cost': {
+    valid: ['n = int(input())\nprint("Cost:", n * 3)', 'litres = int(input("Litres? "))\nprint(f"Cost: {litres * 3}")'],
+    wrong: ['n = input()\nprint("Cost:", n * 3)', 'n = int(input())\nprint("Cost:", n + 3)']
+  },
+  'py-06-inches': {
+    valid: ['inches = float(input())\nprint(inches * 2.54)', 'x = float(input())\ncm = 2.54 * x\nprint(cm)'],
+    wrong: ['inches = int(input())\nprint(inches * 2.54)', 'inches = float(input())\nprint(inches / 2.54)', 'inches = float(input())\nprint(int(inches * 2.54))']
+  },
+  'py-07-oven-window': {
+    valid: ['t = float(input())\nprint(t >= 180 and t <= 220)', 't = float(input())\nprint(180 <= t <= 220)'],
+    wrong: ['t = float(input())\nprint(t > 180 and t < 220)', 't = int(input())\nprint(180 <= t <= 220)', 't = float(input())\nprint(t >= 180)']
+  },
+  'py-08-overtime': {
+    valid: ['h = float(input())\nif h > 40:\n    print("Overtime")\nelse:\n    print("Regular")', 'h = float(input())\nif h <= 40:\n    print("Regular")\nelse:\n    print("Overtime")'],
+    wrong: ['h = float(input())\nif h >= 40:\n    print("Overtime")\nelse:\n    print("Regular")', 'h = int(input())\nif h > 40:\n    print("Overtime")\nelse:\n    print("Regular")']
+  },
+  'py-09-leap-year': {
+    valid: ['y = int(input())\nif y % 400 == 0:\n    print("Leap")\nelif y % 100 == 0:\n    print("Not leap")\nelif y % 4 == 0:\n    print("Leap")\nelse:\n    print("Not leap")',
+      'y = int(input())\nif (y % 4 == 0 and y % 100 != 0) or y % 400 == 0:\n    print("Leap")\nelse:\n    print("Not leap")'],
+    wrong: ['y = int(input())\nif y % 4 == 0:\n    print("Leap")\nelse:\n    print("Not leap")', 'y = int(input())\nif y % 100 == 0:\n    print("Not leap")\nelif y % 400 == 0:\n    print("Leap")\nelif y % 4 == 0:\n    print("Leap")\nelse:\n    print("Not leap")']
+  },
+  'py-10-tank-fill': {
+    valid: ['level = 20\ntarget = 200\nminutes = 0\nwhile level < target:\n    level = level + 15\n    minutes = minutes + 1\nprint("Minutes:", minutes)',
+      'level = 20\ntarget = 200\nm = 0\nwhile level < target:\n    level += 15\n    m += 1\nprint(f"Minutes: {m}")'],
+    wrong: ['level = 20\ntarget = 200\nminutes = 0\nwhile level <= target:\n    level = level + 15\n    minutes = minutes + 1\nprint("Minutes:", minutes)', 'level = 20\ntarget = 200\nprint("Minutes: 13")']
+  },
+  'py-11-daily-output': {
+    valid: ['total = 0\nfor i in range(4):\n    total += int(input())\nprint("Average:", total / 4)', 'nums = []\nfor _ in range(4):\n    nums.append(int(input()))\nprint(f"Average: {sum(nums) / len(nums)}")'],
+    wrong: ['total = 0\nfor i in range(4):\n    total += int(input())\nprint("Average:", total // 4)', 'total = 0\nfor i in range(3):\n    total += int(input())\nprint("Average:", total / 4)']
+  },
+  'py-12-run-report': {
+    valid: ['def report(machine, minutes):\n    print("Machine " + machine + " ran " + str(minutes) + " minutes")', 'def report(machine, minutes):\n    print(f"Machine {machine} ran {minutes} minutes")'],
+    wrong: ['def report(machine, minutes):\n    return f"Machine {machine} ran {minutes} minutes"', 'def report(machine, minutes):\n    print("Machine M-4 ran 90 minutes")']
+  },
+  'py-12-shipping-fee': {
+    valid: ['def shipping_fee(weight):\n    if weight <= 2:\n        return 5\n    elif weight <= 10:\n        return 9\n    else:\n        return 9 + 1.5 * (weight - 10)',
+      'def shipping_fee(weight):\n    if weight > 10:\n        return 9 + (weight - 10) * 1.5\n    if weight > 2:\n        return 9\n    return 5'],
+    wrong: ['def shipping_fee(weight):\n    if weight < 2:\n        return 5\n    elif weight <= 10:\n        return 9\n    else:\n        return 9 + 1.5 * (weight - 10)', 'def shipping_fee(weight):\n    if weight <= 2:\n        return 5\n    elif weight <= 10:\n        return 9\n    else:\n        return 1.5 * weight']
+  },
 };

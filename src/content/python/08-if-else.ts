@@ -50,7 +50,7 @@ export const bundle: LessonBundle = {
       xpReward: 30, coinReward: 5,
     },
     {
-      id: 'py-08-free-shipping', title: 'Free Shipping', mode: 'challenge', language: 'python', skillIds: ['py.conditionals', 'py.input', 'py.numbers'], concepts: ['if', 'else', 'boundary values'], difficulty: 2, context: 'business',
+      id: 'py-08-free-shipping', objectiveId: 'py-obj-threshold', title: 'Free Shipping', mode: 'challenge', language: 'python', skillIds: ['py.conditionals', 'py.input', 'py.numbers'], concepts: ['if', 'else', 'boundary values'], difficulty: 2, context: 'business',
       prompt: text('An online store gives free shipping on orders of `50` or more. Read the order total (may have decimals). If it qualifies, print `Free shipping`. Otherwise print `Shipping: 5` (the shipping cost).'),
       expectedBehavior: '80 -> Free shipping; 49.99 -> Shipping: 5; exactly 50 -> Free shipping.',
       sampleInput: ['80'],
@@ -65,5 +65,24 @@ export const bundle: LessonBundle = {
       constraints: [{ type: 'requires', node: 'If', message: 'Use an if statement to make the decision.' }],
       xpReward: 45, coinReward: 8,
     },
+    {
+      id: 'py-08-overtime', objectiveId: 'py-obj-threshold', title: 'Overtime Rule', mode: 'challenge', language: 'python', skillIds: ['py.conditionals', 'py.input', 'py.numbers'], concepts: ['if', 'else', 'boundary values'], difficulty: 2, context: 'payroll',
+      prompt: text('A company pays overtime only for weeks of MORE than `40` hours. Read the hours worked (may have decimals). If it qualifies, print `Overtime`. Otherwise print `Regular`.'),
+      expectedBehavior: '45 -> Overtime; 38.5 -> Regular; exactly 40 -> Regular.',
+      sampleInput: ['45'],
+      starterCode: '',
+      hints: ['Convert the input to a number that can hold decimals.', 'Decide which comparison operator matches “more than 40”.', 'Check the boundary: does exactly 40 qualify? Your operator choice decides.'],
+      checks: [
+        { kind: 'output', name: '45 hours', stdin: ['45'], expect: 'Overtime' },
+        { kind: 'output', name: '38.5 hours', stdin: ['38.5'], expect: 'Regular' },
+        { kind: 'output', name: 'Exactly 40', stdin: ['40'], expect: 'Regular', visible: false, feedback: 'What should happen at exactly 40?' },
+        { kind: 'output', name: '40.5 hours', stdin: ['40.5'], expect: 'Overtime', visible: false },
+      ],
+      constraints: [{ type: 'requires', node: 'If', message: 'Use an if statement to make the decision.' }],
+      xpReward: 45, coinReward: 8,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-threshold', title: 'Decide with a threshold', summary: 'Use if/else to choose an outcome from a numeric threshold; get the boundary right.' },
   ],
 };

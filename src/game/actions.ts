@@ -4,6 +4,7 @@
  * Keeping this free of UI and storage makes the rules (XP, unlocks, evidence) unit-testable.
  */
 import { getChallenge, getLesson } from '../content';
+import { objectiveOf } from '../content/helpers';
 import { items, quests } from '../content/world';
 import { areas } from '../content/world';
 import { MAX_FOCUS, newSave, type ChallengeProgress, type SaveData } from '../core/save';
@@ -120,6 +121,26 @@ export function saveDraftCode(save: SaveData, challengeId: string, code: string,
   return { save: s, events };
 }
 
+/** Failed submissions on an objective (any variant) since its most recent pass. Retries never erase history. */
+function failuresSinceLastPass(s: SaveData, objectiveId: string): number {
+  let n = 0;
+  for (let i = s.evidence.length - 1; i >= 0; i--) {
+    const r = s.evidence[i]!;
+    if (r.objectiveId !== objectiveId) continue;
+    if (r.passed) break;
+    n++;
+  }
+  return n;
+}
+
+/** The player opened a reference-manual entry while working on a challenge (research behaviour). */
+export function recordLookup(save: SaveData, challengeId: string): Result {
+  const { s, events } = draft(save);
+  const p = progressFor(s, challengeId);
+  p.lookups = (p.lookups ?? 0) + 1;
+  return { save: s, events };
+}
+
 /**
  * A graded submission. Always records an EvidenceRecord (pass OR fail). On the first pass pays
  * XP/coins; a later, less-assisted pass pays only the difference, so replaying with fewer hints
@@ -134,9 +155,15 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   p.timeMs += timeMs;
   p.code = code;
 
+  const objectiveId = objectiveOf(c);
   const record: EvidenceRecord = {
     at: now(),
     challengeId,
+    objectiveId,
+    context: c.context ?? '',
+    lookups: p.lookups ?? 0,
+    priorFailures: failuresSinceLastPass(s, objectiveId),
+    project: !!c.project,
     skillIds: c.skillIds,
     concepts: c.concepts,
     mode: c.mode,

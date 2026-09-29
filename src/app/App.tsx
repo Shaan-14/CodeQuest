@@ -8,6 +8,8 @@ import { Toasts } from './components/Toasts';
 import { Academy } from './screens/Academy';
 import { LessonScreen } from './screens/LessonScreen';
 import { Library } from './screens/Library';
+import { Practice } from './screens/Practice';
+import { PracticeRun } from './screens/PracticeRun';
 import { Locked } from './screens/Locked';
 import { Shop } from './screens/Shop';
 import { Title } from './screens/Title';
@@ -15,7 +17,7 @@ import { TrainingGrounds } from './screens/TrainingGrounds';
 import { WorldMap } from './screens/WorldMap';
 
 /** Screens are plain state, not URL routes: the game is a single-page app with one save. */
-type Route = { name: 'map' } | { name: 'area'; id: string } | { name: 'lesson'; id: string };
+type Route = { name: 'map' } | { name: 'area'; id: string } | { name: 'lesson'; id: string } | { name: 'practice' } | { name: 'practice-run'; challengeId: string };
 
 export function App() {
   const game = useGame();
@@ -41,12 +43,14 @@ export function App() {
 
   let screen;
   if (route.name === 'map') screen = <WorldMap current={lastArea} onOpen={open} />;
+  else if (route.name === 'practice') screen = <Practice onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onBack={() => open('training-grounds')} />;
+  else if (route.name === 'practice-run') screen = <PracticeRun challengeId={route.challengeId} onBack={() => setRoute({ name: 'practice' })} onGoAcademy={() => open('academy')} />;
   else if (route.name === 'lesson') screen = <LessonScreen lessonId={route.id} onExit={() => open('training-grounds')} onGoAcademy={() => open('academy')} />;
   else {
     const area = areas.find((a) => a.id === route.id)!;
     if (!isAreaUnlocked(area, save)) screen = <Locked area={area} onMap={toMap} />;
     else if (area.id === 'academy') screen = <Academy onGo={(r) => (r === 'map' ? toMap() : open('training-grounds'))} />;
-    else if (area.id === 'training-grounds') screen = <TrainingGrounds onOpenLesson={(id) => setRoute({ name: 'lesson', id })} />;
+    else if (area.id === 'training-grounds') screen = <TrainingGrounds onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onPracticeYard={() => setRoute({ name: 'practice' })} />;
     else if (area.id === 'library') screen = <Library />;
     else if (area.id === 'shop') screen = <Shop />;
     else screen = <Locked area={area} onMap={toMap} />;
@@ -61,7 +65,7 @@ export function App() {
           <button class="btn small" onClick={() => setNotice(false)}>Dismiss</button>
         </div>
       )}
-      <div class="screen" key={route.name === 'map' ? 'map' : route.name === 'lesson' ? `l-${route.id}` : `a-${route.id}`}>{screen}</div>
+      <div class="screen" key={route.name === 'map' ? 'map' : route.name === 'lesson' ? `l-${route.id}` : route.name === 'area' ? `a-${route.id}` : route.name === 'practice' ? 'practice' : `p-${route.challengeId}`}>{screen}</div>
       {panel && <Panel tab={panel} onTab={setPanel} onClose={() => setPanel(null)} onReset={() => { setPanel(null); setRoute({ name: 'area', id: 'academy' }); setLastArea('academy'); }} />}
       <Toasts />
     </div>

@@ -4,6 +4,12 @@
  * these types, so new languages/lessons are added by adding data (and, for a new language,
  * a CodeRunner implementation — see src/learning/runner.ts).
  *
+ * Phase 2 changes vs Phase 1 (all additive; Phase 1 content is unchanged):
+ *  - `Objective` + `Challenge.objectiveId`: several authored VARIANTS can test one learning objective.
+ *  - New check kinds (files, scripts, test-writing, SQL result/state/script/schema/plan), `Fixtures`
+ *    (virtual files and SQLite databases available to the player's code), and SQL constraints.
+ *  - Mastery requirements can require variety (`distinctObjectives`, `distinctContexts`).
+ *
  * Phase 1 changes vs Phase 0: `Challenge.tests: {name, code}[]` was replaced by declarative
  * `checks` + `constraints` (behavioural, language-agnostic descriptions that a runner
  * evaluates), and `Lesson`, `Quest`, `Item`, `Area` etc. were added.
@@ -23,7 +29,15 @@ export type LearningMode = 'learning' | 'challenge' | 'independent';
 
 /* ------------------------------------------------------------------ behaviour checks */
 
-interface CheckBase {
+/** What exists in the player's working directory while their code runs. */
+export interface Fixtures {
+  /** Virtual files (text) created before the run, e.g. a CSV to clean. Path -> content. */
+  files?: Record<string, string>;
+  /** Database ids (content/databases) materialised as SQLite files `<id>.db`, e.g. 'works' -> works.db. */
+  databases?: string[];
+}
+
+interface CheckBase extends Fixtures {
   /** Short label for the result list. Must not leak the solution. */
   name: string;
   /** Visible checks show expected vs actual on failure; hidden checks only say they failed. Default true. */
@@ -62,12 +76,118 @@ export interface CallCheck extends CheckBase {
   approx?: number;
 }
 
-export type Check = OutputCheck | VariableCheck | CallCheck;
+/** Run the program, then compare a file it wrote (text; or parsed JSON when `json` is set). */
+export interface FileCheck extends CheckBase {
+  kind: 'file';
+  path: string;
+  expect: string;
+  json?: boolean;
+  stdin?: string[];
+}
+
+/**
+ * Run the program, then run authored Python in the player's namespace. The check passes if the
+ * script finishes without raising. `assert cond, "message"` messages are shown on failure, so keep
+ * them as nudges about the thinking, not the answer. Used for classes, data structures, sqlite3 work...
+ */
+export interface ScriptCheck extends CheckBase {
+  kind: 'script';
+  code: string;
+  stdin?: string[];
+}
+
+/**
+ * The player WRITES TESTS. Their `test_*` functions are run against a correct implementation
+ * (all must pass) and against each buggy implementation (each must be caught by at least one failing
+ * test). The implementation under test is injected into the player's namespace under its own name.
+ */
+export interface TestsCheck extends CheckBase {
+  kind: 'tests';
+  correct: string;
+  buggy: { name: string; code: string }[];
+  /** Minimum number of test_ functions the player must define. */
+  minTests?: number;
+}
+
+export type PythonCheck = OutputCheck | VariableCheck | CallCheck | FileCheck | ScriptCheck | TestsCheck;
+
+/* ---- SQL checks (language 'sql'). Results are computed by real SQLite; expectations are usually a
+ * REFERENCE QUERY run on the same database, so every valid query passes and no result is hand-typed. */
+
+interface SqlBase {
+  name: string;
+  visible?: boolean;
+  feedback?: string;
+  /** Database id (content/databases). Use a hidden twin (e.g. 'works-b') to defeat hard-coded answers. */
+  db?: string;
+}
+
+/** Compare the player's final result set with the result of `expectQuery`. */
+export interface SqlResultCheck extends SqlBase {
+  kind: 'sqlResult';
+  expectQuery: string;
+  /** Row order matters (ORDER BY tasks). Default false (compare as a multiset). */
+  ordered?: boolean;
+  /** 'count' (default): same number of columns. 'names': column names must match too. 'ignore': values only. */
+  columns?: 'count' | 'names' | 'ignore';
+  approx?: number;
+}
+
+/** After the player's script runs, run `verify` on their database and on a database where `reference` was applied. */
+export interface SqlStateCheck extends SqlBase {
+  kind: 'sqlState';
+  reference: string;
+  verify: string;
+  ordered?: boolean;
+}
+
+/** After the player's script, run `script` in the same database. Passes if it errors/succeeds as expected. */
+export interface SqlScriptCheck extends SqlBase {
+  kind: 'sqlScript';
+  script: string;
+  expectError?: boolean;
+}
+
+export type SchemaRule =
+  | { rule: 'minTables'; n: number; message: string }
+  | { rule: 'hasPrimaryKeys'; message: string }
+  /** Some table whose name matches `pattern` (regex, case-insensitive). */
+  | { rule: 'tableLike'; pattern: string; message: string }
+  /** The table matching `table` has a column matching `pattern`. */
+  | { rule: 'columnLike'; table: string; pattern: string; message: string }
+  /** A foreign key from a table matching `from` to a table matching `to`. */
+  | { rule: 'foreignKey'; from: string; to: string; message: string }
+  /** The table matching `table` has at least one of: NOT NULL, UNIQUE, CHECK, or a foreign key beyond its PK. */
+  | { rule: 'hasConstraint'; table: string; message: string }
+  /** No table has a column matching `pattern` (e.g. repeated comma-separated lists, name1/name2). */
+  | { rule: 'noColumnLike'; pattern: string; message: string };
+
+/** Run the player's script on an EMPTY database, then inspect the resulting schema structurally. */
+export interface SqlSchemaCheck extends SqlBase {
+  kind: 'sqlSchema';
+  rules: SchemaRule[];
+}
+
+/** After the player's script, `EXPLAIN QUERY PLAN <query>` must match `mustMatch` (e.g. an index is used). */
+export interface SqlPlanCheck extends SqlBase {
+  kind: 'sqlPlan';
+  query: string;
+  mustMatch: string;
+  mustNotMatch?: string;
+}
+
+export type SqlCheck = SqlResultCheck | SqlStateCheck | SqlScriptCheck | SqlSchemaCheck | SqlPlanCheck;
+
+export type Check = PythonCheck | SqlCheck;
 
 /** Structural rule on the player's source, so a loop lesson cannot be passed by copy-pasting print(). */
 export interface Constraint {
   type: 'requires' | 'forbids';
-  /** A Python AST node class name ('For', 'While', 'If', 'FunctionDef') or 'call:<name>' for a call to a builtin/function. */
+  /**
+   * A Python AST node class name ('For', 'While', 'If', 'FunctionDef', 'ClassDef', ...),
+   * 'call:<name>' for a call to a builtin/function/method, 'import:<module>' for an import,
+   * or 'sql:<regex>' for SQL text (case-insensitive, comments and string literals removed).
+   */
   node: string;
   message: string;
 }
@@ -76,6 +196,12 @@ export interface Constraint {
 
 export interface Challenge {
   id: string;
+  /**
+   * The learning objective this challenge tests. Challenges sharing an `objectiveId` are VARIANTS:
+   * same concepts, mode, difficulty and skills, but a different context/structure/inputs, so retrying
+   * cannot be beaten by memorising one answer. Defaults to the challenge's own id (see objectiveOf).
+   */
+  objectiveId?: string;
   title: string;
   mode: LearningMode;
   language: Language;
@@ -92,6 +218,12 @@ export interface Challenge {
   /** Learning mode only: a short checklist walking through the task. */
   guidedSteps?: string[];
   starterCode: string;
+  /** Files/databases available to the player's code (Run and Submit). Checks may add to these. */
+  fixtures?: Fixtures;
+  /** Database shown in the schema browser and used by Run for SQL challenges (default: first check's db). */
+  db?: string;
+  /** A multi-concept project rather than an isolated exercise. Recorded on evidence as project performance. */
+  project?: boolean;
   /** Text piped to input() when the player presses Run (they can edit it in the Input box). */
   sampleInput?: string[];
   /** Ordered least -> most revealing. Never contain the full solution. Ignored in independent mode. */
@@ -158,6 +290,10 @@ export interface MasteryRequirements {
   distinctChallenges: number;
   /** ...at least one at or above this difficulty. */
   minDifficulty: number;
+  /** ...spread over at least this many different learning objectives (not just variants of one). Default 1. */
+  distinctObjectives?: number;
+  /** ...and at least this many different real-world contexts. Default 1. */
+  distinctContexts?: number;
 }
 
 export interface Skill {
@@ -227,8 +363,22 @@ export interface AchievementDef {
   description: string;
 }
 
-/** A lesson together with the challenges its steps reference. One file per lesson in content/<area>/. */
+/** A concept the player should be able to apply. Its variants are the challenges sharing its id. */
+export interface Objective {
+  id: string;
+  title: string;
+  /** One line describing the underlying idea (used on the Practice screen). */
+  summary: string;
+}
+
+/**
+ * A lesson together with its challenges. One file per lesson in content/<area>/.
+ * Lesson steps reference one challenge per objective; the other challenges of that objective are
+ * variants offered when the player retries or practises.
+ */
 export interface LessonBundle {
   lesson: Lesson;
   challenges: Challenge[];
+  /** Titles for objectives that have variants (objectives without an entry are titled after their challenge). */
+  objectives?: Objective[];
 }

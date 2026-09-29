@@ -2,7 +2,8 @@
  * Content registry. The single place the rest of the app looks up curriculum data.
  * To add a lesson: create a file in content/<area>/, and add it to `bundles` below in teaching order.
  */
-import type { Challenge, Lesson, LessonBundle, Skill } from './schema';
+import type { Challenge, Lesson, LessonBundle, Objective, Skill } from './schema';
+import { objectiveOf } from './helpers';
 import { skills } from './skills';
 import { bundle as l01 } from './python/01-first-program';
 import { bundle as l02 } from './python/02-fixing-errors';
@@ -24,6 +25,22 @@ export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, 
 export const lessons: Lesson[] = bundles.map((b) => b.lesson);
 export const challenges: Challenge[] = bundles.flatMap((b) => b.challenges);
 export { skills };
+
+/** Objectives: those declared by bundles, plus one auto-titled objective per undeclared challenge. */
+export const objectives: Objective[] = (() => {
+  const declared = new Map(bundles.flatMap((b) => b.objectives ?? []).map((o) => [o.id, o]));
+  const out = new Map<string, Objective>();
+  for (const c of challenges) {
+    const id = objectiveOf(c);
+    out.set(id, declared.get(id) ?? out.get(id) ?? { id, title: c.title, summary: c.expectedBehavior ?? c.title });
+  }
+  return [...out.values()];
+})();
+const objectiveById = new Map(objectives.map((o) => [o.id, o]));
+export const getObjective = (id: string): Objective | undefined => objectiveById.get(id);
+
+/** All authored variants of an objective, in authoring order. */
+export const variantsOf = (objectiveId: string): Challenge[] => challenges.filter((c) => objectiveOf(c) === objectiveId);
 
 const lessonById = new Map(lessons.map((l) => [l.id, l]));
 const challengeById = new Map(challenges.map((c) => [c.id, c]));

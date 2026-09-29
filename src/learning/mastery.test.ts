@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { detectPatterns, summarizeSkill, supportFor, type EvidenceRecord } from './mastery';
+import { detectPatterns, summarizeSkill, supportFor, unmetRequirements, type EvidenceRecord } from './mastery';
 import type { Skill } from '../content/schema';
 
 const skill: Skill = { id: 's', title: 'S', area: 'python', category: 'c', prerequisites: [], masteryRequirements: { independentPasses: 2, distinctChallenges: 2, minDifficulty: 2 } };
 let n = 0;
-const rec = (o: Partial<EvidenceRecord> = {}): EvidenceRecord => ({
-  at: 't', challengeId: 'c' + n++, skillIds: ['s'], concepts: [], mode: 'challenge', difficulty: 2, passed: true, support: 'independent', hintsUsed: 0, attemptNumber: 1, timeMs: 1, executed: true, ...o,
-});
+const rec = (o: Partial<EvidenceRecord> = {}): EvidenceRecord => {
+  const challengeId = o.challengeId ?? 'c' + n++;
+  return {
+    at: 't', challengeId, objectiveId: challengeId, context: 'ctx' + challengeId, skillIds: ['s'], concepts: [], mode: 'challenge', difficulty: 2, passed: true,
+    support: 'independent', hintsUsed: 0, lookups: 0, attemptNumber: 1, priorFailures: 0, project: false, timeMs: 1, executed: true, ...o,
+  };
+};
 
 describe('supportFor', () => {
   it('reduces independence when guided or hinted', () => {
@@ -42,6 +46,50 @@ describe('summarizeSkill', () => {
     expect(s.failures).toBe(1);
     expect(s.hintsUsed).toBe(3);
     expect(s.status).toBe('guided');
+  });
+});
+
+describe('variety requirements (Phase 2)', () => {
+  const strict: Skill = { ...skill, masteryRequirements: { independentPasses: 3, distinctChallenges: 3, minDifficulty: 2, distinctObjectives: 2, distinctContexts: 2 } };
+  it('does not count variants of ONE objective as varied ability', () => {
+    const three = [rec({ objectiveId: 'o1', context: 'a' }), rec({ objectiveId: 'o1', context: 'b' }), rec({ objectiveId: 'o1', context: 'a' })];
+    const sum = summarizeSkill(three, strict);
+    expect(sum.status).toBe('developing');
+    expect(sum.distinctIndependentObjectives).toBe(1);
+    expect(unmetRequirements(sum, strict).join(' ')).toContain('different concepts');
+  });
+  it('does not count one context repeated as varied ability', () => {
+    const three = [rec({ objectiveId: 'o1', context: 'a' }), rec({ objectiveId: 'o2', context: 'a' }), rec({ objectiveId: 'o3', context: 'a' })];
+    const sum = summarizeSkill(three, strict);
+    expect(sum.status).toBe('developing');
+    expect(unmetRequirements(sum, strict).join(' ')).toContain('contexts');
+  });
+  it('demonstrates only with varied objectives AND contexts', () => {
+    const three = [rec({ objectiveId: 'o1', context: 'a' }), rec({ objectiveId: 'o2', context: 'b' }), rec({ objectiveId: 'o3', context: 'a' })];
+    const sum = summarizeSkill(three, strict);
+    expect(sum.status).toBe('demonstrated');
+    expect(unmetRequirements(sum, strict)).toEqual([]);
+  });
+  it('treats missing new fields (old saves) as a single objective/context safely', () => {
+    const old = { ...rec(), objectiveId: undefined as unknown as string, context: '' };
+    expect(() => summarizeSkill([old], strict)).not.toThrow();
+  });
+});
+
+describe('retries are preserved as evidence', () => {
+  it('counts a pass after failures as recovered, and keeps the failures', () => {
+    const fail = rec({ objectiveId: 'o', passed: false });
+    const win = rec({ objectiveId: 'o', priorFailures: 1 });
+    const sum = summarizeSkill([fail, win], skill);
+    expect(sum.failures).toBe(1);
+    expect(sum.recoveredPasses).toBe(1);
+  });
+  it('is not "solving easily" if the passes followed failures', () => {
+    const passes = Array.from({ length: 4 }, () => rec({ priorFailures: 1 }));
+    expect(detectPatterns(passes, 's').map((p) => p.kind)).not.toContain('solving-easily');
+  });
+  it('counts project passes', () => {
+    expect(summarizeSkill([rec({ project: true })], skill).projectPasses).toBe(1);
   });
 });
 

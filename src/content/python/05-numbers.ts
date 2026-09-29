@@ -47,7 +47,7 @@ export const bundle: LessonBundle = {
       xpReward: 30, coinReward: 5,
     },
     {
-      id: 'py-05-crates', title: 'Packing Crates', mode: 'challenge', language: 'python', skillIds: ['py.numbers', 'py.strings'], concepts: ['floor division', 'modulo'], difficulty: 2, context: 'manufacturing',
+      id: 'py-05-crates', objectiveId: 'py-obj-divmod', title: 'Packing Crates', mode: 'challenge', language: 'python', skillIds: ['py.numbers', 'py.strings'], concepts: ['floor division', 'modulo'], difficulty: 2, context: 'manufacturing',
       prompt: text('A factory produces `47` bolts. Each shipping crate holds `12`. Print how many crates are completely full and how many bolts are left over, in exactly this format:', '`Full crates: 3`\n`Leftover bolts: 11`', 'Work the numbers out with Python, not in your head.'),
       expectedBehavior: 'Two lines in the format shown, for 47 bolts and crates of 12.',
       starterCode: 'bolts = 47\ncrate_size = 12\n',
@@ -66,5 +66,17 @@ export const bundle: LessonBundle = {
       ],
       xpReward: 60, coinReward: 10,
     },
+    {
+      id: 'py-05-pallets', objectiveId: 'py-obj-divmod', title: 'Loading Pallets', mode: 'challenge', language: 'python', skillIds: ['py.numbers', 'py.strings'], concepts: ['floor division', 'modulo'], difficulty: 2, context: 'logistics',
+      prompt: text('A warehouse has `130` cartons to ship. One pallet holds `24` cartons. Print how many pallets are completely full and how many loose cartons remain, in exactly this format:', '`Full pallets: 5`\n`Loose cartons: 10`', 'Let Python do the arithmetic.'),
+      expectedBehavior: 'Two lines in the format shown, for 130 cartons and pallets of 24.',
+      starterCode: 'cartons = 130\npallet_size = 24\n',
+      hints: ['Two questions: “how many whole groups?” and “what is left over?”. Python has an operator for each.', 'One operator divides and drops the remainder; another returns only the remainder.', 'Use `//` and `%` with the variables, then print each result with its label.'],
+      checks: [{ kind: 'output', name: 'Correct pallet counts', expect: 'Full pallets: 5\nLoose cartons: 10' }],
+      xpReward: 45, coinReward: 8,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-divmod', title: 'Whole groups and leftovers', summary: 'Use floor division and remainder to split a quantity into full groups and what is left.' },
   ],
 };

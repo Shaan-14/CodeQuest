@@ -3,6 +3,7 @@ import { items, quests, achievementDefs } from '../../content/world';
 import { getLesson } from '../../content';
 import { exportSave, importSave } from '../../core/save';
 import { resetAll, useItem } from '../../game/actions';
+import { backfillEvidence } from '../../game/backfill';
 import { getStore, useGame } from '../../game/store';
 import { Modal } from './Modal';
 import { SkillsView } from './SkillsView';
@@ -105,7 +106,7 @@ function MenuTab({ onReset }: { onReset: () => void }) {
           <button class="btn small" onClick={() => setText(exportSave(game.save))} data-testid="export">Export</button>
           <button class="btn small" data-testid="import" onClick={() => {
             const s = importSave(text);
-            if (s) { game.apply({ save: s, events: [] }); setMsg('Progress restored.'); } else setMsg('That does not look like a CodeQuest save.');
+            if (s) { game.apply({ save: backfillEvidence(s), events: [] }); setMsg('Progress restored.'); } else setMsg('That does not look like a CodeQuest save.');
           }}>Import</button>
         </div>
         {msg && <p class="small" role="status">{msg}</p>}

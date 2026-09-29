@@ -48,7 +48,7 @@ export const bundle: LessonBundle = {
       xpReward: 30, coinReward: 5,
     },
     {
-      id: 'py-07-safe-range', title: 'Safe Pressure', mode: 'challenge', language: 'python', skillIds: ['py.logic', 'py.input'], concepts: ['and', 'range check', 'float'], difficulty: 2, context: 'engineering',
+      id: 'py-07-safe-range', objectiveId: 'py-obj-range-check', title: 'Safe Pressure', mode: 'challenge', language: 'python', skillIds: ['py.logic', 'py.input'], concepts: ['and', 'range check', 'float'], difficulty: 2, context: 'engineering',
       prompt: text('A boiler is safe when its pressure is between `60` and `100` (both ends included). Read a pressure reading and print `True` if it is safe, otherwise `False`.', 'Readings may include decimals like `59.5`.'),
       expectedBehavior: 'Prints True or False for any reading. Boundaries 60 and 100 count as safe.',
       sampleInput: ['85'],
@@ -80,5 +80,24 @@ export const bundle: LessonBundle = {
       ],
       xpReward: 60, coinReward: 10,
     },
+    {
+      id: 'py-07-oven-window', objectiveId: 'py-obj-range-check', title: 'Oven Window', mode: 'challenge', language: 'python', skillIds: ['py.logic', 'py.input'], concepts: ['and', 'range check', 'float'], difficulty: 2, context: 'manufacturing',
+      prompt: text('A baking line is in spec when the oven temperature is between `180` and `220` degrees (both ends included). Read a temperature and print `True` if it is in spec, otherwise `False`.', 'Readings may include decimals like `179.5`.'),
+      expectedBehavior: 'Prints True or False for any reading. 180 and 220 are in spec.',
+      sampleInput: ['200'],
+      starterCode: '',
+      hints: ['Convert the reading to a number that can have a decimal part.', 'Two conditions must both hold: not too cold and not too hot.', 'Join two comparisons with `and`. Think about whether the limits themselves should pass.'],
+      checks: [
+        { kind: 'output', name: 'Reading 200', stdin: ['200'], expect: 'True' },
+        { kind: 'output', name: 'Lower limit', stdin: ['180'], expect: 'True', visible: false, feedback: 'What should happen exactly at the lower limit?' },
+        { kind: 'output', name: 'Upper limit', stdin: ['220'], expect: 'True', visible: false, feedback: 'What should happen exactly at the upper limit?' },
+        { kind: 'output', name: 'Just above', stdin: ['220.5'], expect: 'False', visible: false },
+        { kind: 'output', name: 'Just below', stdin: ['179.5'], expect: 'False', visible: false },
+      ],
+      xpReward: 45, coinReward: 8,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-range-check', title: 'Check a value lies inside a range', summary: 'Combine two comparisons to test that a number is between limits, including the limits.' },
   ],
 };

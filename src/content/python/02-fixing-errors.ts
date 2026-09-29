@@ -63,7 +63,7 @@ export const bundle: LessonBundle = {
       xpReward: 35, coinReward: 6,
     },
     {
-      id: 'py-02-stray-spaces', title: 'The Arm Test', mode: 'challenge', language: 'python', skillIds: ['py.debugging'], concepts: ['IndentationError', 'reading tracebacks'], difficulty: 2, context: 'general',
+      id: 'py-02-stray-spaces', objectiveId: 'py-obj-indentation', title: 'The Arm Test', mode: 'challenge', language: 'python', skillIds: ['py.debugging'], concepts: ['IndentationError', 'reading tracebacks'], difficulty: 2, context: 'general',
       prompt: text('Bolt’s arm test script crashes as soon as it starts. Find out why and fix it so it prints these four lines:', '`Checking left arm`\n`Left arm OK`\n`Checking right arm`\n`Right arm OK`', 'Do not rewrite it from scratch; work out what is wrong.'),
       expectedBehavior: 'Four lines, as listed.',
       starterCode: 'print("Checking left arm")\n    print("Left arm OK")\nprint("Checking right arm")\n    print("Right arm OK")\n',
@@ -75,5 +75,17 @@ export const bundle: LessonBundle = {
       checks: [{ kind: 'output', name: 'Four lines print', expect: 'Checking left arm\nLeft arm OK\nChecking right arm\nRight arm OK' }],
       xpReward: 45, coinReward: 8,
     },
+    {
+      id: 'py-02-tidy-log', objectiveId: 'py-obj-indentation', title: 'Tidy the Log Script', mode: 'challenge', language: 'python', skillIds: ['py.debugging'], concepts: ['IndentationError', 'reading tracebacks'], difficulty: 2, context: 'software',
+      prompt: text('A startup script for a small server refuses to run. It should print four lines:', '`Loading config`\n`Config OK`\n`Starting server`\n`Server OK`', 'Work out why Python rejects it, and fix it without rewriting it from scratch.'),
+      expectedBehavior: 'Four lines, as listed.',
+      starterCode: 'print("Loading config")\n  print("Config OK")\nprint("Starting server")\n  print("Server OK")\n',
+      hints: ['Run it and read the name of the error. It tells you what kind of mistake this is.', 'Look at the very start of each line. Which lines begin with spaces?', 'In this script no line should start with any spaces at all.'],
+      checks: [{ kind: 'output', name: 'Four lines print', expect: 'Loading config\nConfig OK\nStarting server\nServer OK' }],
+      xpReward: 45, coinReward: 8,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-indentation', title: 'Fix an indentation error', summary: 'Read an IndentationError and repair the spaces at the start of lines.' },
   ],
 };

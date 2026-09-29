@@ -23,9 +23,24 @@ interface Props {
   challenge: Challenge;
   onReady: () => void;
   onGoAcademy: () => void;
+  /** Present when another variant of this objective exists: switches to a DIFFERENT problem on the same idea. */
+  onSwitchVariant?: () => void;
+  variantInfo?: { index: number; total: number };
 }
 
-export function ChallengeStepView({ challenge: c, onReady, onGoAcademy }: Props) {
+/** A plain-language account of what went wrong, without revealing the answer. */
+function explainFailure(result: GradeResult): string {
+  if (result.timedOut) return 'Your program ran for too long, so it was stopped. That usually means a loop that never ends.';
+  if (result.error) return 'Python could not run your program at all, so none of the tests ran. Read the error above, look at the line it points to, fix that one thing, and submit again.';
+  const failed = result.checks.filter((k) => !k.passed);
+  const hidden = failed.filter((k) => !k.visible).length;
+  const parts = [`${failed.length} of ${result.checks.length} check${result.checks.length === 1 ? '' : 's'} did not pass.`];
+  if (hidden > 0) parts.push(`${hidden} of the failures ${hidden === 1 ? 'is a hidden case' : 'are hidden cases'}: inputs the example does not show, such as boundaries, zero, or negative numbers. Think about which situations your code has not considered.`);
+  if (failed.length > hidden) parts.push('For the visible checks, compare what yours produced with what was expected.');
+  return parts.join(' ');
+}
+
+export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitchVariant, variantInfo }: Props) {
   const game = useGame();
   const progress = game.save.learning.challenges[c.id];
   const [code, setCode] = useState(progress?.code ?? c.starterCode);
@@ -116,6 +131,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy }: Props)
       <section class="briefing panel" data-testid="briefing" data-challenge={c.id}>
         <div class="brief-head">
           <span class={`mode-badge ${c.mode}`} data-testid="mode-badge">{MODE_LABEL[c.mode]}</span>
+          {variantInfo && variantInfo.total > 1 && <span class="variant-chip" data-testid="variant-chip" title="Another problem testing the same idea in a different setting">Problem {variantInfo.index + 1} of {variantInfo.total}</span>}
           <span class="difficulty" title={`Difficulty ${c.difficulty} of 5`}>{'●'.repeat(c.difficulty)}{'○'.repeat(5 - c.difficulty)}</span>
         </div>
         <h2>{c.title}</h2>
@@ -156,12 +172,17 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy }: Props)
                 {c.mode === 'learning' && <p class="small" data-testid="evidence-note">Recorded as <strong>guided</strong> practice. Independent evidence comes from challenges with less guidance.</p>}
                 {c.mode !== 'learning' && progress && progress.hintsUsed === 0 && <p class="small" data-testid="evidence-note">Solved with no hints, and that is recorded as <strong>independent</strong> evidence.</p>}
                 {c.mode !== 'learning' && progress && progress.hintsUsed > 0 && <p class="small" data-testid="evidence-note">Solved with {progress.hintsUsed} hint{progress.hintsUsed > 1 ? 's' : ''}. That is recorded honestly. Replay without hints for stronger evidence.</p>}
+                {onSwitchVariant && <p><button class="btn small" onClick={onSwitchVariant} data-testid="other-variant">🔀 Practise this idea with a different problem</button></p>}
               </>
             ) : (
               <>
                 <h3>❌ Not quite yet</h3>
                 {result.error && <pre class="console-error">{result.error}</pre>}
-                {!result.timedOut && !result.error && <p class="small muted">Your code ran, but some checks did not pass. −{FOCUS_LOSS_PER_FAILED_SUBMIT} Focus.</p>}
+                <p class="small" data-testid="failure-explanation">{explainFailure(result)} <span class="muted">(−{FOCUS_LOSS_PER_FAILED_SUBMIT} Focus)</span></p>
+                <div class="retry-actions">
+                  <p class="small muted">Fix your code and submit again, open a hint, or try a different problem on the same idea. This attempt stays in your record either way.</p>
+                  {onSwitchVariant && <button class="btn small" onClick={onSwitchVariant} data-testid="other-variant">🔀 Try a different problem on this idea</button>}
+                </div>
               </>
             )}
             {result.error === '' && (

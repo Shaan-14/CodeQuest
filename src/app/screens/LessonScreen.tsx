@@ -1,5 +1,7 @@
-import { useState } from 'preact/hooks';
-import { getChallenge, getLesson } from '../../content';
+import { useEffect, useState } from 'preact/hooks';
+import { getChallenge, getLesson, variantsOf } from '../../content';
+import { objectiveOf } from '../../content/helpers';
+import { hasAlternate, pickVariant } from '../../game/selection';
 import { advanceStep, completeLesson } from '../../game/actions';
 import { getStore, useGame } from '../../game/store';
 import { ChallengeStepView } from '../components/ChallengeStep';
@@ -10,6 +12,36 @@ interface Props {
   lessonId: string;
   onExit: () => void;
   onGoAcademy: () => void;
+}
+
+/**
+ * One challenge slot in a lesson. The lesson names a primary challenge, but the slot can switch to another
+ * VARIANT of the same objective (same idea, same difficulty, different problem). The step counts as done once
+ * ANY variant is passed; every failed attempt on the way stays in the evidence log.
+ */
+function ChallengeSlot({ primaryId, onReady, onGoAcademy }: { primaryId: string; onReady: () => void; onGoAcademy: () => void }) {
+  const game = useGame();
+  const primary = getChallenge(primaryId)!;
+  const objectiveId = objectiveOf(primary);
+  const variants = variantsOf(objectiveId);
+  const [currentId, setCurrentId] = useState(() => {
+    const started = variants.find((v) => (game.save.learning.challenges[v.id]?.attempts ?? 0) > 0 && !game.save.learning.challenges[v.id]?.passed);
+    return started?.id ?? primaryId;
+  });
+  const anyPassed = variants.some((v) => game.save.learning.challenges[v.id]?.passed);
+  useEffect(() => { if (anyPassed) onReady(); }, [anyPassed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const challenge = getChallenge(currentId)!;
+  const switchVariant = hasAlternate(objectiveId, currentId) ? () => setCurrentId(pickVariant(getStore().save, objectiveId, currentId)!.id) : undefined;
+  return (
+    <ChallengeStepView
+      key={currentId}
+      challenge={challenge}
+      onReady={onReady}
+      onGoAcademy={onGoAcademy}
+      onSwitchVariant={switchVariant}
+      variantInfo={{ index: variants.findIndex((v) => v.id === currentId), total: variants.length }}
+    />
+  );
 }
 
 export function LessonScreen({ lessonId, onExit, onGoAcademy }: Props) {
@@ -55,7 +87,7 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy }: Props) {
           </section>
         )}
         {step.kind === 'demo' && <DemoStepView step={step} onReady={markReady} />}
-        {step.kind === 'challenge' && <ChallengeStepView challenge={getChallenge(step.challengeId)!} onReady={markReady} onGoAcademy={onGoAcademy} />}
+        {step.kind === 'challenge' && <ChallengeSlot primaryId={step.challengeId} onReady={markReady} onGoAcademy={onGoAcademy} />}
       </div>
 
       <div class="lesson-foot">

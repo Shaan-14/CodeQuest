@@ -47,7 +47,7 @@ export const bundle: LessonBundle = {
       xpReward: 35, coinReward: 5,
     },
     {
-      id: 'py-11-average', title: 'Average Reading', mode: 'challenge', language: 'python', skillIds: ['py.loops', 'py.input', 'py.numbers'], concepts: ['for', 'accumulator', 'average', 'float'], difficulty: 3, context: 'data analysis',
+      id: 'py-11-average', objectiveId: 'py-obj-for-average', title: 'Average Reading', mode: 'challenge', language: 'python', skillIds: ['py.loops', 'py.input', 'py.numbers'], concepts: ['for', 'accumulator', 'average', 'float'], difficulty: 3, context: 'data analysis',
       prompt: text('A sensor sends five readings, one per line. Read all five and print their average like this:', '`Average: 30.0`', '(for readings 10, 20, 30, 40, 50). Readings are whole numbers.'),
       expectedBehavior: 'Reads exactly five numbers and prints their average.',
       sampleInput: ['10', '20', '30', '40', '50'],
@@ -61,5 +61,23 @@ export const bundle: LessonBundle = {
       constraints: [{ type: 'requires', node: 'For', message: 'Use a for loop, since you know there are five readings.' }],
       xpReward: 65, coinReward: 10,
     },
+    {
+      id: 'py-11-daily-output', objectiveId: 'py-obj-for-average', title: 'Average Daily Output', mode: 'challenge', language: 'python', skillIds: ['py.loops', 'py.input', 'py.numbers'], concepts: ['for', 'accumulator', 'average', 'float'], difficulty: 3, context: 'manufacturing',
+      prompt: text('A line supervisor enters the number of units built on each of the last `4` days, one per line. Read all four and print the average like this:', '`Average: 12.5`', '(for 10, 12, 13, 15). Counts are whole numbers.'),
+      expectedBehavior: 'Reads exactly four numbers and prints their average.',
+      sampleInput: ['10', '12', '13', '15'],
+      starterCode: '',
+      hints: ['An average is the total divided by the count. What do you need to keep track of while reading?', 'Keep a running total that starts at zero and grows by each value.', 'Loop 4 times, reading one number each time and adding it to the total. Divide once after the loop.'],
+      checks: [
+        { kind: 'output', name: '10,12,13,15', stdin: ['10', '12', '13', '15'], expect: 'Average: 12.5' },
+        { kind: 'output', name: '4,4,4,4', stdin: ['4', '4', '4', '4'], expect: 'Average: 4.0', visible: false },
+        { kind: 'output', name: '0,0,0,1', stdin: ['0', '0', '0', '1'], expect: 'Average: 0.25', visible: false },
+      ],
+      constraints: [{ type: 'requires', node: 'For', message: 'Use a for loop, since you know there are four values.' }],
+      xpReward: 65, coinReward: 10,
+    },
+  ],
+  objectives: [
+    { id: 'py-obj-for-average', title: 'Read several values and average them', summary: 'Use a for loop to read a known number of values, accumulate them, and divide.' },
   ],
 };
