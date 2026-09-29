@@ -39,8 +39,14 @@ import { bundle as s05 } from './sql/05-group';
 import { bundle as s06 } from './sql/06-joins';
 import { bundle as s07 } from './sql/07-left-join';
 import { bundle as s08 } from './sql/08-case';
+import { bundle as s09 } from './sql/09-modify';
+import { bundle as s10 } from './sql/10-subqueries';
+import { bundle as s11 } from './sql/11-window';
+import { bundle as s12 } from './sql/12-design';
+import { bundle as s13 } from './sql/13-integrity-performance';
+import { bundle as s14 } from './sql/14-independent-sql';
 
-export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, s01, s02, s03, s04, s05, s06, s07, s08];
+export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14];
 
 export const lessons: Lesson[] = bundles.map((b) => b.lesson);
 export const challenges: Challenge[] = bundles.flatMap((b) => b.challenges);

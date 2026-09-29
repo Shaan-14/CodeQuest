@@ -4,7 +4,7 @@ export const text = (...paragraphs: string[]): string => paragraphs.join('\n\n')
 /** The learning objective a challenge tests (variants share one). Defaults to the challenge's own id. */
 export const objectiveOf = (c: { id: string; objectiveId?: string }): string => c.objectiveId ?? c.id;
 
-import type { CallCheck, Challenge, Json, OutputCheck, SqlResultCheck } from './schema';
+import type { CallCheck, Challenge, Json, OutputCheck, SqlResultCheck, SqlStateCheck } from './schema';
 
 /** Every database id a challenge touches (fixtures, default db, and per-check overrides). */
 export function databasesUsedBy(c: Pick<Challenge, 'db' | 'fixtures' | 'checks'>): string[] {
@@ -39,4 +39,15 @@ export function sqlRes(expectQuery: string, db: string, hiddenTwins: string[] = 
     { kind: 'sqlResult', name: 'Your query on this database', db, expectQuery, ...opts },
     ...hiddenTwins.map((twin, i): SqlResultCheck => ({ kind: 'sqlResult', name: `Hidden data ${i + 1}`, db: twin, expectQuery, visible: false, feedback: 'Your query gave the right answer here but not on different data. Does it depend on something that is not in the question?', ...opts })),
   ];
+}
+
+/** SQL state checks: after the player's script, `verify` must give the same rows as after the reference script, on visible and hidden data. */
+export function sqlState(reference: string, verify: string | string[], db: string, hiddenTwins: string[] = [], opts: Partial<SqlStateCheck> = {}): SqlStateCheck[] {
+  const verifies = Array.isArray(verify) ? verify : [verify];
+  const out: SqlStateCheck[] = [];
+  verifies.forEach((v, i) => {
+    out.push({ kind: 'sqlState', name: verifies.length > 1 ? `The data afterwards (part ${i + 1})` : 'The data afterwards', db, reference, verify: v, ...opts });
+    hiddenTwins.forEach((twin, j) => out.push({ kind: 'sqlState', name: `Hidden data ${j + 1}`, db: twin, reference, verify: v, visible: false, feedback: 'Your statements gave the right result here but not on different data. Do they depend on something that is not in the task?', ...opts }));
+  });
+  return out;
 }

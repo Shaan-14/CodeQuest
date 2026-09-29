@@ -173,4 +173,143 @@ export const solutionsSql: Record<string, { valid: string[]; wrong: string[] }> 
     valid: ["SELECT machine_id, SUM(CASE WHEN kind = 'repair' THEN 1 ELSE 0 END) AS repairs, SUM(CASE WHEN kind <> 'repair' THEN 1 ELSE 0 END) AS other FROM maintenance_events GROUP BY machine_id;", "SELECT machine_id, COUNT(CASE WHEN kind = 'repair' THEN 1 END) AS repairs, COUNT(*) - COUNT(CASE WHEN kind = 'repair' THEN 1 END) AS other FROM maintenance_events GROUP BY machine_id"],
     wrong: ["SELECT machine_id, SUM(CASE WHEN kind = 'repair' THEN 1 ELSE 0 END) AS repairs, COUNT(*) AS other FROM maintenance_events GROUP BY machine_id;", "SELECT machine_id, SUM(CASE WHEN kind = 'repair' THEN 1 ELSE 0 END) AS repairs, SUM(CASE WHEN kind = 'routine' THEN 1 ELSE 0 END) AS other FROM maintenance_events GROUP BY machine_id;", "SELECT machine_id, SUM(CASE WHEN kind = 'repair' THEN 1 ELSE 0 END) AS other, SUM(CASE WHEN kind <> 'repair' THEN 1 ELSE 0 END) AS repairs FROM maintenance_events GROUP BY machine_id;"]
   },
+
+  // ------------------------------------------------------------- 09 modify
+  'sql-09-new-customer': {
+    valid: ["INSERT INTO customers (name, city, joined_on) VALUES ('Priya Nair', 'Bath', '2024-02-01');", "INSERT INTO customers VALUES (NULL, 'Priya Nair', 'Bath', '2024-02-01');", "INSERT INTO customers (id, name, city, joined_on) VALUES ((SELECT MAX(id) + 1 FROM customers), 'Priya Nair', 'Bath', '2024-02-01');"],
+    wrong: ["INSERT INTO customers (name, city, joined_on) VALUES ('Priya Nair', 'York', '2024-02-01');", "INSERT INTO customers (name, city, joined_on) VALUES ('Priya Nair', 'Bath', '2024-02-01'); INSERT INTO customers (name, city, joined_on) VALUES ('Priya Nair', 'Bath', '2024-02-01');", "UPDATE customers SET city = 'Bath' WHERE id = 1;"]
+  },
+  'sql-09-tool-price-rise': {
+    valid: ["UPDATE products SET price = price * 1.1 WHERE category = 'Tools';", "UPDATE products SET price = price + price * 0.1 WHERE category = 'Tools'"],
+    wrong: ['UPDATE products SET price = price * 1.1;', "UPDATE products SET price = price * 1.01 WHERE category = 'Tools';", "UPDATE products SET price = price * 1.1 WHERE category = 'Safety';"]
+  },
+  'sql-09-fill-costs': {
+    valid: ['UPDATE maintenance_events SET cost = 0 WHERE cost IS NULL;', 'UPDATE maintenance_events SET cost = COALESCE(cost, 0);'],
+    wrong: ['UPDATE maintenance_events SET cost = 0 WHERE cost = NULL;', 'UPDATE maintenance_events SET cost = 0;', 'UPDATE maintenance_events SET cost = 0 WHERE cost IS NOT NULL;']
+  },
+  'sql-09-remove-pending': {
+    valid: ["DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status = 'pending'); DELETE FROM orders WHERE status = 'pending';", "DELETE FROM order_items WHERE EXISTS (SELECT 1 FROM orders o WHERE o.id = order_items.order_id AND o.status = 'pending'); DELETE FROM orders WHERE status = 'pending';"],
+    wrong: ["DELETE FROM orders WHERE status = 'pending';", "DELETE FROM order_items; DELETE FROM orders WHERE status = 'pending';", "DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status = 'pending');"]
+  },
+  'sql-09-retire-machine': {
+    valid: ['DELETE FROM maintenance_events WHERE machine_id = 9; DELETE FROM machines WHERE id = 9;'],
+    wrong: ['DELETE FROM machines WHERE id = 9;', 'DELETE FROM maintenance_events; DELETE FROM machines WHERE id = 9;', 'DELETE FROM maintenance_events WHERE machine_id = 9;']
+  },
+  // ------------------------------------------------------------- 10 subqueries
+  'sql-10-above-average': {
+    valid: ['SELECT name, price FROM products WHERE price > (SELECT AVG(price) FROM products);', 'SELECT name, price FROM products, (SELECT AVG(price) AS a FROM products) WHERE price > a'],
+    wrong: ['SELECT name, price FROM products WHERE price > 50;', 'SELECT name, price FROM products WHERE price < (SELECT AVG(price) FROM products);', 'SELECT name, price FROM products WHERE price > (SELECT MAX(price) FROM products);']
+  },
+  'sql-10-costly-machines': {
+    valid: ['SELECT name FROM machines WHERE purchase_cost > (SELECT AVG(purchase_cost) FROM machines);', 'SELECT name FROM machines m WHERE m.purchase_cost > (SELECT SUM(purchase_cost) * 1.0 / COUNT(*) FROM machines)'],
+    wrong: ['SELECT name FROM machines WHERE purchase_cost > 50000;', 'SELECT name FROM machines WHERE purchase_cost < (SELECT AVG(purchase_cost) FROM machines);', 'SELECT name FROM machines WHERE purchase_cost > (SELECT MIN(purchase_cost) FROM machines);']
+  },
+  'sql-10-returning-customers': {
+    valid: ["SELECT name FROM customers WHERE id IN (SELECT customer_id FROM orders WHERE status = 'returned');", "SELECT name FROM customers c WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id AND o.status = 'returned')"],
+    wrong: ['SELECT name FROM customers WHERE id IN (SELECT customer_id FROM orders);', "SELECT name FROM customers WHERE id IN (SELECT customer_id FROM orders WHERE status = 'paid');", "SELECT c.name FROM customers c JOIN orders o ON o.customer_id = c.id WHERE o.status = 'returned';"]
+  },
+  'sql-10-avg-orders-per-customer': {
+    valid: ['WITH per_customer AS (SELECT customer_id, COUNT(*) AS n FROM orders GROUP BY customer_id) SELECT AVG(n) AS avg_orders FROM per_customer;', 'WITH n AS (SELECT COUNT(*) AS c FROM orders GROUP BY customer_id) SELECT AVG(c) AS avg_orders FROM n'],
+    wrong: ['WITH per AS (SELECT c.id, COUNT(o.id) AS n FROM customers c LEFT JOIN orders o ON o.customer_id = c.id GROUP BY c.id) SELECT AVG(n) AS avg_orders FROM per;', 'SELECT COUNT(*) * 1.0 / COUNT(DISTINCT customer_id) AS avg_orders FROM orders;', 'WITH per AS (SELECT customer_id, COUNT(*) AS n FROM orders GROUP BY customer_id) SELECT MAX(n) AS avg_orders FROM per;']
+  },
+  'sql-10-avg-machine-downtime': {
+    valid: ['WITH per_machine AS (SELECT machine_id, SUM(downtime_hours) AS t FROM maintenance_events GROUP BY machine_id) SELECT AVG(t) AS avg_total_downtime FROM per_machine;'],
+    wrong: ['WITH per AS (SELECT machine_id, AVG(downtime_hours) AS t FROM maintenance_events GROUP BY machine_id) SELECT AVG(t) AS avg_total_downtime FROM per;', 'WITH per AS (SELECT machine_id, SUM(downtime_hours) AS t FROM maintenance_events GROUP BY machine_id) SELECT SUM(t) AS avg_total_downtime FROM per;']
+  },
+  // ------------------------------------------------------------- 11 window
+  'sql-11-rank-prices': {
+    valid: ['SELECT name, category, price, RANK() OVER (PARTITION BY category ORDER BY price DESC) AS price_rank FROM products;', 'SELECT name, category, price, ROW_NUMBER() OVER (PARTITION BY category ORDER BY price DESC) AS price_rank FROM products'],
+    wrong: ['SELECT name, category, price, RANK() OVER (ORDER BY price DESC) AS price_rank FROM products;', 'SELECT name, category, price, RANK() OVER (PARTITION BY category ORDER BY price) AS price_rank FROM products;', 'SELECT name, category, price, RANK() OVER (PARTITION BY category ORDER BY price DESC) FROM products;']
+  },
+  'sql-11-top-per-category': {
+    valid: ['SELECT category, name, price FROM (SELECT category, name, price, ROW_NUMBER() OVER (PARTITION BY category ORDER BY price DESC) AS rn FROM products) WHERE rn = 1;', 'WITH r AS (SELECT category, name, price, RANK() OVER (PARTITION BY category ORDER BY price DESC) AS rk FROM products) SELECT category, name, price FROM r WHERE rk = 1'],
+    wrong: ['SELECT category, name, price FROM (SELECT category, name, price, ROW_NUMBER() OVER (PARTITION BY category ORDER BY price DESC) AS rn FROM products) WHERE rn = 2;', 'SELECT category, name, price FROM (SELECT category, name, price, ROW_NUMBER() OVER (PARTITION BY category ORDER BY price) AS rn FROM products) WHERE rn = 1;', 'SELECT category, name, MAX(price) FROM products GROUP BY category;']
+  },
+  'sql-11-top-machine-per-dept': {
+    valid: ['SELECT department_id, name, purchase_cost FROM (SELECT department_id, name, purchase_cost, ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY purchase_cost DESC) AS rn FROM machines) WHERE rn = 1;', 'WITH r AS (SELECT department_id, name, purchase_cost, RANK() OVER (PARTITION BY department_id ORDER BY purchase_cost DESC) AS rk FROM machines) SELECT department_id, name, purchase_cost FROM r WHERE rk = 1'],
+    wrong: ['SELECT department_id, name, purchase_cost FROM (SELECT department_id, name, purchase_cost, ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY purchase_cost) AS rn FROM machines) WHERE rn = 1;', 'SELECT department_id, name, purchase_cost FROM (SELECT department_id, name, purchase_cost, ROW_NUMBER() OVER (ORDER BY purchase_cost DESC) AS rn FROM machines) WHERE rn = 1;']
+  },
+  'sql-11-running-downtime': {
+    valid: ['SELECT machine_id, id, event_date, SUM(downtime_hours) OVER (PARTITION BY machine_id ORDER BY event_date, id) AS running_total FROM maintenance_events ORDER BY machine_id, event_date, id;', 'SELECT machine_id, id, event_date, SUM(downtime_hours) OVER (PARTITION BY machine_id ORDER BY event_date, id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_total FROM maintenance_events ORDER BY 1, 3, 2'],
+    wrong: ['SELECT machine_id, id, event_date, SUM(downtime_hours) OVER (ORDER BY event_date, id) AS running_total FROM maintenance_events ORDER BY machine_id, event_date, id;', 'SELECT machine_id, id, event_date, SUM(downtime_hours) OVER (PARTITION BY machine_id) AS running_total FROM maintenance_events ORDER BY machine_id, event_date, id;', 'SELECT machine_id, id, event_date, downtime_hours AS running_total FROM maintenance_events ORDER BY machine_id, event_date, id;']
+  },
+  'sql-11-orders-so-far': {
+    valid: ['SELECT id, ordered_on, COUNT(*) OVER (ORDER BY ordered_on, id) AS orders_so_far FROM orders ORDER BY ordered_on, id;', 'SELECT id, ordered_on, ROW_NUMBER() OVER (ORDER BY ordered_on, id) AS orders_so_far FROM orders ORDER BY ordered_on, id'],
+    wrong: ['SELECT id, ordered_on, COUNT(*) OVER () AS orders_so_far FROM orders ORDER BY ordered_on, id;', 'SELECT id, ordered_on, COUNT(*) OVER (ORDER BY ordered_on) AS orders_so_far FROM orders ORDER BY ordered_on, id;', 'SELECT id, ordered_on, ROW_NUMBER() OVER (ORDER BY id) AS orders_so_far FROM orders ORDER BY ordered_on, id;']
+  },
+  // ------------------------------------------------------------- 12 design
+  'sql-12-first-table': {
+    valid: ['CREATE TABLE parts (id INTEGER PRIMARY KEY, name TEXT NOT NULL, unit_cost REAL);', 'create table parts (\n  id integer primary key autoincrement,\n  name text not null,\n  unit_cost numeric\n)'],
+    wrong: ['CREATE TABLE parts (id INTEGER PRIMARY KEY, name TEXT, unit_cost REAL);', 'CREATE TABLE parts (id INTEGER, name TEXT NOT NULL, unit_cost REAL);', 'CREATE TABLE part (id INTEGER PRIMARY KEY, name TEXT NOT NULL, unit_cost REAL);']
+  },
+  'sql-12-staff-table': {
+    valid: ['CREATE TABLE staff (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, salary REAL CHECK (salary >= 0));', 'CREATE TABLE staff (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, salary INTEGER, UNIQUE (email), CHECK (salary IS NULL OR salary >= 0));'],
+    wrong: ['CREATE TABLE staff (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, salary REAL CHECK (salary >= 0));', 'CREATE TABLE staff (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, salary REAL);', 'CREATE TABLE staff (id INTEGER PRIMARY KEY, name TEXT, email TEXT NOT NULL UNIQUE, salary REAL CHECK (salary >= 0));', 'CREATE TABLE staff (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, salary REAL CHECK (salary >= 0));', 'CREATE TABLE staff (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, salary REAL NOT NULL CHECK (salary >= 0));']
+  },
+  'sql-12-shipments-table': {
+    valid: ['CREATE TABLE shipments (id INTEGER PRIMARY KEY, tracking_code TEXT NOT NULL UNIQUE, weight_kg REAL NOT NULL CHECK (weight_kg > 0), status TEXT NOT NULL);', 'CREATE TABLE shipments (id INTEGER PRIMARY KEY, tracking_code TEXT NOT NULL, weight_kg REAL NOT NULL, status TEXT NOT NULL, UNIQUE (tracking_code), CHECK (weight_kg > 0));'],
+    wrong: ['CREATE TABLE shipments (id INTEGER PRIMARY KEY, tracking_code TEXT NOT NULL UNIQUE, weight_kg REAL NOT NULL CHECK (weight_kg >= 0), status TEXT NOT NULL);', 'CREATE TABLE shipments (id INTEGER PRIMARY KEY, tracking_code TEXT NOT NULL, weight_kg REAL NOT NULL CHECK (weight_kg > 0), status TEXT NOT NULL);', 'CREATE TABLE shipments (id INTEGER PRIMARY KEY, tracking_code TEXT NOT NULL UNIQUE, weight_kg REAL CHECK (weight_kg > 0), status TEXT NOT NULL);', 'CREATE TABLE shipments (id INTEGER PRIMARY KEY, tracking_code TEXT UNIQUE, weight_kg REAL NOT NULL CHECK (weight_kg > 0), status TEXT NOT NULL);']
+  },
+  'sql-12-library': {
+    valid: ['CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT NOT NULL); CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL); CREATE TABLE loans (id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES members(id), book_id INTEGER NOT NULL REFERENCES books(id), borrowed_on TEXT);', 'CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT); CREATE TABLE loans (id INTEGER PRIMARY KEY, member_id INTEGER, book_id INTEGER, borrowed_on TEXT, FOREIGN KEY (member_id) REFERENCES members(id), FOREIGN KEY (book_id) REFERENCES books(id));'],
+    wrong: ['CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT); CREATE TABLE loans (id INTEGER PRIMARY KEY, member_id INTEGER, book_id INTEGER, borrowed_on TEXT);', 'CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT); CREATE TABLE loans (id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), book_id INTEGER, borrowed_on TEXT);', 'CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE loans (id INTEGER PRIMARY KEY, member_id INTEGER REFERENCES members(id), book_title TEXT, borrowed_on TEXT);']
+  },
+  'sql-12-enrolments': {
+    valid: ['CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT NOT NULL); CREATE TABLE courses (id INTEGER PRIMARY KEY, title TEXT NOT NULL); CREATE TABLE enrolments (id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id), course_id INTEGER NOT NULL REFERENCES courses(id), enrolled_on TEXT);', 'CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE courses (id INTEGER PRIMARY KEY, title TEXT); CREATE TABLE enrolments (id INTEGER PRIMARY KEY, student_id INTEGER, course_id INTEGER, enrolled_on TEXT, FOREIGN KEY (student_id) REFERENCES students(id), FOREIGN KEY (course_id) REFERENCES courses(id));'],
+    wrong: ['CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE courses (id INTEGER PRIMARY KEY, title TEXT); CREATE TABLE enrolments (id INTEGER PRIMARY KEY, student_id INTEGER, course_id INTEGER, enrolled_on TEXT);', 'CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE courses (id INTEGER PRIMARY KEY, title TEXT); CREATE TABLE enrolments (id INTEGER PRIMARY KEY, student_id INTEGER REFERENCES students(id), course_id INTEGER, enrolled_on TEXT);', 'CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT, course TEXT);']
+  },
+  'sql-12-normalize-sales': {
+    valid: ['CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, city TEXT); CREATE TABLE sales (id INTEGER PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), product TEXT, qty INTEGER, price REAL); INSERT INTO customers (name, city) SELECT DISTINCT customer_name, customer_city FROM sales_flat; INSERT INTO sales SELECT f.id, c.id, f.product, f.qty, f.price FROM sales_flat f JOIN customers c ON c.name = f.customer_name AND c.city = f.customer_city;'],
+    wrong: ['CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, city TEXT); CREATE TABLE sales (id INTEGER PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), product TEXT, qty INTEGER, price REAL); INSERT INTO customers (name, city) SELECT customer_name, customer_city FROM sales_flat; INSERT INTO sales SELECT f.id, c.id, f.product, f.qty, f.price FROM sales_flat f JOIN customers c ON c.name = f.customer_name;', 'CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, city TEXT); CREATE TABLE sales (id INTEGER PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), product TEXT, qty INTEGER, price REAL); INSERT INTO customers (name, city) SELECT DISTINCT customer_name, customer_city FROM sales_flat;', 'CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, city TEXT); CREATE TABLE sales (id INTEGER PRIMARY KEY, customer_id INTEGER, product TEXT, qty INTEGER, price REAL); INSERT INTO customers (name, city) SELECT DISTINCT customer_name, customer_city FROM sales_flat; INSERT INTO sales SELECT f.id, c.id, f.product, f.qty, f.price FROM sales_flat f JOIN customers c ON c.name = f.customer_name;']
+  },
+  'sql-12-factory-design': {
+    valid: ['CREATE TABLE machines (id INTEGER PRIMARY KEY, name TEXT NOT NULL); CREATE TABLE technicians (id INTEGER PRIMARY KEY, name TEXT NOT NULL); CREATE TABLE maintenance_events (id INTEGER PRIMARY KEY, machine_id INTEGER NOT NULL REFERENCES machines(id), technician_id INTEGER NOT NULL REFERENCES technicians(id), event_date TEXT, downtime_hours REAL); CREATE TABLE production_runs (id INTEGER PRIMARY KEY, machine_id INTEGER NOT NULL REFERENCES machines(id), run_date TEXT, units INTEGER);'],
+    wrong: ['CREATE TABLE machines (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE technicians (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE maintenance_events (id INTEGER PRIMARY KEY, machine_id INTEGER REFERENCES machines(id), technician_id INTEGER REFERENCES technicians(id)); CREATE TABLE production_runs (id INTEGER PRIMARY KEY, machine_id INTEGER, units INTEGER);', 'CREATE TABLE maintenance_events (id INTEGER PRIMARY KEY, machine_name TEXT, technician_name TEXT, event_date TEXT, downtime_hours REAL); CREATE TABLE production_runs (id INTEGER PRIMARY KEY, machine_name TEXT, units INTEGER); CREATE TABLE machines (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE technicians (id INTEGER PRIMARY KEY, name TEXT);', 'CREATE TABLE machines (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE maintenance_events (id INTEGER PRIMARY KEY, machine_id INTEGER REFERENCES machines(id), technician TEXT); CREATE TABLE production_runs (id INTEGER PRIMARY KEY, machine_id INTEGER REFERENCES machines(id), units INTEGER);']
+  },
+  'sql-12-clinic-design': {
+    valid: ['CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT NOT NULL, born TEXT); CREATE TABLE doctors (id INTEGER PRIMARY KEY, name TEXT NOT NULL, speciality TEXT); CREATE TABLE appointments (id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL REFERENCES patients(id), doctor_id INTEGER NOT NULL REFERENCES doctors(id), starts_at TEXT NOT NULL);'],
+    wrong: ['CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE doctors (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE appointments (id INTEGER PRIMARY KEY, patient_id INTEGER, doctor_id INTEGER, starts_at TEXT);', 'CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE appointments (id INTEGER PRIMARY KEY, patient_id INTEGER REFERENCES patients(id), doctor_name TEXT, starts_at TEXT);', 'CREATE TABLE appointments (patient_name TEXT, doctor_name TEXT, starts_at TEXT);']
+  },
+  // ------------------------------------------------------------- 13 indexes / transactions
+  'sql-13-add-index': {
+    valid: ['CREATE INDEX idx_orders_customer ON orders(customer_id);', 'CREATE INDEX i ON orders (customer_id, status);'],
+    wrong: ['CREATE INDEX idx_orders_status ON orders(status);', 'CREATE INDEX idx_orders_date ON orders(ordered_on);', 'CREATE INDEX idx_orders_status_customer ON orders(status, customer_id);']
+  },
+  'sql-13-index-events': {
+    valid: ['CREATE INDEX idx_me_machine ON maintenance_events(machine_id);', 'CREATE INDEX idx_me_both ON maintenance_events(machine_id, kind);', 'CREATE INDEX idx_me_kind_machine ON maintenance_events(kind, machine_id);'],
+    wrong: ['CREATE INDEX idx_me_date ON maintenance_events(event_date);', 'CREATE INDEX idx_me_downtime ON maintenance_events(downtime_hours);']
+  },
+  'sql-13-index-orders': {
+    valid: ['CREATE INDEX idx_o_customer ON orders(customer_id);', 'CREATE INDEX idx_o_cs ON orders(customer_id, status);', 'CREATE INDEX idx_o_sc ON orders(status, customer_id);'],
+    wrong: ['CREATE INDEX idx_o_date ON orders(ordered_on);', 'CREATE INDEX idx_o_id ON orders(id, ordered_on);']
+  },
+  'sql-13-two-queries': {
+    valid: ['CREATE INDEX i1 ON production_runs(machine_id); CREATE INDEX i2 ON production_runs(run_date);', 'CREATE INDEX i1 ON production_runs(machine_id, run_date); CREATE INDEX i2 ON production_runs(run_date);'],
+    wrong: ['CREATE INDEX i1 ON production_runs(machine_id);', 'CREATE INDEX i2 ON production_runs(run_date);', 'CREATE INDEX i3 ON production_runs(units);']
+  },
+  'sql-13-two-queries-market': {
+    valid: ['CREATE INDEX i1 ON products(category); CREATE INDEX i2 ON customers(city);'],
+    wrong: ['CREATE INDEX i1 ON products(category);', 'CREATE INDEX i2 ON customers(city);', 'CREATE INDEX i3 ON products(price); CREATE INDEX i4 ON customers(name);']
+  },
+  'sql-13-undo-mistake': {
+    valid: ["BEGIN;\nUPDATE products SET stock = 0;\nROLLBACK;\nBEGIN;\nUPDATE products SET stock = 0 WHERE category = 'Fasteners';\nCOMMIT;", "BEGIN;\nUPDATE products SET stock = 0;\nROLLBACK;\nUPDATE products SET stock = 0 WHERE category = 'Fasteners';"],
+    wrong: ['BEGIN;\nUPDATE products SET stock = 0;\nCOMMIT;', 'BEGIN;\nUPDATE products SET stock = 0;\nROLLBACK;', "BEGIN;\nUPDATE products SET stock = 0;\nUPDATE products SET stock = 0 WHERE category = 'Fasteners';\nROLLBACK;\nCOMMIT;", "BEGIN;\nUPDATE products SET stock = 0;\nROLLBACK;\nUPDATE products SET stock = 0 WHERE category <> 'Fasteners';"]
+  },
+  'sql-13-undo-delete': {
+    valid: ["BEGIN;\nDELETE FROM maintenance_events;\nROLLBACK;\nDELETE FROM maintenance_events WHERE kind = 'inspection';", "BEGIN;\nDELETE FROM maintenance_events;\nROLLBACK;\nBEGIN;\nDELETE FROM maintenance_events WHERE kind = 'inspection';\nCOMMIT;"],
+    wrong: ['BEGIN;\nDELETE FROM maintenance_events;\nCOMMIT;', 'BEGIN;\nDELETE FROM maintenance_events;\nROLLBACK;', "BEGIN;\nDELETE FROM maintenance_events;\nROLLBACK;\nDELETE FROM maintenance_events WHERE kind <> 'inspection';"]
+  },
+  // ------------------------------------------------------------- 14 independent
+  'sql-14-loyal-customers': {
+    valid: ["SELECT c.name, COUNT(*) AS orders FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.id HAVING COUNT(DISTINCT substr(o.ordered_on, 1, 7)) >= 3 AND SUM(o.status = 'returned') = 0 ORDER BY orders DESC, c.name;"],
+    wrong: ["SELECT c.name, COUNT(*) AS orders FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.id HAVING COUNT(DISTINCT substr(o.ordered_on, 1, 7)) >= 3 ORDER BY orders DESC, c.name;", "SELECT c.name, COUNT(*) AS orders FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.id HAVING COUNT(DISTINCT substr(o.ordered_on, 1, 7)) >= 3 AND SUM(o.status = 'returned') = 0 ORDER BY c.name;", "SELECT c.name, COUNT(*) AS orders FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY c.id HAVING COUNT(*) >= 3 AND SUM(o.status = 'returned') = 0 ORDER BY orders DESC, c.name;", "SELECT c.name, COUNT(*) AS orders FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status <> 'returned' GROUP BY c.id HAVING COUNT(DISTINCT substr(o.ordered_on, 1, 7)) >= 3 ORDER BY orders DESC, c.name;"]
+  },
+  'sql-14-costly-departments': {
+    valid: ['SELECT d.name, COUNT(*) AS machines, AVG(m.purchase_cost) AS avg_cost FROM machines m JOIN departments d ON d.id = m.department_id GROUP BY d.id HAVING avg_cost > (SELECT AVG(purchase_cost) FROM machines) ORDER BY avg_cost DESC;'],
+    wrong: ['SELECT d.name, COUNT(*) AS machines, AVG(m.purchase_cost) AS avg_cost FROM machines m JOIN departments d ON d.id = m.department_id GROUP BY d.id ORDER BY avg_cost DESC;', 'SELECT d.name, COUNT(*) AS machines, AVG(m.purchase_cost) AS avg_cost FROM machines m JOIN departments d ON d.id = m.department_id GROUP BY d.id HAVING avg_cost > (SELECT MAX(purchase_cost) / 2 FROM machines) ORDER BY avg_cost DESC;', 'SELECT d.name, COUNT(*) AS machines, AVG(m.purchase_cost) AS avg_cost FROM machines m JOIN departments d ON d.id = m.department_id GROUP BY d.id HAVING avg_cost > (SELECT AVG(purchase_cost) FROM machines) ORDER BY avg_cost;', 'SELECT d.name, COUNT(*) AS machines, SUM(m.purchase_cost) AS avg_cost FROM machines m JOIN departments d ON d.id = m.department_id GROUP BY d.id HAVING avg_cost > (SELECT AVG(purchase_cost) FROM machines) ORDER BY avg_cost DESC;']
+  },
+  'sql-14-design-bikeshare': {
+    valid: ['CREATE TABLE bikes (id INTEGER PRIMARY KEY, serial TEXT NOT NULL UNIQUE); CREATE TABLE stations (id INTEGER PRIMARY KEY, name TEXT NOT NULL, capacity INTEGER CHECK (capacity > 0)); CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE); CREATE TABLE trips (id INTEGER PRIMARY KEY, bike_id INTEGER NOT NULL REFERENCES bikes(id), member_id INTEGER NOT NULL REFERENCES members(id), start_station_id INTEGER NOT NULL REFERENCES stations(id), end_station_id INTEGER REFERENCES stations(id), started_at TEXT NOT NULL, ended_at TEXT);'],
+    wrong: ['CREATE TABLE bikes (id INTEGER PRIMARY KEY, serial TEXT); CREATE TABLE stations (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE members (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE trips (id INTEGER PRIMARY KEY, bike_id INTEGER, member_id INTEGER, start_station_id INTEGER, started_at TEXT);', 'CREATE TABLE trips (id INTEGER PRIMARY KEY, member_name TEXT NOT NULL, bike_serial TEXT, station_name TEXT, started_at TEXT);', 'CREATE TABLE bikes (id INTEGER PRIMARY KEY); CREATE TABLE stations (id INTEGER PRIMARY KEY); CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE); CREATE TABLE trips (id INTEGER PRIMARY KEY, bike_id INTEGER REFERENCES bikes(id), member_id INTEGER REFERENCES members(id));']
+  },
 };
