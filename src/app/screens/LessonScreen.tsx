@@ -46,7 +46,7 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy }: Props) {
         </ol>
       </div>
 
-      <div class="lesson-body" key={index}>
+      <div class="lesson-body" key={index} data-step={index} data-kind={step.kind}>
         {step.kind === 'teach' && (
           <section class="panel teach">
             <div class="mode-badge learn">Learning</div>

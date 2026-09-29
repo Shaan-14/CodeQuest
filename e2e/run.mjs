@@ -78,18 +78,16 @@ async function openLesson(page, id) {
   await tid(page, `lesson-${id}`).locator('button').click();
   await tid(page, 'lesson').waitFor();
 }
-async function nextStepKind(page) {
-  // Wait until the step has rendered something we recognise.
-  await page.locator('.teach, [data-testid=run]').first().waitFor();
-  if (await page.locator('.teach').count()) return 'teach';
-  if (await tid(page, 'submit').count()) return 'challenge';
-  return 'demo';
+async function stepKind(page, n) {
+  const body = page.locator(`.lesson-body[data-step="${n}"]`);
+  await body.waitFor();
+  return body.getAttribute('data-kind');
 }
 /** Plays a whole lesson with the reference solutions (no hints, so evidence is independent). */
 async function playLesson(page, id, { solutionIndex = 0 } = {}) {
   await openLesson(page, id);
   for (let guard = 0; guard < 20; guard++) {
-    const kind = await nextStepKind(page);
+    const kind = await stepKind(page, guard);
     if (kind === 'challenge') {
       const cid = await tid(page, 'briefing').getAttribute('data-challenge');
       await setCode(page, solutions[cid].valid[solutionIndex] ?? solutions[cid].valid[0]);
