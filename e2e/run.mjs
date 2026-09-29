@@ -42,7 +42,8 @@ const eq = (a, b, msg) => assert(a === b, `${msg}: expected ${JSON.stringify(b)}
 /* ---------------- helpers ---------------- */
 let browser;
 async function newPage(viewport = { width: 1280, height: 900 }) {
-  const ctx = await browser.newContext({ viewport });
+  // reducedMotion: the game honours it, and Playwright cannot click elements with endless CSS animations.
+  const ctx = await browser.newContext({ viewport, reducedMotion: 'reduce' });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
