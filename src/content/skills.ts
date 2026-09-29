@@ -43,7 +43,7 @@ export const skills: Skill[] = [
   S('ps.research', 'Finding tools in documentation', 'Problem Solving', ['py.modules'], req(2, 2, 3, 2, 2)),
   // ---- Testing
   S('test.assertions', 'Assertions & test cases', 'Testing', ['py.functions'], req(1, 1, 2)),
-  S('test.writing', 'Writing tests that catch bugs', 'Testing', ['test.assertions'], req(2, 2, 3, 2, 2)),
+  S('test.writing', 'Writing tests that catch bugs', 'Testing', ['test.assertions'], req(2, 2, 3, 1, 2)),
   // ---- Software design
   S('sd.functions', 'Designing functions', 'Software Design', ['py.functions'], req(3, 3, 3, 3, 3)),
   S('sd.oop', 'Classes & objects', 'Software Design', ['sd.functions'], req(3, 3, 3, 3, 3)),

@@ -26,8 +26,13 @@ import { bundle as l18 } from './python/18-function-design';
 import { bundle as l19 } from './python/19-debugging';
 import { bundle as l20 } from './python/20-files';
 import { bundle as l21 } from './python/21-cleaning';
+import { bundle as l22 } from './python/22-libraries';
+import { bundle as l23 } from './python/23-testing';
+import { bundle as l24 } from './python/24-oop';
+import { bundle as l25 } from './python/25-projects';
+import { bundle as l26 } from './python/26-independent-python';
 
-export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21];
+export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26];
 
 export const lessons: Lesson[] = bundles.map((b) => b.lesson);
 export const challenges: Challenge[] = bundles.flatMap((b) => b.challenges);
