@@ -82,7 +82,7 @@ textarea { font-family: var(--mono); resize: vertical; }
 .avatar { display: block; }
 
 /* ---------- world map ---------- */
-.worldmap-wrap { padding: 1rem; max-width: 1000px; margin: 0 auto; }
+.worldmap-wrap { padding: 1rem 1rem 2rem; max-width: 1000px; margin: 0 auto; }
 .screen-title { text-align: center; color: var(--gold); text-shadow: 2px 2px 0 var(--edge); }
 .worldmap { position: relative; aspect-ratio: 16 / 10; min-height: 340px; width: 100%; border: 4px solid var(--edge); border-radius: 14px; box-shadow: inset 0 0 0 3px var(--line), 0 8px 0 var(--edge); overflow: hidden;
   background: radial-gradient(ellipse 40% 34% at 50% 68%, #4f8a4a 0 60%, transparent 62%), radial-gradient(ellipse 22% 26% at 24% 70%, #6a9a3f 0 60%, transparent 62%), radial-gradient(ellipse 20% 22% at 74% 72%, #5b8f52 0 60%, transparent 62%), radial-gradient(ellipse 24% 24% at 66% 36%, #4a5a78 0 60%, transparent 62%), radial-gradient(ellipse 22% 20% at 32% 40%, #6f6a4a 0 60%, transparent 62%), radial-gradient(ellipse 16% 20% at 14% 40%, #5a4a7a 0 60%, transparent 62%), radial-gradient(ellipse 18% 22% at 48% 16%, #8a93a8 0 60%, transparent 62%), linear-gradient(#1c4a7a, #12335a); }
@@ -147,7 +147,7 @@ textarea { font-family: var(--mono); resize: vertical; }
 .station-meta { display: grid; justify-items: end; gap: .2rem; }
 
 /* ---------- lesson ---------- */
-.lesson { max-width: 1240px; margin: 0 auto; padding: 1rem; width: 100%; }
+.lesson { max-width: 1240px; margin: 0 auto; padding: 1rem 1rem 4.5rem; width: 100%; }
 .lesson-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .lesson-head h1 { flex: 1; font-size: 1.3rem; margin: 0; }
 .dots { display: flex; gap: .4rem; list-style: none; margin: 0; padding: 0; }
@@ -231,6 +231,7 @@ pre.console-error { background: #0a0c1a; padding: .5rem; border-radius: 6px; whi
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   .two-col { grid-template-columns: 1fr; } .briefing { position: static; max-height: none; }
+  .hud { position: static; } .lesson-foot { position: static; background: none; } .lesson { padding-bottom: 1rem; }
   .grid-2 { grid-template-columns: 1fr; } .hud-nav { margin-left: 0; width: 100%; justify-content: space-between; } .hud-nav button { flex: 1; }
   .robot { flex-direction: column; text-align: center; } .station button { flex-wrap: wrap; } .station-meta { justify-items: start; }
   .avatar-picker { grid-template-columns: repeat(2, 1fr); } .kbd { display: none; } .diff { grid-template-columns: 1fr; }

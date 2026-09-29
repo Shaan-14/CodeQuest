@@ -26,6 +26,7 @@ function findChromium() {
 let passed = 0;
 const failures = [];
 async function test(name, fn) {
+  if (process.env.E2E_ONLY && !name.includes(process.env.E2E_ONLY)) return; // e.g. E2E_ONLY=focus
   const t = Date.now();
   try {
     await fn();
@@ -200,6 +201,7 @@ async function main() {
       await tid(page, 'submit').click();
       await page.locator('.result.pass').waitFor({ timeout: 30000 });
       assert(await xp(page) > xp0, 'xp increased');
+      assert((await tid(page, 'evidence-note').innerText()).includes('guided'), 'learning mode must be recorded as guided, never independent');
       await page.screenshot({ path: SHOTS + '09-challenge-pass.png' });
       assert(await tid(page, 'toasts').locator('.toast').count() > 0, 'toasts shown');
       eq(page.errors.length, 0, 'console errors: ' + page.errors.join('|'));

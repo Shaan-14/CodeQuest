@@ -107,6 +107,12 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy }: Props)
 
   return (
     <div class="two-col">
+      {exhausted && (
+        <div class="focus-warning panel" role="alert" data-testid="focus-warning">
+          You are out of <strong>Focus</strong>, so you cannot submit right now. You can still Run code and think. Rest at the Academy, or use a snack or tea from your pack.
+          <button class="btn small" onClick={onGoAcademy}>Go to the Academy</button>
+        </div>
+      )}
       <section class="briefing panel" data-testid="briefing" data-challenge={c.id}>
         <div class="brief-head">
           <span class={`mode-badge ${c.mode}`} data-testid="mode-badge">{MODE_LABEL[c.mode]}</span>
@@ -147,8 +153,9 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy }: Props)
               <>
                 <h3>✅ Passed!</h3>
                 {payout && <p data-testid="payout">{payout.xp > 0 ? `+${payout.xp} XP` : 'No new XP (already earned)'}{payout.coins > 0 ? `, +${payout.coins} coins` : ''} <span class="muted small">({payout.note})</span></p>}
-                {progress && progress.hintsUsed === 0 && <p class="small">Solved with no hints, and that is recorded as independent evidence.</p>}
-                {progress && progress.hintsUsed > 0 && <p class="small">Solved with {progress.hintsUsed} hint{progress.hintsUsed > 1 ? 's' : ''}. That is recorded honestly. Replay without hints for stronger evidence.</p>}
+                {c.mode === 'learning' && <p class="small" data-testid="evidence-note">Recorded as <strong>guided</strong> practice. Independent evidence comes from challenges with less guidance.</p>}
+                {c.mode !== 'learning' && progress && progress.hintsUsed === 0 && <p class="small" data-testid="evidence-note">Solved with no hints, and that is recorded as <strong>independent</strong> evidence.</p>}
+                {c.mode !== 'learning' && progress && progress.hintsUsed > 0 && <p class="small" data-testid="evidence-note">Solved with {progress.hintsUsed} hint{progress.hintsUsed > 1 ? 's' : ''}. That is recorded honestly. Replay without hints for stronger evidence.</p>}
               </>
             ) : (
               <>
@@ -186,12 +193,6 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy }: Props)
         {passed && hintsUsed > 0 && <button class="btn" onClick={replay} data-testid="replay">🔁 Replay without hints</button>}
       </Workbench>
 
-      {exhausted && (
-        <div class="focus-warning panel" role="alert" data-testid="focus-warning">
-          You are out of <strong>Focus</strong>, so you cannot submit right now. You can still Run code and think. Rest at the Academy, or use a snack or tea from your pack.
-          <button class="btn small" onClick={onGoAcademy}>Go to the Academy</button>
-        </div>
-      )}
       {notes && <Modal title="My notes" onClose={() => setNotes(false)} wide><NotesList /></Modal>}
     </div>
   );
