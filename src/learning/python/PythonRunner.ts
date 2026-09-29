@@ -6,14 +6,18 @@
  * and start a fresh one. The cost is a few seconds of re-initialisation (the WASM is cached by the
  * browser), which we accept for a simple, robust design that needs no special server headers.
  */
-import type { CodeRunner, GradeRequest, GradeResult, RunRequest, RunResult } from '../runner';
+import type { CodeRunner, GradeRequest, GradeResult, Language, RunRequest, RunResult } from '../runner';
+import type { SandboxResult } from './pythonEngine';
 
 export type RunnerStatus = 'idle' | 'loading' | 'ready' | 'running' | 'restarting';
 
 type Pending = { resolve: (value: unknown) => void; reject: (reason: Error) => void };
 
 export class PythonRunner implements CodeRunner {
-  readonly language = 'python' as const;
+  /** One worker runs both Python and SQL (SQLite is CPython's own sqlite3 module). */
+  supports(language: Language): boolean {
+    return language === 'python' || language === 'sql';
+  }
   private worker: Worker | null = null;
   private ready: Promise<void> | null = null;
   private pending = new Map<number, Pending>();
@@ -67,7 +71,7 @@ export class PythonRunner implements CodeRunner {
     return this.ready;
   }
 
-  private async call<T>(type: 'run' | 'grade', payload: unknown, timeoutMs: number, onTimeout: () => T): Promise<T> {
+  private async call<T>(type: 'run' | 'grade' | 'sandbox', payload: unknown, timeoutMs: number, onTimeout: () => T): Promise<T> {
     await this.warmUp();
     const worker = this.worker!;
     const id = this.nextId++;
@@ -99,7 +103,8 @@ export class PythonRunner implements CodeRunner {
   }
 
   run(request: RunRequest): Promise<RunResult> {
-    return this.call<RunResult>('run', { code: request.code, stdin: request.stdin }, request.timeoutMs, () => ({
+    const { language, code, stdin, fixtures, sources, db } = request;
+    return this.call<RunResult>('run', { language, code, stdin, fixtures, sources, db }, request.timeoutMs, () => ({
       ok: false,
       stdout: '',
       error: timeoutText(request.timeoutMs),
@@ -108,8 +113,14 @@ export class PythonRunner implements CodeRunner {
     }));
   }
 
+  /** Returns null if the query timed out (the database state is then left unchanged by the caller). */
+  sandbox(sql: string, state: string | null, setup: string, timeoutMs = 8000): Promise<SandboxResult | null> {
+    return this.call<SandboxResult | null>('sandbox', { sql, state, setup }, timeoutMs, () => null);
+  }
+
   grade(request: GradeRequest): Promise<GradeResult> {
-    const payload = { code: request.code, checks: request.checks, constraints: request.constraints };
+    const { language, code, checks, constraints, fixtures, sources, db } = request;
+    const payload = { language, code, checks, constraints, fixtures, sources, db };
     return this.call<GradeResult>('grade', payload, request.timeoutMs, () => ({
       passed: false,
       error: timeoutText(request.timeoutMs),
@@ -118,6 +129,11 @@ export class PythonRunner implements CodeRunner {
       constraints: [],
     }));
   }
+}
+
+/** Free-play database: run SQL against the persisted state and return the new state (see SqlSandbox). */
+export interface SandboxRunner {
+  sandbox(sql: string, state: string | null, setup: string, timeoutMs: number): Promise<SandboxResult | null>;
 }
 
 function timeoutText(ms: number): string {

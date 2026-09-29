@@ -1,22 +1,41 @@
 /**
  * Code execution contract. See ARCHITECTURE.md ("Code execution").
  *
- * Implemented: Python via Pyodide in a Web Worker (src/learning/python/).
+ * Implemented: Python AND SQL, both by the same Pyodide worker (src/learning/python/): SQL runs on real
+ * SQLite through CPython's `sqlite3` module, so Python + SQL integration uses the genuine library.
  * Planned, each behind this same interface and isolated in a Worker/sandboxed iframe:
- *  - JavaScript, SQL (SQLite-WASM), R (webR), HTML/CSS (sandboxed iframe DOM checks).
+ *  - JavaScript, R (webR), HTML/CSS (sandboxed iframe DOM checks).
  * New languages add a runner + new `Check` kinds in content/schema.ts; the UI and mastery
  * system do not change.
  */
-import type { Check, Constraint } from '../content/schema';
+import type { Check, Constraint, Fixtures, Json } from '../content/schema';
 
 export type Language = 'javascript' | 'python' | 'sql' | 'r' | 'html-css';
 
 export interface RunRequest {
   language: Language;
   code: string;
-  /** Lines returned by successive input() calls. */
+  /** Lines returned by successive input() calls (Python). */
   stdin?: string[];
+  /** Files/databases available to the program (Python). */
+  fixtures?: Fixtures;
+  /** Database ids -> setup SQL, for every database the request refers to (fixtures.databases or `db`). */
+  sources?: Record<string, string>;
+  /** Database to run against (SQL). */
+  db?: string;
   timeoutMs: number;
+}
+
+/** One executed SQL statement: a result table, or an OK with an affected-row count. */
+export interface SqlStatementResult {
+  sql: string;
+  kind: 'rows' | 'ok';
+  columns?: string[];
+  rows?: Json[][];
+  /** Rows fetched (capped) / more rows existed than were fetched. */
+  total?: number;
+  more?: boolean;
+  rowcount?: number;
 }
 
 export interface RunResult {
@@ -28,6 +47,8 @@ export interface RunResult {
   timedOut: boolean;
   /** Output was cut off because the program printed too much. */
   truncated: boolean;
+  /** SQL runs: one entry per statement executed. */
+  sql?: SqlStatementResult[];
 }
 
 export interface GradeRequest {
@@ -35,6 +56,10 @@ export interface GradeRequest {
   code: string;
   checks: Check[];
   constraints?: Constraint[];
+  fixtures?: Fixtures;
+  sources?: Record<string, string>;
+  /** Default database id for SQL checks. */
+  db?: string;
   timeoutMs: number;
 }
 
@@ -60,7 +85,8 @@ export interface GradeResult {
 }
 
 export interface CodeRunner {
-  readonly language: Language;
+  /** Languages this runner can execute. */
+  supports(language: Language): boolean;
   /** Execute the code and return its output/errors (the Run button). */
   run(request: RunRequest): Promise<RunResult>;
   /** Evaluate the code against behavioural checks (the Submit button). */

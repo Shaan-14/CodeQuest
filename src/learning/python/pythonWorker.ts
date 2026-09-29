@@ -44,6 +44,8 @@ ctx.onmessage = async (event: MessageEvent) => {
       post({ id: msg.id, result: engine.run(msg.payload) });
     } else if (msg.type === 'grade' && engine) {
       post({ id: msg.id, result: engine.grade(msg.payload) });
+    } else if (msg.type === 'sandbox' && engine) {
+      post({ id: msg.id, result: engine.sandbox(msg.payload) });
     }
   } catch (e) {
     post({ id: msg.id, type: 'error', message: String(e) });
