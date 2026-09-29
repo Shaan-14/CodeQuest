@@ -1,0 +1,6 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+body { margin: 0; background: #12141c; color: #e6e8ef; }
+.shell { max-width: 48rem; margin: 0 auto; padding: 2rem 1rem; }
+.shell h1 { margin-top: 0; }
+.panel { background: #1c1f2b; border: 1px solid #2c3042; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+.muted { color: #9aa0b4; }
