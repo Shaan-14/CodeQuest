@@ -1,42 +1,159 @@
 /**
  * Versioned save data in localStorage.
- * Every change to SaveData's shape must bump SAVE_VERSION and add a migration step.
- * Storage is injected so this module is testable without a browser.
+ *
+ * RULES (see CLAUDE.md): any change to SaveData's shape must bump SAVE_VERSION and add a step to
+ * MIGRATIONS so existing players keep their progress. Storage is injected so this module is
+ * testable without a browser. A save that cannot be read is copied to BACKUP_KEY before being
+ * replaced, so it is never silently destroyed.
  */
+import type { EvidenceRecord } from '../learning/mastery';
+
 export const SAVE_KEY = 'codequest.save';
-export const SAVE_VERSION = 1;
+export const BACKUP_KEY = 'codequest.save.backup';
+export const SAVE_VERSION = 2;
+
+export interface PlayerProfile {
+  name: string;
+  /** Avatar preset id (see content/avatars). */
+  avatar: string;
+  createdAt: string;
+}
+
+export interface QuestState {
+  status: 'active' | 'complete';
+  acceptedAt: string;
+  completedAt?: string;
+}
+
+export interface LessonProgress {
+  /** Index of the furthest step reached. */
+  stepIndex: number;
+  completed: boolean;
+  completedAt?: string;
+}
+
+export interface ChallengeProgress {
+  /** Graded submissions. */
+  attempts: number;
+  /** Times the Run button was used. */
+  runs: number;
+  /** Hints revealed so far (highest hint index + 1). Never decreases. */
+  hintsUsed: number;
+  passed: boolean;
+  passedAt?: string;
+  /** Hints used on the best (least-assisted) passing attempt. */
+  bestHintsUsed?: number;
+  /** XP/coins already paid out for this challenge (so a later, more independent solve pays the difference only). */
+  xpAwarded: number;
+  coinsAwarded: number;
+  /** Active time spent on this challenge in ms. */
+  timeMs: number;
+  /** Player's last code draft. */
+  code?: string;
+}
 
 export interface SaveData {
   version: number;
-  /** Placeholder counter used by the shell to verify persistence. Remove when real state exists. */
-  launches: number;
+  player: PlayerProfile | null;
+  stats: { xp: number; coins: number; focus: number };
+  inventory: Record<string, number>;
+  quests: Record<string, QuestState>;
+  achievements: Record<string, string>;
+  unlockedAreas: string[];
+  learning: {
+    lessons: Record<string, LessonProgress>;
+    challenges: Record<string, ChallengeProgress>;
+  };
+  /** One-off story/tutorial flags, e.g. 'mentor-intro'. */
+  flags: Record<string, boolean>;
+  evidence: EvidenceRecord[];
+}
+
+export const MAX_FOCUS = 100;
+
+export function newSave(): SaveData {
+  return {
+    version: SAVE_VERSION,
+    player: null,
+    stats: { xp: 0, coins: 0, focus: MAX_FOCUS },
+    inventory: {},
+    quests: {},
+    achievements: {},
+    unlockedAreas: [],
+    learning: { lessons: {}, challenges: {} },
+    flags: {},
+    evidence: [],
+  };
 }
 
 export type KeyValueStore = Pick<Storage, 'getItem' | 'setItem'>;
 
-export function newSave(): SaveData {
-  return { version: SAVE_VERSION, launches: 0 };
-}
+/** Each entry upgrades a save FROM the keyed version to the next one. */
+const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string, unknown>> = {
+  // v1 was the Phase 0 shell (`{ version, launches }`): it held no player data, so start fresh.
+  1: () => ({ ...newSave() }),
+};
 
-/** Migrate older saves forward. Returns null if the data is unusable. */
 export function migrate(raw: unknown): SaveData | null {
   if (typeof raw !== 'object' || raw === null) return null;
-  const data = raw as Partial<SaveData>;
-  if (data.version === SAVE_VERSION && typeof data.launches === 'number') return data as SaveData;
-  // Future: if (data.version === 1) { ...upgrade to 2... }
-  return null;
+  let data = raw as Record<string, unknown>;
+  const start = data.version;
+  if (typeof start !== 'number' || start < 1 || start > SAVE_VERSION) return null;
+  for (let version = start; version < SAVE_VERSION; version++) {
+    const step = MIGRATIONS[version];
+    if (!step) return null;
+    data = step(data);
+    data.version = version + 1;
+  }
+  return isSaveData(data) ? data : null;
 }
 
-export function loadSave(store: KeyValueStore): SaveData {
+function isSaveData(d: Record<string, unknown>): d is SaveData & Record<string, unknown> {
+  return (
+    typeof d.stats === 'object' && d.stats !== null &&
+    typeof d.learning === 'object' && d.learning !== null &&
+    Array.isArray(d.evidence) && Array.isArray(d.unlockedAreas) &&
+    typeof d.inventory === 'object' && typeof d.quests === 'object' &&
+    typeof d.achievements === 'object' && typeof d.flags === 'object'
+  );
+}
+
+export type LoadStatus = 'loaded' | 'new' | 'recovered';
+
+export function loadSave(store: KeyValueStore): { save: SaveData; status: LoadStatus } {
+  let text: string | null = null;
   try {
-    const text = store.getItem(SAVE_KEY);
-    if (text) return migrate(JSON.parse(text)) ?? newSave();
+    text = store.getItem(SAVE_KEY);
   } catch {
-    // Corrupt or inaccessible storage: fall back to a fresh save.
+    return { save: newSave(), status: 'new' };
   }
-  return newSave();
+  if (!text) return { save: newSave(), status: 'new' };
+  try {
+    const save = migrate(JSON.parse(text));
+    if (save) return { save, status: 'loaded' };
+  } catch {
+    /* fall through to backup */
+  }
+  try {
+    store.setItem(BACKUP_KEY, text);
+  } catch {
+    /* nothing more we can do */
+  }
+  return { save: newSave(), status: 'recovered' };
 }
 
 export function writeSave(store: KeyValueStore, data: SaveData): void {
   store.setItem(SAVE_KEY, JSON.stringify(data));
+}
+
+/** Export/import as text so players can back up progress by hand. */
+export function exportSave(data: SaveData): string {
+  return JSON.stringify(data);
+}
+export function importSave(text: string): SaveData | null {
+  try {
+    return migrate(JSON.parse(text));
+  } catch {
+    return null;
+  }
 }
