@@ -20,7 +20,7 @@ import { TrackArea } from './screens/TrackArea';
 import { TrainingGrounds } from './screens/TrainingGrounds';
 import { WorldMap } from './screens/WorldMap';
 
-const areaForLesson = (lessonId: string): string => (lessonId.startsWith('sql-') ? 'data-center' : lessonId.startsWith('de-') ? 'pipeline-works' : 'training-grounds');
+const areaForLesson = (lessonId: string): string => (lessonId.startsWith('sql-') ? 'data-center' : lessonId.startsWith('de-') ? 'pipeline-works' : lessonId.startsWith('web-') ? 'web-district' : 'training-grounds');
 
 /** Screens are plain state, not URL routes: the game is a single-page app with one save. */
 type Route = { name: 'map' } | { name: 'area'; id: string } | { name: 'lesson'; id: string } | { name: 'practice' } | { name: 'daily' } | { name: 'daily-run' } | { name: 'practice-run'; challengeId: string };
@@ -63,6 +63,7 @@ export function App() {
     else if (area.id === 'training-grounds') screen = <TrainingGrounds onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onPracticeYard={() => setRoute({ name: 'practice' })} />;
     else if (area.id === 'data-center') screen = <TrackArea areaId="data-center" title="🗄️ Database District" theme="data" track="sql" giver="Architect Vex" blurb="Real SQL on real databases: ask questions, change data safely, and design tables that protect themselves." sandbox {...trackProps} />;
     else if (area.id === 'pipeline-works') screen = <TrackArea areaId="pipeline-works" title="🏭 Data Pipeline Works" theme="pipeline" track="data-eng" giver="Engineer Ori" blurb="Move data from raw files into databases without breaking anything, then combine Python and SQL." {...trackProps} />;
+    else if (area.id === 'web-district') screen = <TrackArea areaId="web-district" title="🌐 Web District" theme="web" track="web" giver="Builder Nia" givers={['Builder Nia', 'Coder Kiran', 'Gatekeeper Marlo']} blurb="HTML, CSS, JavaScript and APIs in a real browser sandbox: build pages, make them respond, and connect them to data." {...trackProps} />;
     else if (area.id === 'library') screen = <Library />;
     else if (area.id === 'shop') screen = <Shop />;
     else screen = <Locked area={area} onMap={toMap} />;

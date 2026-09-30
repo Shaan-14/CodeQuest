@@ -27,6 +27,7 @@ export const bundle: LessonBundle = {
         notice: 'A media query does not create a new page: it switches a group of rules on when its condition is true. Everything outside it is the base layout.',
       }),
       { kind: 'challenge', challengeId: 'web-12-responsive-cards' },
+      { kind: 'challenge', challengeId: 'web-12-mobile-inventory' },
       { kind: 'challenge', challengeId: 'web-12-pseudo-warnings' },
     ],
   },
@@ -51,7 +52,7 @@ export const bundle: LessonBundle = {
       xpReward: 60, coinReward: 9,
     }),
     wc({
-      id: 'web-12-mobile-inventory', objectiveId: 'web-obj-responsive', title: 'Mobile Inventory List', mode: 'challenge', skillIds: ['web.layout'], concepts: ['media queries', 'responsive', 'flexbox', 'fluid layout'], difficulty: 3, context: 'retail',
+      id: 'web-12-mobile-inventory', objectiveId: 'web-obj-responsive', title: 'Mobile Inventory List', mode: 'challenge', skillIds: ['web.layout'], concepts: ['media queries', 'responsive', 'fluid layout', 'layout'], difficulty: 3, context: 'retail',
       prompt: text('An inventory item (`.item`) shows a picture box (`.pic`, 80x80) beside its text (`.info`). On screens **at least 600px wide** the picture sits on the left with 16px between it and the text, which takes the remaining width. On **narrower** screens the picture sits **above** the text (stacked, with the text using the full width). The picture box must never shrink, and the page must not scroll sideways.'),
       expectedBehavior: 'Side by side when wide, stacked when narrow; the picture stays 80x80.',
       starterFiles: files('<div class="item">\n  <div class="pic">img</div>\n  <div class="info"><h3>Safety gloves</h3><p>Stock: 120 pairs, aisle 4, shelf C. Reorder when below 40.</p></div>\n</div>\n', '.item { border: 1px solid #ccc; padding: 8px; }\n.pic { width: 80px; height: 80px; background: #99a; }\n'), tabs: ['css'],
@@ -65,7 +66,7 @@ export const bundle: LessonBundle = {
       xpReward: 85, coinReward: 13,
     }),
     wc({
-      id: 'web-12-portfolio-header', objectiveId: 'web-obj-responsive', title: 'Responsive Portfolio Header', mode: 'challenge', skillIds: ['web.layout'], concepts: ['media queries', 'responsive', 'flexbox', 'fluid layout'], difficulty: 3, context: 'personal',
+      id: 'web-12-portfolio-header', objectiveId: 'web-obj-responsive', title: 'Responsive Portfolio Header', mode: 'challenge', skillIds: ['web.layout'], concepts: ['media queries', 'responsive', 'fluid layout', 'layout'], difficulty: 3, context: 'personal',
       prompt: text('A portfolio page header (`.top`) has a `.brand` and a menu (`.menu`, a list of links). On screens **at least 640px wide** the brand is at the left and the menu at the far right, on one line, vertically centred. On **narrower** screens they stack with the brand first, both left-aligned, and the menu links each fill their own line. The hero image (`.hero`, 1200px wide in the file) must **never be wider than the screen**.'),
       expectedBehavior: 'Brand left, menu right when wide; stacked with full-width links when narrow; the hero image shrinks to fit.',
       starterFiles: files('<header class="top">\n  <div class="brand">Ada Reyes</div>\n  <ul class="menu">\n    <li><a href="#work">Work</a></li>\n    <li><a href="#about">About</a></li>\n    <li><a href="#contact">Contact</a></li>\n  </ul>\n</header>\n<div class="hero">hero image</div>\n', '.menu { list-style: none; margin: 0; padding: 0; }\n.brand { font-weight: 700; }\n.hero { width: 1200px; height: 200px; background: #cde; }\n'), tabs: ['css'],
@@ -79,7 +80,7 @@ export const bundle: LessonBundle = {
       xpReward: 85, coinReward: 13,
     }),
     wc({
-      id: 'web-12-scoreboard-mobile', objectiveId: 'web-obj-responsive', title: 'The Mobile Scoreboard', mode: 'challenge', skillIds: ['web.layout'], concepts: ['media queries', 'responsive', 'grid', 'fluid layout'], difficulty: 3, context: 'sports',
+      id: 'web-12-scoreboard-mobile', objectiveId: 'web-obj-responsive', title: 'The Mobile Scoreboard', mode: 'challenge', skillIds: ['web.layout'], concepts: ['media queries', 'responsive', 'fluid layout', 'layout'], difficulty: 3, context: 'sports',
       prompt: text('A scoreboard shows four team panels in `.board`. On screens **at least 800px wide** they are in **four equal columns**; on screens **from 500px to 799px** in **two columns**; and on screens **narrower than 500px** in **one column**. All layouts have 10px gaps and the page never scrolls sideways.'),
       expectedBehavior: 'Four, two, or one columns depending on width; 10px gaps; no sideways scroll.',
       starterFiles: files('<div class="board">\n  <div class="team">Owls 5</div>\n  <div class="team">Bears 3</div>\n  <div class="team">Cats 2</div>\n  <div class="team">Wolves 1</div>\n</div>\n', '.team { background: #223; color: #fff; padding: 12px; }\n'), tabs: ['css'],

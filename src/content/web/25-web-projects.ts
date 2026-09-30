@@ -49,7 +49,7 @@ export const bundle: LessonBundle = {
   ],
   challenges: [
     wc({
-      id: 'web-25-machine-dashboard', objectiveId: 'web-obj-app-api', title: 'Project: The Machine Shop Dashboard', mode: 'challenge', skillIds: ['web.apps', 'web.http', 'js.dom'], concepts: ['html', 'css', 'fetch', 'localStorage', 'state', 'accessibility'], difficulty: 4, context: 'manufacturing', project: true, api: true,
+      id: 'web-25-machine-dashboard', objectiveId: 'web-obj-app-api', title: 'Project: The Machine Shop Dashboard', mode: 'challenge', skillIds: ['web.apps', 'web.http', 'js.dom'], concepts: ['html', 'css', 'fetch', 'state', 'accessibility'], difficulty: 4, context: 'manufacturing', project: true, api: true,
       prompt: text(
         'Build a dashboard for the machine shop from `/api/machines`.',
         '**Structure.** A `main` containing an `h1` `Machine Shop`; a `nav` with a non-empty `aria-label` holding four buttons with the class `filter` and `data-status` of `all`, `running`, `idle`, `down` (in that order); a paragraph `#summary`; a paragraph `#state` that screen readers announce when it changes (`role="status"` or `aria-live`); and a list `#machines`.',
@@ -103,7 +103,7 @@ export const bundle: LessonBundle = {
       xpReward: 180, coinReward: 28,
     }),
     wc({
-      id: 'web-25-stats-explorer', objectiveId: 'web-obj-app-api', title: 'Project: The League Stats Explorer', mode: 'challenge', skillIds: ['web.apps', 'web.http', 'js.dom'], concepts: ['html', 'css', 'fetch', 'sorting', 'state', 'accessibility'], difficulty: 4, context: 'sports', project: true, api: true,
+      id: 'web-25-stats-explorer', objectiveId: 'web-obj-app-api', title: 'Project: The League Stats Explorer', mode: 'challenge', skillIds: ['web.apps', 'web.http', 'js.dom'], concepts: ['html', 'css', 'fetch', 'state', 'accessibility'], difficulty: 4, context: 'sports', project: true, api: true,
       prompt: text(
         'Build a league statistics explorer from `/api/teams` and `/api/players`.',
         '**Structure.** A `main` with `h1` `League Stats`; a select `#team` with a visible connected label; a status paragraph `#state` (`role="status"`); a paragraph `#count`; and a table `#players` with a `caption`, a header row whose cells are `th scope="col"`, and a `tbody`. The table has five columns: Name, Team, Pos, AVG, HR. The Name, AVG and HR headers each contain a `button` with `data-sort` of `name`, `batting_avg` and `home_runs`.',

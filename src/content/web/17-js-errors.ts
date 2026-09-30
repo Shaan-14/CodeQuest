@@ -26,6 +26,7 @@ export const bundle: LessonBundle = {
         notice: 'The loop runs one time too many (`<=` instead of `<`), so `readings[3]` is `undefined` and `.value` on it throws a TypeError. The message points at the *symptom*; you still have to find the *cause*.',
       }),
       { kind: 'challenge', challengeId: 'web-17-safe-parse' },
+      { kind: 'challenge', challengeId: 'web-17-validate-reading' },
       { kind: 'challenge', challengeId: 'web-17-fix-average' },
     ],
   },

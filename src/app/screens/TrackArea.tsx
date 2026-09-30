@@ -13,6 +13,8 @@ interface Props {
   theme: string;
   track: Track;
   giver: string;
+  /** Areas with several quest givers list them all (Web District). */
+  givers?: string[];
   blurb: string;
   sandbox?: boolean;
   onOpenLesson: (id: string) => void;
@@ -30,7 +32,7 @@ export function TrackArea(p: Props) {
         <h1 class="scene-title">{p.title}</h1>
         <p class="muted center">{p.blurb}</p>
         <NpcCards areaId={p.areaId} />
-        <QuestOffers giver={p.giver} />
+        {(p.givers ?? [p.giver]).map((g) => <QuestOffers key={g} giver={g} />)}
         {p.sandbox && (
           <div class="tabs" role="tablist">
             <button role="tab" aria-selected={tab === 'lessons'} class={tab === 'lessons' ? 'active' : ''} onClick={() => setTab('lessons')}>Lessons</button>

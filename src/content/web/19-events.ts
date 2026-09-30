@@ -42,7 +42,7 @@ export const bundle: LessonBundle = {
       xpReward: 55, coinReward: 8,
     }),
     wc({
-      id: 'web-19-stock-counter', objectiveId: 'js-obj-events-state', title: 'The Stock Counter', mode: 'challenge', skillIds: ['js.dom'], concepts: ['addEventListener', 'state', 'disabled', 'limits'], difficulty: 3, context: 'inventory',
+      id: 'web-19-stock-counter', objectiveId: 'js-obj-events-state', title: 'The Stock Counter', mode: 'challenge', skillIds: ['js.dom'], concepts: ['addEventListener', 'state', 'event delegation', 'rendering'], difficulty: 3, context: 'inventory',
       prompt: text('A stock counter shows a quantity `#qty` (starting at 5) with buttons `#minus` and `#plus`. Each click changes it by 1, but it can never go below **0** or above **20**. When the quantity is 0 the minus button must be **disabled**; at 20 the plus button must be disabled; otherwise both are enabled. The paragraph `#msg` says `Minimum reached` at 0, `Maximum reached` at 20, and is empty otherwise. The screen must always match the state, including at the start.'),
       expectedBehavior: 'A quantity that changes by one, stays between 0 and 20, and disables the matching button with a message.',
       starterFiles: files('<button id="minus">-</button>\n<span id="qty">?</span>\n<button id="plus">+</button>\n<p id="msg"></p>\n', '', ''), tabs: ['js'],

@@ -68,7 +68,7 @@ export const bundle: LessonBundle = {
       expectedBehavior: 'averageByDepartment([{department:"A",rate:10},{department:"A",rate:20}]) returns { A: 15 }.',
       starterFiles: files('', '', ''), tabs: ['js'],
       hints: ['You are grouping: collect what belongs to each department.', 'An object can accumulate a total and a count for each key.', 'Build the groups with `reduce` into an object, then convert totals to averages.'],
-      checks: jsCalls('averageByDepartment', '(e) => { const g = {}; for (const x of e) { (g[x.department] ||= []).push(x.rate); } const out = {}; for (const k of Object.keys(g)) out[k] = Math.round(g[k].reduce((a, b) => a + b, 0) / g[k].length * 100) / 100; return out; }', ['[{ name: "a", department: "Assembly", rate: 20 }, { name: "b", department: "Assembly", rate: 25 }, { name: "c", department: "Packing", rate: 18.5 }]', '[]', '[{ name: "a", department: "X", rate: 10 }, { name: "b", department: "X", rate: 10.01 }, { name: "c", department: "X", rate: 10.02 }]', '[{ name: "solo", department: "Solo", rate: 33.333 }]'], { pure: true, visibleFirst: true }),
+      checks: jsCalls('averageByDepartment', '(e) => { const g = {}; for (const x of e) { (g[x.department] ||= []).push(x.rate); } const out = {}; for (const k of Object.keys(g)) out[k] = Math.round(g[k].reduce((a, b) => a + b, 0) / g[k].length * 100) / 100; return out; }', ['[{ name: "a", department: "Assembly", rate: 20 }, { name: "b", department: "Assembly", rate: 25 }, { name: "c", department: "Packing", rate: 18.5 }]', '[]', '[{ name: "a", department: "X", rate: 10 }, { name: "b", department: "X", rate: 10.01 }, { name: "c", department: "X", rate: 10.02 }]', '[{ name: "solo", department: "Solo", rate: 33.333 }]', '[{ name: "a", department: "B", rate: 1 }, { name: "b", department: "A", rate: 3 }, { name: "c", department: "B", rate: 2 }]', '[{ name: "a", department: "Assembly", rate: 0.1 }, { name: "b", department: "Assembly", rate: 0.2 }]'], { pure: true, visibleFirst: true }),
       xpReward: 70, coinReward: 10,
     }),
     wc({
@@ -86,7 +86,7 @@ export const bundle: LessonBundle = {
       expectedBehavior: 'indexBy([{id:1,name:"Bolt"}], "id") returns { 1: { id: 1, name: "Bolt", indexed: true } }.',
       starterFiles: files('', '', ''), tabs: ['js'],
       hints: ['You are turning a list into a lookup table.', 'Copy each record instead of editing it.', 'Object spread `{ ...product, indexed: true }`, assigned under `product[key]`.'],
-      checks: jsCalls('indexBy', '(p, key) => { const out = {}; for (const x of p) out[x[key]] = { ...x, indexed: true }; return out; }', ['[{ id: 1, name: "Bolt" }, { id: 2, name: "Nut" }], "id"', '[], "id"', '[{ sku: "a", n: 1 }, { sku: "a", n: 2 }], "sku"', '[{ id: 3, name: "Gear", price: 4.5 }], "name"'], { pure: true, visibleFirst: true }),
+      checks: jsCalls('indexBy', '(p, key) => { const out = {}; for (const x of p) out[x[key]] = { ...x, indexed: true }; return out; }', ['[{ id: 1, name: "Bolt" }, { id: 2, name: "Nut" }], "id"', '[], "id"', '[{ sku: "a", n: 1 }, { sku: "a", n: 2 }], "sku"', '[{ id: 3, name: "Gear", price: 4.5 }], "name"', '[{ id: 1 }, { id: 2 }, { id: 3 }], "id"', '[{ code: "x", v: [1, 2] }, { code: "y", v: [] }], "code"', '[{ id: 10, name: "A" }, { id: 2, name: "B" }], "id"'], { pure: true, visibleFirst: true }),
       xpReward: 70, coinReward: 10,
     }),
     wc({
