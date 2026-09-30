@@ -19,7 +19,7 @@ export async function gradeChallenge(c: Challenge, code: string, timeoutMs = GRA
   try {
     switch (c.language) {
       case 'web': return await gradeWeb(parseWebFiles(code), c.checks);
-      case 'sheet': return gradeSheet(code, c.checks as SheetCheck[], c.constraints);
+      case 'sheet': return gradeSheet(code, c.checks as SheetCheck[], c.constraints, c.sheet);
       case 'git': return gradeGit(code, c.git?.start ?? {}, c.checks as GitCheck[], c.constraints);
       case 'r': return await getRRunner().grade({ language: 'r', code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, timeoutMs: Math.max(timeoutMs, 20000) });
       default: return await getRunner().grade({ language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, sources: sourcesFor(databasesUsedBy(c)), db: c.db, timeoutMs });

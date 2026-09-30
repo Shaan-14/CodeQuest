@@ -63,7 +63,7 @@ function tokenize(src: string): Tok[] {
     }
     const num = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(src.slice(i));
     if (num && !/[A-Za-z_]/.test(src[i + num[0].length] ?? '')) { out.push({ k: 'num', v: num[0] }); i += num[0].length; continue; }
-    const id = /^[$A-Za-z_#][$A-Za-z0-9_.#/!?]*/.exec(src.slice(i));
+    const id = /^(#[A-Za-z0-9/!?]+|[$A-Za-z_][$A-Za-z0-9_.]*)/.exec(src.slice(i));
     if (id) { out.push({ k: 'id', v: id[0] }); i += id[0].length; continue; }
     const two = src.slice(i, i + 2);
     if (['<>', '<=', '>='].includes(two)) { out.push({ k: 'op', v: two }); i += 2; continue; }

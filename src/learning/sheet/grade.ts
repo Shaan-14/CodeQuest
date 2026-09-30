@@ -3,9 +3,9 @@
  * the task asks for, including on hidden data (`with` replaces input cells, so a formula that only works for the visible
  * numbers fails). Formulas that merely TYPE the answer are caught by `formula` checks.
  */
-import type { SheetCheck, Constraint } from '../../content/schema';
+import type { SheetCheck, SheetSpec, Constraint } from '../../content/schema';
 import type { CheckOutcome, GradeResult } from '../runner';
-import { Workbook, display, formulasOf, isErr } from './engine';
+import { Workbook, display, expandRange, formulasOf, isErr } from './engine';
 import { runPivot } from './pivot';
 import type { Cells, CellValue, Value, WorkbookData } from './types';
 
@@ -20,7 +20,7 @@ const sameValue = (actual: Value, expect: CellValue | null, approx?: number): bo
   if (isErr(actual)) return false;
   if (expect === null) return actual === null || actual === '';
   if (typeof expect === 'number') return typeof actual === 'number' && Math.abs(actual - expect) <= (approx ?? 1e-9);
-  if (typeof expect === 'string') return typeof actual === 'string' && actual.trim().toLowerCase() === expect.trim().toLowerCase();
+  if (typeof expect === 'string') return typeof actual === 'string' && actual.trim() === expect.trim(); // labels and codes are graded exactly, capitals included
   return actual === expect;
 };
 
@@ -36,9 +36,19 @@ function withOverrides(data: WorkbookData, over?: Record<string, CellValue>, she
   return { ...data, sheets };
 }
 
-export function gradeSheet(code: string, checks: SheetCheck[], constraints: Constraint[] = []): GradeResult {
+/** Locked cells (everything outside `editable`) must still hold what the task gave the player: the data is not theirs to change. */
+function lockedCellChanged(data: WorkbookData, spec: SheetSpec): string | null {
+  if (!spec.editable) return null;
+  const free = new Set(spec.editable.flatMap((r) => { const [sh, ref] = r.includes('!') ? r.split('!') as [string, string] : [Object.keys(spec.start.sheets)[0]!, r]; return (expandRange(ref) ?? []).flat().map((a) => `${sh}!${a}`); }));
+  for (const [sheet, cells] of Object.entries(spec.start.sheets)) for (const [addr, v] of Object.entries(cells)) if (!free.has(`${sheet}!${addr}`) && data.sheets[sheet]?.[addr] !== v) return `${addr} is part of the data and cannot be changed.`;
+  return null;
+}
+
+export function gradeSheet(code: string, checks: SheetCheck[], constraints: Constraint[] = [], spec?: SheetSpec): GradeResult {
   const data = parseWorkbook(code);
   if (!data) return { passed: false, error: 'The workbook could not be read.', timedOut: false, checks: [], constraints: [] };
+  const tamper = spec ? lockedCellChanged(data, spec) : null;
+  if (tamper) return { passed: false, error: '', timedOut: false, checks: [{ name: 'The data is untouched', visible: true, passed: false, message: tamper }], constraints: [] };
   const outcomes: CheckOutcome[] = [];
   const formulaText = formulasOf(data).map((f) => f.text).join('\n');
   for (const c of checks) {
