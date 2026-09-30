@@ -5,10 +5,8 @@ import { useGame } from '../../game/store';
 import { LessonList } from '../components/LessonList';
 import { NpcCards } from '../components/NpcCards';
 import { Recommendations } from '../components/Recommendations';
-import { TrainingHub } from '../components/TrainingHub';
-import { returnPointFor } from '../../game/returnPoint';
 
-export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard, onOpenPlan }: { onOpenLesson: (id: string) => void; onPractice: (challengeId: string) => void; onPracticeYard: () => void; onOpenPlan: (planId: string) => void }) {
+export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard }: { onOpenLesson: (id: string) => void; onPractice: (challengeId: string) => void; onPracticeYard: () => void }) {
   const { save } = useGame();
   useEffect(() => void getRunner().warmUp().catch(() => undefined), []);
   const quest = quests[0]!;
@@ -18,7 +16,7 @@ export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard, onOp
   return (
     <main class="scene theme-grounds" data-testid="grounds">
       <div class="scene-card wide">
-        <h1 class="scene-title">🤖 Training Grounds</h1>
+        <h1 class="scene-title">🤖 Programming Hall</h1>
         <section class="robot panel" data-testid="robot">
           <div class={`robot-body ${awake ? 'awake' : power > 0 ? 'stirring' : 'asleep'}`} aria-hidden="true">
             <div class="robot-eyes"><span /><span /></div>
@@ -33,7 +31,6 @@ export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard, onOp
           <h2>Lessons</h2>
           <button class="btn small" onClick={onPracticeYard} data-testid="practice-yard">🎯 Practice Yard</button>
         </div>
-        <TrainingHub returnTo={returnPointFor(save)} onOpenPlan={onOpenPlan} />
         <Recommendations onPractice={onPractice} onOpenLesson={onOpenLesson} max={2} />
         <LessonList track="python" onOpenLesson={onOpenLesson} />
         <NpcCards areaId="training-grounds" />

@@ -51,7 +51,12 @@ export function applyDiagnosis(s: SaveData, events: GameEvent[], challenge: Chal
   if (rec.source === 'training') return null;
   const d = diagnose(s, challenge);
   if (!d) return null;
-  return upsertWeakness(s, events, d, rec, rec.at);
+  const w = upsertWeakness(s, events, d, rec, rec.at);
+  // A meaningful failure in the CURRICULUM (a lesson or a boss) must be trained before the player goes on. A hinted pass
+  // of a guided (learning-mode) challenge is normal, so it never blocks; optional sources (practice, dailies) never block.
+  const src = sourceOf(rec);
+  if ((src === 'lesson' || src === 'boss') && !(d.kind === 'hint-reliance' && challenge.mode === 'learning')) w.required = true;
+  return w;
 }
 
 /**
@@ -62,7 +67,7 @@ export function applyDiagnosis(s: SaveData, events: GameEvent[], challenge: Chal
 export function resolveOnPass(s: SaveData, events: GameEvent[], rec: EvidenceRecord): void {
   if (!rec.passed || (rec.support !== 'independent' && rec.support !== 'transfer') || rec.source === 'training') return;
   for (const w of s.training.weaknesses) {
-    if (w.status !== 'open' || w.severity === 'major' || w.severity === 'serious') continue; // bigger weaknesses need their plan
+    if (w.status !== 'open' || w.required || w.severity === 'major' || w.severity === 'serious') continue; // required and bigger weaknesses need their plan (no bypass through other problems)
     if (w.kind === 'hint-reliance' || w.kind === 'prerequisite' || w.kind === 'boss-prep' || w.kind === 'rust' || w.kind === 'review' || w.kind === 'concept' || w.kind === 'application' || w.kind === 'combination') {
       if (!w.skillIds.every((k) => rec.skillIds.includes(k))) continue;
       if (rec.challengeId === w.exposedBy.challengeId) continue;

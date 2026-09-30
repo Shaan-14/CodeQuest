@@ -149,6 +149,7 @@ export function diagnose(save: SaveData, challenge: Challenge): Diagnosis | null
   if (hints > 0) reasons.push(`you used ${hints} hint${hints > 1 ? 's' : ''} (${rec.hintLevels?.map(hintCategory).join(', ') ?? ''})`.replace(' ()', ''));
   if (strength === 'strong' || strength === 'some') reasons.push(`you have solved ${previousIndependent} earlier problem${previousIndependent === 1 ? '' : 's'} on ${list(attributed)} on your own: that stays on your record`);
   if (breadth >= 3) reasons.push('several different problems on these skills have gone wrong recently');
+  if (kind === 'combination') reasons.unshift(`${list(skillIds)} each worked on their own before; using them together in one problem is what did not work. Your earlier results on each stay on your record`);
 
   const summary = passed
     ? `You solved it with help. A short fresh problem will show you can do ${list(attributed)} on your own.`

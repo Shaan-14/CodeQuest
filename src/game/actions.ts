@@ -13,7 +13,7 @@ import { levelFromXp, rewardFor } from './progression';
 import { isAreaUnlocked } from './world';
 import { buildEvidence, failuresSinceLastPass } from './evidence';
 import { applyDiagnosis } from './weakness';
-import { lessonBlockedBy } from './training';
+import { ensureRequiredPlan, requiredTraining, returnToFor } from './training';
 import { resolveOnPass } from './weakness';
 import type { EvidenceSource, FailureDetail } from '../learning/mastery';
 
@@ -148,6 +148,8 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   const { s, events } = draft(save);
   const c = getChallenge(challengeId);
   if (!c) return { save: s, events };
+  // Required training blocks the curriculum: no retrying the challenge that went wrong until the training is done (enforced here, not only in the UI).
+  if (requiredTraining(s)) return { save: s, events };
   const p = progressFor(s, challengeId);
   p.attempts++;
   p.timeMs += timeMs;
@@ -173,7 +175,8 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   }
   // Phase 4: resolve superseded weaknesses, then diagnose this attempt (records what to train; never blocks or rolls back).
   resolveOnPass(s, events, record);
-  applyDiagnosis(s, events, c, record);
+  const weakness = applyDiagnosis(s, events, c, record);
+  if (weakness?.required) ensureRequiredPlan(s, events, weakness, returnToFor(s, c));
   settle(s, events);
   return { save: s, events };
 }
@@ -181,6 +184,7 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
 /** Player has moved to a later step of a lesson. */
 export function advanceStep(save: SaveData, lessonId: string, stepIndex: number): Result {
   const { s, events } = draft(save);
+  if (requiredTraining(s)) return { save: s, events };
   const lp = (s.learning.lessons[lessonId] ??= { stepIndex: 0, completed: false });
   lp.stepIndex = Math.max(lp.stepIndex, stepIndex);
   return { save: s, events };
@@ -191,8 +195,8 @@ export function completeLesson(save: SaveData, lessonId: string): Result {
   const { s, events } = draft(save);
   const lesson = getLesson(lessonId);
   if (!lesson) return { save: s, events };
-  // A major weakness that surfaced in this lesson holds its completion until training is done (rule enforced here, not only in the UI).
-  if (!s.learning.lessons[lessonId]?.completed && lessonBlockedBy(s, lessonId)) return { save: s, events };
+  // Required training holds every lesson's completion until it is done (rule enforced here, not only in the UI).
+  if (!s.learning.lessons[lessonId]?.completed && requiredTraining(s)) return { save: s, events };
   const lp = (s.learning.lessons[lessonId] ??= { stepIndex: 0, completed: false });
   if (!lp.completed) {
     lp.completed = true;

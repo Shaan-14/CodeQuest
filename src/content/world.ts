@@ -12,10 +12,16 @@ export const areas: Area[] = [
     lock: { type: 'none' },
   },
   {
-    id: 'training-grounds', name: 'Training Grounds', icon: '🤖', theme: 'grounds', pos: { x: 24, y: 72 },
+    id: 'training-grounds', name: 'Programming Hall', icon: '🤖', theme: 'grounds', pos: { x: 24, y: 72 },
     tagline: 'Learn by doing — the robot needs you',
     description: 'A muddy field of practice dummies and one very broken training robot. This is where you write real Python.',
     lock: { type: 'questAccepted', questId: 'wake-the-robot', reason: 'Speak to Mentor Juno at the Academy first.' },
+  },
+  {
+    id: 'training-yard', name: 'Training Grounds', icon: '🏋️', theme: 'yard', pos: { x: 10, y: 56 },
+    tagline: 'A detour, never a step back',
+    description: 'A separate place for targeted training. When a struggle shows up in your record, this is where you work on it, prove it on one fresh problem, and then walk straight back to exactly where you left off.',
+    lock: { type: 'none' },
   },
   {
     id: 'library', name: 'Great Library', icon: '📚', theme: 'library', pos: { x: 58, y: 84 },
@@ -33,7 +39,7 @@ export const areas: Area[] = [
     id: 'data-center', name: 'Database District', icon: '🗄️', theme: 'data', pos: { x: 74, y: 40 },
     tagline: 'Tables, queries, and vast archives',
     description: 'SQL City: rows of tall archives where every table is related to another. Architect Vex teaches SQL and database design here.',
-    lock: { type: 'lesson', lessonId: 'py-21-cleaning', reason: 'The gates open once you can clean messy data. Finish “Messy Data” in the Training Grounds.' },
+    lock: { type: 'lesson', lessonId: 'py-21-cleaning', reason: 'The gates open once you can clean messy data. Finish “Messy Data” in the Programming Hall.' },
   },
   {
     id: 'pipeline-works', name: 'Data Pipeline Works', icon: '🏭', theme: 'pipeline', pos: { x: 76, y: 24 },
@@ -45,7 +51,7 @@ export const areas: Area[] = [
     id: 'web-district', name: 'Web District', icon: '🌐', theme: 'web', pos: { x: 26, y: 40 },
     tagline: 'Build things people can click',
     description: 'Half-built websites line the streets: HTML for structure, CSS for style, JavaScript for life, and an API gate to the outside world. Builder Nia, Coder Kiran and Gatekeeper Marlo run the workshops.',
-    lock: { type: 'lesson', lessonId: 'py-13-wake-robot', reason: 'Finish “Wake the Training Robot” at the Training Grounds: the Web District opens to anyone who can already write a program.' },
+    lock: { type: 'lesson', lessonId: 'py-13-wake-robot', reason: 'Finish “Wake the Training Robot” in the Programming Hall: the Web District opens to anyone who can already write a program.' },
   },
   {
     id: 'observatory', name: 'Analytics Observatory', icon: '🔭', theme: 'observatory', pos: { x: 24, y: 24 },
@@ -57,7 +63,7 @@ export const areas: Area[] = [
     id: 'summit', name: 'The Summit', icon: '🏔️', theme: 'summit', pos: { x: 50, y: 10 },
     tagline: 'Face the guardians, then the Great Outage',
     description: 'The Boss Hall: gate guardians, one mastery trial per track, and the final Summit Trial. Every boss is unfamiliar, hint-free and one attempt at a time; a failed attempt leads to diagnosis, training and a new version.',
-    lock: { type: 'lesson', lessonId: 'py-14-independent-trial', reason: 'The trail begins after your first independent trial in the Training Grounds.' },
+    lock: { type: 'lesson', lessonId: 'py-14-independent-trial', reason: 'The trail begins after your first independent trial in the Programming Hall.' },
   },
 ];
 

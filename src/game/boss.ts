@@ -17,7 +17,7 @@ import type { BossState, SaveData, Weakness } from '../core/save';
 import type { FailureDetail } from '../learning/mastery';
 import { draft, gain, settle, type Result } from './actions';
 import { buildEvidence } from './evidence';
-import { startTraining, activePlan } from './training';
+import { ensureRequiredPlan } from './training';
 import { applyDiagnosis, resolveOnPass, upsertWeakness } from './weakness';
 import { diagnoseBossFailure, maxSeverity, SEVERITY_ORDER } from './diagnosis';
 
@@ -122,13 +122,10 @@ export function submitBoss(save: SaveData, bossId: string, passed: boolean, time
     w.severity = maxSeverity(w.severity, SEVERITY_ORDER[Math.min(SEVERITY_ORDER.length - 1, misses)]!);
     attempt.weaknessIds.push(w.id);
     st.remediationWeaknessId = w.id;
-    if (!activePlan(s)) {
-      const r = startTraining(s, w.id, { kind: 'boss', bossId });
-      Object.assign(s, r.save);
-      events.push(...r.events);
-      const plan = s.training.plans.find((p) => p.weaknessId === w.id && p.status === 'active');
-      if (plan) s.bosses[bossId]!.remediationPlanId = plan.id;
-    }
+    w.required = true;
+    ensureRequiredPlan(s, events, w, { kind: 'boss', bossId });
+    const plan = s.training.plans.find((p) => p.weaknessId === w.id && p.status === 'active');
+    if (plan) s.bosses[bossId]!.remediationPlanId = plan.id;
     events.push({ type: 'bossFailed', id: bossId });
   }
   settle(s, events);

@@ -93,14 +93,14 @@ describe('challenge submission, evidence and rewards', () => {
   });
   it('pays only the difference for a hint-free replay, and records the stronger evidence', () => {
     let s = A.revealHint(started(), id).save;
-    s = A.submitChallenge(s, id, true, 1, 'x').save;
+    s = A.submitChallenge(s, id, true, 1, 'x', { source: 'practice' }).save;
     const first = s.stats.xp; // round(45 * 0.8) = 36
     expect(first).toBe(36);
-    s = A.submitChallenge(s, id, true, 1, 'x').save; // still hinted: no extra pay
+    s = A.submitChallenge(s, id, true, 1, 'x', { source: 'practice' }).save; // still hinted: no extra pay
     expect(s.stats.xp).toBe(first);
     s = A.startReplay(s, id).save;
     expect(s.learning.challenges[id]!.hintsUsed).toBe(0);
-    s = A.submitChallenge(s, id, true, 1, 'x').save;
+    s = A.submitChallenge(s, id, true, 1, 'x', { source: 'practice' }).save;
     expect(s.stats.xp).toBe(56); // total is now the independent reward, not first + 56
     expect(s.evidence.at(-1)!.support).toBe('independent');
   });

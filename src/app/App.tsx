@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'preact/compat';
 import { useEffect, useState } from 'preact/hooks';
 import { areas } from '../content/world';
-import { getStore, useGame } from '../game/store';
-import { activePlan, startTraining } from '../game/training';
+import { useGame } from '../game/store';
+import { requiredTraining } from '../game/training';
 import { isAreaUnlocked } from '../game/world';
 import { Hud, type PanelTab } from './components/Hud';
 import { Panel } from './components/Panel';
@@ -13,6 +13,8 @@ import { Locked } from './screens/Locked';
 import { Title } from './screens/Title';
 import { TrackArea } from './screens/TrackArea';
 import { TrainingGrounds } from './screens/TrainingGrounds';
+import { TrainingYard } from './screens/TrainingYard';
+import { weaknessNames } from './components/DiagnosisCard';
 import { WorldMap } from './screens/WorldMap';
 
 /** Rarely-used screens load on demand so the first paint does not wait for their code. */
@@ -56,26 +58,29 @@ export function App() {
     );
   }
 
-  const trackProps = { onOpenLesson: (id: string) => setRoute({ name: 'lesson', id }), onPractice: (id: string) => setRoute({ name: 'practice-run', challengeId: id }), onPracticeYard: () => setRoute({ name: 'practice' }), onOpenPlan: (planId: string) => setRoute({ name: 'training-run', planId }) };
-  const startBossTraining = (weaknessId: string, bossId: string) => { const st = getStore(); st.apply(startTraining(st.save, weaknessId, { kind: 'boss', bossId })); const p = activePlan(getStore().save); if (p) setRoute({ name: 'training-run', planId: p.id }); else open('summit'); };
+  const trackProps = { onOpenLesson: (id: string) => setRoute({ name: 'lesson', id }), onPractice: (id: string) => setRoute({ name: 'practice-run', challengeId: id }), onPracticeYard: () => setRoute({ name: 'practice' }) };
+  const goTraining = () => open('training-yard');
+  const required = requiredTraining(save);
   let screen;
   if (route.name === 'map') screen = <WorldMap current={lastArea} onOpen={open} />;
   else if (route.name === 'daily') screen = <DailyScreen onStart={() => setRoute({ name: 'daily-run' })} />;
   else if (route.name === 'daily-run') screen = <DailyRun onBack={() => setRoute({ name: 'daily' })} />;
+  else if (required && (route.name === 'practice' || route.name === 'practice-run')) screen = <TrainingYard onOpenPlan={(planId) => setRoute({ name: 'training-run', planId })} onBack={() => open('academy')} />;
   else if (route.name === 'practice') screen = <Practice onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onBack={() => open('training-grounds')} />;
-  else if (route.name === 'training-run') screen = <TrainingRun planId={route.planId} onLeave={() => open('training-grounds')} onReturn={(r) => (r.kind === 'lesson' && r.lessonId ? setRoute({ name: 'lesson', id: r.lessonId }) : r.kind === 'area' && r.areaId ? open(r.areaId) : r.kind === 'boss' ? open('summit') : toMap())} />;
-  else if (route.name === 'boss') screen = <BossRun bossId={route.id} onBack={() => open('summit')} onTrain={(wid) => startBossTraining(wid, route.id)} />;
+  else if (route.name === 'training-run') screen = <TrainingRun planId={route.planId} onLeave={() => open('training-yard')} onReturn={(r) => (r.kind === 'lesson' && r.lessonId ? setRoute({ name: 'lesson', id: r.lessonId }) : r.kind === 'area' && r.areaId ? open(r.areaId) : r.kind === 'boss' ? open('summit') : toMap())} />;
+  else if (route.name === 'boss') screen = <BossRun bossId={route.id} onBack={() => open('summit')} onGoTraining={goTraining} />;
   else if (route.name === 'practice-run') screen = <PracticeRun challengeId={route.challengeId} onBack={() => setRoute({ name: 'practice' })} onGoAcademy={() => open('academy')} />;
-  else if (route.name === 'lesson') screen = <LessonScreen lessonId={route.id} onExit={() => open(areaForLesson(route.id))} onGoAcademy={() => open('academy')} onTrain={(weaknessId) => { const st = getStore(); const w = st.save.training.weaknesses.find((x) => x.id === weaknessId); const lessonId = route.id; st.apply(startTraining(st.save, weaknessId, { kind: 'lesson', lessonId, stepIndex: st.save.learning.lessons[lessonId]?.stepIndex ?? 0 })); const p = activePlan(st.save); if (p && w) setRoute({ name: 'training-run', planId: p.id }); }} />;
+  else if (route.name === 'lesson') screen = <LessonScreen lessonId={route.id} onExit={() => open(areaForLesson(route.id))} onGoAcademy={() => open('academy')} onGoTraining={goTraining} />;
   else {
     const area = areas.find((a) => a.id === route.id)!;
     if (!isAreaUnlocked(area, save)) screen = <Locked area={area} onMap={toMap} />;
     else if (area.id === 'academy') screen = <Academy onGo={(r) => (r === 'map' ? toMap() : open('training-grounds'))} onDaily={() => setRoute({ name: 'daily' })} />;
-    else if (area.id === 'training-grounds') screen = <TrainingGrounds onOpenPlan={(planId) => setRoute({ name: 'training-run', planId })} onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onPracticeYard={() => setRoute({ name: 'practice' })} />;
+    else if (area.id === 'training-grounds') screen = <TrainingGrounds onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onPracticeYard={() => setRoute({ name: 'practice' })} />;
+    else if (area.id === 'training-yard') screen = <TrainingYard onOpenPlan={(planId) => setRoute({ name: 'training-run', planId })} onBack={() => open('academy')} />;
     else if (area.id === 'data-center') screen = <TrackArea areaId="data-center" title="🗄️ Database District" theme="data" track="sql" giver="Architect Vex" blurb="Real SQL on real databases: ask questions, change data safely, and design tables that protect themselves." sandbox {...trackProps} />;
     else if (area.id === 'pipeline-works') screen = <TrackArea areaId="pipeline-works" title="🏭 Data Pipeline Works" theme="pipeline" track="data-eng" giver="Engineer Ori" blurb="Move data from raw files into databases without breaking anything, then combine Python and SQL." {...trackProps} />;
     else if (area.id === 'web-district') screen = <TrackArea areaId="web-district" title="🌐 Web District" theme="web" track="web" giver="Builder Nia" givers={['Builder Nia', 'Coder Kiran', 'Gatekeeper Marlo']} blurb="HTML, CSS, JavaScript and APIs in a real browser sandbox: build pages, make them respond, and connect them to data." {...trackProps} />;
-    else if (area.id === 'summit') screen = <BossHall onOpenBoss={(id) => setRoute({ name: 'boss', id })} onOpenPlan={(planId) => setRoute({ name: 'training-run', planId })} />;
+    else if (area.id === 'summit') screen = <BossHall onOpenBoss={(id) => setRoute({ name: 'boss', id })} onGoTraining={goTraining} />;
     else if (area.id === 'library') screen = <Library />;
     else if (area.id === 'shop') screen = <Shop />;
     else screen = <Locked area={area} onMap={toMap} />;
@@ -84,6 +89,12 @@ export function App() {
   return (
     <div class="app">
       <Hud onMap={toMap} onPanel={setPanel} onDaily={() => { setPanel(null); setRoute({ name: 'daily' }); }} />
+      {required && route.name !== 'lesson' && route.name !== 'training-run' && route.name !== 'boss' && !(route.name === 'area' && route.id === 'training-yard') && (
+        <div class="banner required-banner" role="alert" data-testid="required-banner">
+          🎯 Training needed: <strong>{weaknessNames(required)}</strong>. The curriculum is paused until you finish it.
+          <button class="btn small gold" onClick={goTraining} data-testid="banner-go-training">Go to the Training Grounds</button>
+        </div>
+      )}
       {notice && (
         <div class="banner" role="alert">
           Your previous save could not be read (it may be from a newer version). It was backed up in this browser and a new game was started.

@@ -1,10 +1,17 @@
 # PROGRESS.md
 
-_Last updated: end of Phase 4._
+_Last updated: Phase 4 revision (required training and the Training Grounds)._
 
 ## Current phase
 **Phase 4 (adaptive mastery, deep curriculum, bosses and a finite campaign): COMPLETE.** Phase 5 has not been started; wait for explicit instruction.
-(Phases 0-3 are preserved: same repo, same architecture. Save format v1 → v2 → v3 → v4 → **v5**, migrations tested; older saves load unchanged and gain empty `training`, `bosses` and `campaign` blocks.)
+(Phases 0-3 are preserved: same repo, same architecture. Save format v1 → v2 → v3 → v4 → v5 → **v6**, migrations tested; older saves load unchanged and gain empty `training`, `bosses` and `campaign` blocks.)
+
+## Phase 4 revision: required training in a place of its own (after playtesting)
+Playtesting showed the first version of adaptive training was optional, duplicated (Mentor, lesson, area, Training Board all offered "train" or "fresh problem"), replayed lesson-like content and did not enforce the loop. The architecture stayed; the experience and content changed (see ARCHITECTURE.md, "Required training and the Training Grounds"):
+- **Enforced loop**: FAIL → Mentor diagnosis → **Training Grounds** (a distinct map location; the Python lessons area is now the "Programming Hall") → targeted training → **exactly one fresh proof problem, independent, no hints** → return to the exact lesson step or boss gate. While training is required the game layer refuses retries, other variants, step advance, lesson completion and practice; the lesson shows only a blocked panel, every other screen shows a banner and the map highlights the Training Grounds. State persists across reloads (`Weakness.required`, save v6, migration 5→6 is a pass-through).
+- **Mentor simplified**: diagnoses ("You struggled with Loops + Dictionaries + Conditions"), says the next step, and has ONE button. No retry, no "fresh problem", no second training interface. Bosses use the same card on the sealed panel; there is no immediate "try again".
+- **Authored training content** (`content/training/`: 19 modules, 32 practice/proof problems, all validated by tests): "a different way to see it", a different worked example in another setting, a prediction (verified against real Python output), practice, then one proof in a different context. A hint means a short reinforcement + one proof; repeated failure grows the plan (still one proof at a time). Composite weaknesses use combination modules.
+- **Tests**: `game/required.test.ts` (normal flow, guards, failed proof, reload, content is not the failed lesson, composite, hints, UI-simplicity static checks, v5→v6 migration), updated `training.test.ts`/`boss.test.ts`/`selection.test.ts`, `content/training/training.test.ts`, and e2e scenarios for the whole flow, content, hint flow and the boss flow.
 
 ## What Phase 4 built
 **Adaptive training** (`game/diagnosis.ts`, `weakness.ts`, `training*.ts`, `skillHistory.ts`; UI `DiagnosisCard`, `TrainingHub`, `TrainingRun`): "you do not redo old lessons; you train the weakness, prove improvement, and return to where you were."
@@ -93,7 +100,8 @@ _Last updated: end of Phase 4._
 - **Not tamper-proof** (unchanged): the Python worker and the web sandbox are not a server-trusted boundary; a determined player can forge results or edit their save. Fine for single-player.
 - **Bundle grew**: the largest chunk (curriculum + engine, `retention-*.js`) is now ~1.14 MB minified (~329 KB gzip), up from ~0.98 MB. Curriculum payloads are still one chunk; loading them per track/lesson on demand needs an async content registry and is now the most valuable performance task.
 - **Adaptive training is deterministic and authored, not learned.** Severity rules are explicit and explainable; they are also simple. Authored refresher notes (`content/trainingNotes.ts`) are empty (refreshers fall back to the lesson's reference card) and only default `diagnostics` metadata is used (the schema supports per-challenge `checkSkills` and named `mistakes`; few challenges use them yet).
-- **Thin training pools early in the game**: with few lessons taught, `pickFresh` may reuse a problem for an *independent* step (a documented last resort so a plan can always finish). It is rare after ~10 lessons.
+- **Thin training pools in the first lessons**: authored training problems exist for strings and numbers (they carry a one-line `input()` tip because `input()` is taught later), but a failure in lessons 1-3 (output, errors, variables) has no earlier taught material to draw on, so its proof may come from the same lesson's other problems (a documented last resort so a plan can always finish). SQL/web skills fall back to other lessons' problems where no authored `tr-*` problem exists (authored: SQL select/aggregate/joins and Python skills from strings to loops+dicts).
+- **Required-training scope**: a failure in the *Daily Challenge* or Practice Yard never blocks (optional Training Board only); lesson and boss failures do. Practice and lessons are held while training is required.
 - **Bosses**: 8 bosses with 2 versions each (16 problems). When every version of a boss has been used the least recently used one is offered again. The web mastery boss and both web mini/mastery versions are Chromium-tested but the browser e2e drives the Python boss path only. The Summit Trial is a Python + SQLite integration task on the factory database (no structure provided), not yet a multi-technology open project.
 - **Story is light**: acts and boss text are data; there is no cutscene or new art. New lessons only got a few NPC lines.
 - **Still not built (roadmap)**: data analysis and statistics, R, Excel/spreadsheets, Git/GitHub, open-ended multi-technology projects (the Analytics Observatory stays locked as a future area). See `docs/CURRICULUM_AUDIT.md`.

@@ -3,10 +3,12 @@
  * Deterministic (no randomness). Training never uses the challenge that exposed the weakness, prefers a different
  * context each time, and only draws on content the player has already been taught.
  *
- *   refresher : review -> independent                      (a small slip: one fresh problem)
- *   targeted  : review -> practice -> independent          (a hint was needed: short review, fresh problem, do it alone)
- *   extended  : review -> example -> guided -> practice -> [combined] -> independent
- *   deep      : prerequisites' reviews -> review -> example -> guided x2 -> practice x2 -> [combined] -> independent x2
+ *   refresher : review -> proof
+ *   targeted  : review -> example -> practice -> proof
+ *   extended  : review -> example -> predict -> practice x2 -> proof
+ *   deep      : prerequisite reviews -> review -> example -> predict -> practice x3 -> proof
+ * The proof is ONE fresh problem, last. Practice problems come from authored training content (content/training/) or
+ * from lessons OTHER than the one the player is stuck on, in different contexts.
  */
 import { challenges, getAnyChallenge, getSkill, dailyChallenges, lessonOfChallenge } from '../content';
 import { objectiveOf } from '../content/helpers';
@@ -15,6 +17,8 @@ import { getComposite } from '../content/composites';
 import type { Challenge } from '../content/schema';
 import type { PlanLevel, SaveData, TrainingStep, TrainingStepKind, Weakness } from '../core/save';
 import { availableObjectives } from './selection';
+import { moduleFor } from '../content/training/modules';
+import { trainingProblems } from '../content/training/problems';
 
 export interface PoolQuery {
   skillIds: string[];
@@ -92,20 +96,37 @@ function freshContext(save: SaveData, w: Weakness): BuildContext {
   return { used, usedObjectives, contexts: new Set([w.exposedBy.context, ...(exposed?.context ? [exposed.context] : [])].filter(Boolean)) };
 }
 
-/** Steps for each level. `kinds` are turned into concrete fresh problems where possible. */
-export function shapeFor(level: PlanLevel, combined: boolean): { kind: TrainingStepKind; skill: 'weak' | 'prereq' }[] {
+/**
+ * Step kinds for each level. There is exactly ONE `independent` step and it is always LAST: the single fresh problem that
+ * proves the training worked. Everything before it teaches from a different angle (reframe, a different example, a
+ * prediction, practice with help).
+ */
+export function shapeFor(level: PlanLevel): (TrainingStepKind | 'prereq')[] {
   switch (level) {
-    case 'refresher': return [{ kind: 'review', skill: 'weak' }, { kind: 'independent', skill: 'weak' }];
-    case 'targeted': return [{ kind: 'review', skill: 'weak' }, { kind: 'practice', skill: 'weak' }, { kind: 'independent', skill: 'weak' }];
-    case 'extended': return [{ kind: 'review', skill: 'weak' }, { kind: 'example', skill: 'weak' }, { kind: 'guided', skill: 'weak' }, { kind: 'practice', skill: 'weak' }, ...(combined ? [{ kind: 'combined' as const, skill: 'weak' as const }] : []), { kind: 'independent', skill: 'weak' }];
-    case 'deep': return [{ kind: 'review', skill: 'prereq' }, { kind: 'review', skill: 'weak' }, { kind: 'example', skill: 'weak' }, { kind: 'guided', skill: 'weak' }, { kind: 'guided', skill: 'weak' }, { kind: 'practice', skill: 'weak' }, { kind: 'practice', skill: 'weak' }, ...(combined ? [{ kind: 'combined' as const, skill: 'weak' as const }] : []), { kind: 'independent', skill: 'weak' }, { kind: 'independent', skill: 'weak' }];
+    case 'refresher': return ['review', 'independent'];
+    case 'targeted': return ['review', 'example', 'practice', 'independent'];
+    case 'extended': return ['review', 'example', 'predict', 'practice', 'practice', 'independent'];
+    case 'deep': return ['prereq', 'review', 'example', 'predict', 'practice', 'practice', 'practice', 'independent'];
   }
 }
 
-export function buildSteps(save: SaveData, w: Weakness, level: PlanLevel, ctx: BuildContext = freshContext(save, w)): TrainingStep[] {
+/** Authored training problem for a role, best coverage of the weakness first; never one already used or from the exposing problem. */
+function pickAuthored(save: SaveData, w: Weakness, role: 'practice' | 'proof', ctx: BuildContext, target: number): Challenge | undefined {
+  const done = (id: string) => !!save.learning.lessons[id]?.completed;
+  const pool = trainingProblems.filter((c) => c.training!.role === role && !ctx.used.has(c.id) && c.training!.requires.every(done) && c.skillIds.some((k) => w.skillIds.includes(k)));
+  const rank = (c: Challenge) => {
+    const covers = c.training!.skills.filter((k) => w.skillIds.includes(k)).length;
+    const full = c.training!.skills.every((k) => w.skillIds.includes(k)) ? 0 : 1;
+    return [-covers, full, ctx.contexts.has(c.context ?? '') ? 1 : 0, Math.abs(c.difficulty - target), c.training!.skills.length];
+  };
+  return [...pool].sort((a, b) => { const ra = rank(a); const rb = rank(b); for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i]! - rb[i]!; return a.id.localeCompare(b.id); })[0];
+}
+
+export function buildSteps(save: SaveData, w: Weakness, level: PlanLevel, ctx: BuildContext = freshContext(save, w), kinds: (TrainingStepKind | 'prereq')[] = shapeFor(level)): TrainingStep[] {
   const exposed = getAnyChallenge(w.exposedBy.challengeId);
   const base = exposed?.difficulty ?? 3;
-  const combined = w.kind === 'combination' || (w.skillIds.length > 1 && !!w.compositeId);
+  const exposingLesson = w.exposedBy.lessonId;
+  const mod = moduleFor(w.skillIds);
   const prereq = shakyPrerequisites(save, w.skillIds);
   const steps: TrainingStep[] = [];
   const mk = (kind: TrainingStepKind, skillId: string, challenge?: Challenge): TrainingStep => ({ id: uid(save), kind, skillId, challengeId: challenge?.id, done: false, attempts: 0 });
@@ -113,37 +134,26 @@ export function buildSteps(save: SaveData, w: Weakness, level: PlanLevel, ctx: B
     if (c) { ctx.used.add(c.id); ctx.usedObjectives.add(objectiveOf(c)); if (c.context) ctx.contexts.add(c.context); }
     return c;
   };
-  const query = (skills: string[], modes: PoolQuery['modes'], target: number, allOf = false): PoolQuery => ({ skillIds: skills, allOf, excludeIds: ctx.used, excludeObjectives: ctx.usedObjectives, exposedObjective: w.exposedBy.objectiveId, avoidContexts: ctx.contexts, modes, targetDifficulty: target });
-  const primary = w.skillIds[0]!;
-  let independentSeen = 0;
-  for (const shape of shapeFor(level, combined)) {
-    if (shape.kind === 'review') {
-      if (shape.skill === 'prereq') { for (const p of prereq) steps.push(mk('review', p)); }
-      else for (const id of w.skillIds.slice(0, 2)) steps.push(mk('review', id));
-      continue;
-    }
-    if (shape.kind === 'example') { steps.push(mk('example', primary)); continue; }
-    if (shape.kind === 'combined') {
-      const c = take(pickFresh(save, query(w.skillIds, ['challenge', 'independent'], base, true)));
-      if (c) steps.push(mk('combined', primary, c));
-      continue;
-    }
-    const modes: PoolQuery['modes'] = shape.kind === 'guided' ? ['learning', 'challenge'] : shape.kind === 'practice' ? ['challenge', 'learning'] : ['independent', 'challenge'];
-    const target = shape.kind === 'guided' ? Math.max(1, base - 1) : shape.kind === 'independent' ? base + (independentSeen++ > 0 ? 0 : 0) : base;
-    let c = take(pickFresh(save, query(w.skillIds, modes, target, false)));
-    if (!c) c = take(pickFresh(save, query(w.skillIds, ['learning', 'challenge', 'independent'], target)));
-    // A thin pool (early lessons) must not strand the player: an independent demonstration may fall back to a problem used
-    // earlier in training (never the exposing one while any other exists), because the plan has to be able to finish.
-    if (!c && shape.kind === 'independent') {
-      c = pickFresh(save, { ...query(w.skillIds, ['learning', 'challenge', 'independent'], target), excludeIds: new Set([w.exposedBy.challengeId]) });
-      if (!c) c = pickFresh(save, { ...query(w.skillIds, ['learning', 'challenge', 'independent'], target), excludeIds: new Set() });
-    }
-    if (c) steps.push(mk(shape.kind, primary, c));
-  }
-  // A plan must end with an independent demonstration; if the pool was too thin, borrow the last practice as it.
-  if (!steps.some((x) => x.kind === 'independent' && x.challengeId)) {
-    const last = [...steps].reverse().find((x) => x.challengeId && x.kind !== 'review');
-    if (last) last.kind = 'independent';
+  const query = (modes: PoolQuery['modes'], target: number, allOf: boolean, notLesson: boolean): PoolQuery => ({ skillIds: w.skillIds, allOf, excludeIds: notLesson ? new Set([...ctx.used, ...challenges.filter((c) => exposingLesson && lessonOfChallenge(c.id)?.id === exposingLesson).map((c) => c.id)]) : ctx.used, excludeObjectives: ctx.usedObjectives, exposedObjective: w.exposedBy.objectiveId, avoidContexts: ctx.contexts, modes, targetDifficulty: target });
+  /** Authored training problem first, then a problem from a DIFFERENT lesson, then (only if nothing else exists) any fresh problem. */
+  const problem = (role: 'practice' | 'proof', target: number): Challenge | undefined => {
+    const modes: PoolQuery['modes'] = role === 'proof' ? ['independent', 'challenge'] : ['challenge', 'learning'];
+    let c = pickAuthored(save, w, role, ctx, target);
+    if (!c && w.skillIds.length > 1) c = pickFresh(save, query(modes, target, true, true));
+    if (!c) c = pickFresh(save, query(modes, target, false, true));
+    if (!c) c = pickFresh(save, query(['learning', 'challenge', 'independent'], target, false, false));
+    return take(c);
+  };
+  for (const kind of kinds) {
+    if (kind === 'prereq') { for (const p of prereq) steps.push(mk('review', p)); continue; }
+    if (kind === 'review') { steps.push(mk('review', w.skillIds[0]!)); continue; }
+    if (kind === 'example') { if (mod?.example) steps.push(mk('example', w.skillIds[0]!)); continue; }
+    if (kind === 'predict') { if (mod?.predict) steps.push(mk('predict', w.skillIds[0]!)); continue; }
+    const c = problem(kind === 'independent' ? 'proof' : 'practice', kind === 'independent' ? base : Math.max(1, base - 1));
+    // A thin pool must not strand the player: the proof may fall back to a problem used earlier in training (never the exposing one while any other exists).
+    let chosen = c;
+    if (!chosen && kind === 'independent') chosen = pickFresh(save, { ...query(['learning', 'challenge', 'independent'], base, false, false), excludeIds: new Set([w.exposedBy.challengeId]) }) ?? pickFresh(save, { ...query(['learning', 'challenge', 'independent'], base, false, false), excludeIds: new Set() });
+    if (chosen) steps.push(mk(kind, w.skillIds[0]!, chosen));
   }
   return steps;
 }

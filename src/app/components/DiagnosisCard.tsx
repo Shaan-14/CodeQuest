@@ -1,29 +1,27 @@
 import { getSkill } from '../../content';
+import type { Weakness } from '../../core/save';
+import { compositeTitle } from '../../game/trainingPlan';
+import { requiredTraining } from '../../game/training';
 import { useGame } from '../../game/store';
 
-const SIZE: Record<string, string> = {
-  minor: 'A quick refresher: about two short steps.',
-  moderate: 'A short targeted session: a review, a fresh problem, then one on your own.',
-  serious: 'A focused session with a worked example, guided and independent practice.',
-  major: 'A full training path. This lesson waits for you, and you come straight back to it afterwards.',
-};
+/** Plain-language names of what a weakness is about ("Loops + Dictionaries + Conditions"). */
+export const weaknessNames = (w: Weakness): string => compositeTitle(w) ?? w.skillIds.map((k) => getSkill(k)?.title ?? k).join(' + ');
 
-/** What the evidence says after a failed attempt: kind, specific, never "go back to Lesson 2". */
-export function DiagnosisCard({ challengeId, onTrain }: { challengeId: string; onTrain?: (weaknessId: string) => void }) {
+/**
+ * Mentor Juno after a meaningful failure: diagnoses and directs, nothing else. One button, no retry, no second
+ * training interface: the training itself happens in the Training Grounds.
+ */
+export function DiagnosisCard({ weakness, onGoTraining }: { weakness?: Weakness; onGoTraining: () => void }) {
   const { save } = useGame();
-  const w = [...save.training.weaknesses].reverse().find((x) => x.exposedBy.challengeId === challengeId && x.status !== 'resolved');
+  const w = weakness ?? requiredTraining(save);
   if (!w) return null;
-  const names = w.skillIds.map((k) => getSkill(k)?.title ?? k).join(' + ');
   return (
-    <div class="diagnosis panel" data-testid="diagnosis">
-      <strong>🎯 What to work on: {names}</strong>
-      <p class="small">
-        {w.kind === 'combination' ? 'You know these ideas separately; putting them together is the gap.' : w.kind === 'hint-reliance' ? 'You needed a hint here. A fresh problem will show you can do it alone.' : w.kind === 'application' ? 'You have done this before; applying it in a new setting is the gap.' : 'This is a small thing to work on, not a step backwards.'}
-      </p>
-      {w.reasons.length > 0 && <ul class="small">{w.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>}
-      {w.previousIndependent > 0 && <p class="small muted">Your earlier independent solves on this stay on your record.</p>}
-      <p class="small muted">{SIZE[w.severity]} You can keep trying here as many times as you like; nothing is locked.</p>
-      {onTrain && <button class="btn small gold" onClick={() => onTrain(w.id)} data-testid="train-now">🏋️ Train this now</button>}
+    <div class="diagnosis panel mentor-card" data-testid="diagnosis">
+      <strong>🧙 Mentor Juno</strong>
+      <p data-testid="diagnosis-what">You struggled with <strong>{weaknessNames(w)}</strong>.</p>
+      {w.reasons.length > 0 && <ul class="small">{w.reasons.slice(0, 3).map((r, i) => <li key={i}>{r}</li>)}</ul>}
+      <p>Your next step is to train this skill before continuing. Your place is saved, and your earlier results stay on your record.</p>
+      <button class="btn gold" onClick={onGoTraining} data-testid="go-training">🏋️ Go to the Training Grounds</button>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export interface PlayerProfile {
   name: string;
@@ -173,11 +173,17 @@ export interface Weakness {
   /** Contexts (real-world settings) in which it caused trouble. */
   struggledIn: string[];
   planIds: string[];
+  /**
+   * True when the failure happened in the curriculum (a lesson or a boss) and was meaningful: the curriculum is blocked
+   * until this weakness's training is complete. Absent/false for optional needs (practice, dailies, quiet skills).
+   */
+  required?: boolean;
   resolvedAt?: string;
   resolvedBy?: string;
 }
 
-export type TrainingStepKind = 'review' | 'example' | 'guided' | 'practice' | 'combined' | 'independent';
+/** review = "see it differently", example = a different worked example, predict = a prediction question, practice = a fresh problem with help, independent = THE one final fresh problem. guided/combined are legacy (older saves). */
+export type TrainingStepKind = 'review' | 'example' | 'predict' | 'guided' | 'practice' | 'combined' | 'independent';
 
 export interface TrainingStep {
   id: string;
@@ -347,6 +353,9 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // v4 -> v5 (Phase 4): training state, boss attempts and the campaign flag. Nothing existing is touched: old evidence
   // keeps working (the new evidence fields are optional) and old players start with no weaknesses and no plans.
   4: (old) => ({ ...old, training: emptyTraining(), bosses: emptyBosses(), campaign: {} }),
+  // v5 -> v6 (Phase 4 revision): weaknesses may be `required` (they block the curriculum until trained). Weaknesses recorded
+  // by v5 stay optional, so nobody is blocked by an old save.
+  5: (old) => ({ ...old }),
 };
 
 export function migrate(raw: unknown): SaveData | null {

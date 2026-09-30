@@ -1,9 +1,8 @@
 import { acts, ENDING } from '../../content/campaign';
-import { bosses, type BossDef } from '../../content/bosses';
+import { bosses } from '../../content/bosses';
 import { bossLockReason, bossStatus, campaignProgress, retryIsNewVersion, sealingWeakness } from '../../game/boss';
-import { activePlan, startTraining } from '../../game/training';
-import { getStore, useGame } from '../../game/store';
-import { getSkill } from '../../content';
+import { useGame } from '../../game/store';
+import { DiagnosisCard } from '../components/DiagnosisCard';
 
 const STATUS_LABEL = { locked: 'Locked', ready: 'Ready', sealed: 'Training needed', passed: 'Defeated' } as const;
 
@@ -12,17 +11,9 @@ const STATUS_LABEL = { locked: 'Locked', ready: 'Ready', sealed: 'Training neede
  * leads to diagnosis, training and a NEW version. Nothing here is a level or XP gate: a boss opens when its lessons are
  * done, because that is when the evidence says the player has met everything it uses.
  */
-export function BossHall({ onOpenBoss, onOpenPlan }: { onOpenBoss: (id: string) => void; onOpenPlan: (planId: string) => void }) {
+export function BossHall({ onOpenBoss, onGoTraining }: { onOpenBoss: (id: string) => void; onGoTraining: () => void }) {
   const { save } = useGame();
   const prog = campaignProgress(save);
-  const train = (boss: BossDef) => {
-    const st = getStore();
-    const w = sealingWeakness(st.save, boss);
-    if (!w) return;
-    st.apply(startTraining(st.save, w.id, { kind: 'boss', bossId: boss.id }));
-    const p = activePlan(getStore().save);
-    if (p) onOpenPlan(p.id);
-  };
   return (
     <main class="scene theme-summit" data-testid="boss-hall">
       <div class="scene-card">
@@ -50,10 +41,9 @@ export function BossHall({ onOpenBoss, onOpenPlan }: { onOpenBoss: (id: string) 
               {status !== 'locked' && <p>{status === 'passed' ? boss.victory : boss.intro}</p>}
               {status === 'locked' && <p class="callout small" data-testid="boss-lock-reason">{bossLockReason(save, boss)}</p>}
               {status === 'sealed' && w && (
-                <div class="callout small" data-testid="boss-sealed">
-                  <p>{boss.defeat}</p>
-                  <p>What the attempt showed: {w.reasons[0] ?? 'the skills it tests need another look'}. Skills: {w.skillIds.map((k) => getSkill(k)?.title ?? k).join(', ')}.</p>
-                  <button class="btn gold" onClick={() => train(boss)} data-testid={`boss-train-${boss.id}`}>Start the training →</button>
+                <div data-testid="boss-sealed">
+                  <p class="callout small">{boss.defeat}</p>
+                  <DiagnosisCard weakness={w} onGoTraining={onGoTraining} />
                 </div>
               )}
               {status === 'ready' && (

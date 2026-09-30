@@ -59,7 +59,7 @@ export const bosses: BossDef[] = [
   {
     id: 'mastery-python', kind: 'mastery', title: 'The Architect of Scripts', icon: '🐍', track: 'python',
     requiresLessons: ['py-28-independent-review-b'], requiresBosses: ['mini-python-functions'],
-    intro: 'In the Training Grounds a single sealed door remains. Behind it, the Architect: “Here is a messy real-world file and a brief. No hints, no starter. Show me you can do this yourself.”',
+    intro: 'In the Programming Hall a single sealed door remains. Behind it, the Architect: “Here is a messy real-world file and a brief. No hints, no starter. Show me you can do this yourself.”',
     victory: 'The door opens. Python is no longer something you follow: it is something you use.',
     defeat: 'The door stays shut, but the Architect leaves you a note: what the attempt showed, and a training path to get through it.',
     versions: ['a', 'b'], reward: { xp: 400, coins: 100 },

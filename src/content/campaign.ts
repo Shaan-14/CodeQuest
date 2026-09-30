@@ -15,7 +15,7 @@ export interface Act {
 
 export const acts: Act[] = [
   { id: 'act-1', title: 'Act I: The Academy', story: 'Bytehaven’s systems are failing one by one. Mentor Juno trains new engineers at the Academy, starting with a broken robot and a blank editor.', bossId: 'mini-python-functions' },
-  { id: 'act-2', title: 'Act II: The Grounds', story: 'The failures trace back to bad scripts written under pressure. The Training Grounds is where those scripts get rebuilt, properly, by you.', bossId: 'mastery-python' },
+  { id: 'act-2', title: 'Act II: The Grounds', story: 'The failures trace back to bad scripts written under pressure. The Programming Hall is where those scripts get rebuilt, properly, by you.', bossId: 'mastery-python' },
   { id: 'act-3', title: 'Act III: The Archives', story: 'The data behind the city lives in the Database District. Something has been quietly corrupting it, and only someone who can question a database can find out what.', bossId: 'mastery-sql' },
   { id: 'act-4', title: 'Act IV: The Works', story: 'Data reaches the archives through the Data Pipeline Works, and the feeds have been arriving dirty and duplicated. The pipelines must be made trustworthy.', bossId: 'mastery-data-eng' },
   { id: 'act-5', title: 'Act V: The Web', story: 'People see Bytehaven through the Web District, and its pages are silently wrong. Rebuild them so that they respond, remember and never lie.', bossId: 'mastery-web' },

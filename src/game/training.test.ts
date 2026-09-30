@@ -7,7 +7,7 @@ import { getSkill } from '../content';
 import * as A from './actions';
 import { diagnose } from './diagnosis';
 import { skillHistory, summarizeComposite } from './skillHistory';
-import { abandonTraining, activePlan, beginStep, completeReadingStep, lessonBlockedBy, startTraining, submitTrainingStep, weaknessOf } from './training';
+import { abandonTraining, activePlan, beginStep, completeReadingStep, startTraining, submitTrainingStep, weaknessOf } from './training';
 import { trainingNeeds } from './trainingNeeds';
 import { getComposite } from '../content/composites';
 
@@ -21,8 +21,9 @@ const reach = (s: SaveData, lessonId: string) => {
   return A.advanceStep(out, lessonId, 1).save;
 };
 const detail = (failed: number, total = 4, kind: FailureDetail['errorKind'] = 'wrong-output', hidden = 0): FailureDetail => ({ errorKind: kind, failedChecks: Array.from({ length: failed }, (_, i) => `Case ${i + 1}`), visibleFailed: failed - hidden, hiddenFailed: hidden, totalChecks: total, constraintsFailed: 0 });
-const fail = (s: SaveData, id: string, d = detail(2)) => A.submitChallenge(s, id, false, 1000, 'x', { detail: d }).save;
-const pass = (s: SaveData, id: string) => A.submitChallenge(s, id, true, 1000, 'x').save;
+/** Practice-source attempts create OPTIONAL weaknesses, so a test can fail many times; lesson-source failures are REQUIRED and hold the curriculum (see 'required training' below). */
+const fail = (s: SaveData, id: string, d = detail(2)) => A.submitChallenge(s, id, false, 1000, 'x', { detail: d, source: 'practice' }).save;
+const pass = (s: SaveData, id: string) => A.submitChallenge(s, id, true, 1000, 'x', { source: 'practice' }).save;
 /** Adds earlier independent successes on a skill, dated in the past, to simulate a player who knew it. */
 const withMastery = (s: SaveData, skillId: string, n = 4, contexts = ['finance', 'science', 'retail', 'games']): SaveData => {
   const out = structuredClone(s);
@@ -54,15 +55,15 @@ describe('diagnosis scales with the evidence', () => {
     expect(plan.steps.filter((x) => x.challengeId).length).toBeLessThanOrEqual(2);
     expect(w.previousIndependent).toBeGreaterThanOrEqual(4);
   });
-  it('a pass that needed a hint gets a targeted reinforcement (review, fresh problem, independent attempt)', () => {
+  it('a pass that needed a hint gets short reinforcement and ONE fresh proof', () => {
     let s = atLesson5();
     s = A.revealHint(s, a!.id).save;
     s = pass(s, a!.id);
     const w = s.training.weaknesses[0]!;
     expect(w.kind).toBe('hint-reliance');
     const plan = activePlan(startTraining(s, w.id, { kind: 'lesson', lessonId: 'py-05-numbers' }).save)!;
-    expect(plan.level).toBe('targeted');
-    expect(plan.steps.map((x) => x.kind)).toEqual(expect.arrayContaining(['review', 'practice', 'independent']));
+    expect(plan.level).toBe('refresher');
+    expect(plan.steps.map((x) => x.kind)).toEqual(['review', 'independent']);
   });
   it('a hint is recorded with its kind and is never a permanent label', () => {
     let s = atLesson5();
@@ -86,7 +87,7 @@ describe('diagnosis scales with the evidence', () => {
     const order = ['minor', 'moderate', 'serious', 'major'];
     for (let i = 1; i < levels.length; i++) expect(order.indexOf(levels[i]!)).toBeGreaterThanOrEqual(order.indexOf(levels[i - 1]!));
     expect(s.training.weaknesses.filter((w) => w.status !== 'resolved')).toHaveLength(1); // merged, not duplicated
-    expect(A.submitChallenge(s, a!.id, false, 1, 'x').save.evidence.length).toBe(s.evidence.length + 1); // still allowed to try again
+    expect(A.submitChallenge(s, a!.id, false, 1, 'x', { source: 'practice' }).save.evidence.length).toBe(s.evidence.length + 1); // still allowed to try again
   });
   it('a severe failure (nothing passes, repeatedly) becomes a deep training path with foundations and two independent checks', () => {
     let s = atLesson5();
@@ -95,8 +96,7 @@ describe('diagnosis scales with the evidence', () => {
     expect(w.severity).toBe('major');
     const plan = activePlan(startTraining(s, w.id, { kind: 'lesson', lessonId: 'py-05-numbers' }).save)!;
     expect(plan.level).toBe('deep');
-    expect(plan.required).toBe(true);
-    expect(plan.steps.filter((x) => x.kind === 'independent').length).toBeGreaterThanOrEqual(1);
+    expect(plan.steps.filter((x) => x.kind === 'independent')).toHaveLength(1); // one proof, however deep the path
     expect(plan.steps.length).toBeGreaterThan(5);
   });
   it('diagnose() is pure: it does not change the save', () => {
@@ -220,28 +220,21 @@ describe('training is a detour, not a step backwards', () => {
     expect(p.steps.length).toBeGreaterThan(n0);
     expect(demo).toBeDefined();
   });
-  it('a hinted pass on a training demonstration does not complete it', () => {
+  it('the fresh proof is an independent problem: hints cannot be opened, so a pass is always unaided evidence', () => {
     let s = withMastery(atLesson5(), 'py.numbers');
     s = fail(fail(s, a!.id), a!.id);
     let r = startTraining(s, s.training.weaknesses[0]!.id, { kind: 'lesson', lessonId: 'py-05-numbers' }).save;
     const p = activePlan(r)!;
     const demo = p.steps.find((x) => x.kind === 'independent')!;
     r = A.revealHint(r, demo.challengeId!).save;
+    expect(r.learning.challenges[demo.challengeId!]?.hintsUsed ?? 0).toBe(0);
     r = submitTrainingStep(r, p.id, demo.id, true, 1, 'x').save;
-    expect(r.training.plans.find((x) => x.id === p.id)!.steps.find((x) => x.id === demo.id)!.done).toBe(false);
-    expect(r.evidence.at(-1)).toMatchObject({ support: 'hinted', source: 'training' });
+    expect(r.evidence.at(-1)).toMatchObject({ support: 'transfer', source: 'training', hintsUsed: 0 }); // 'transfer' is independent evidence on an unfamiliar problem
   });
-  it('a major weakness holds only its own lesson; other lessons and the story are free', () => {
-    let s = atLesson5();
-    for (let i = 0; i < 5; i++) s = fail(s, a!.id, detail(4, 4));
-    expect(lessonBlockedBy(s, 'py-05-numbers')?.severity).toBe('major');
-    expect(lessonBlockedBy(s, 'py-04-strings')).toBeUndefined();
-    expect(A.completeLesson(s, 'py-05-numbers').save.learning.lessons['py-05-numbers']?.completed).toBeFalsy(); // held until training
-    expect(A.completeLesson(s, 'py-04-strings').save.learning.lessons['py-04-strings']?.completed).toBe(true);
-  });
-  it('abandoning training re-opens the weakness and keeps it on record', () => {
+  it('optional training (from the Training Board) can be set aside and re-opens the weakness on record', () => {
     let s = withMastery(atLesson5(), 'py.numbers');
-    s = fail(fail(s, a!.id), a!.id);
+    s = fail(s, a!.id, detail(1, 4, 'wrong-output', 1));
+    s = { ...s, training: { ...s.training, weaknesses: s.training.weaknesses.map((w) => ({ ...w, required: false })) } };
     let r = startTraining(s, s.training.weaknesses[0]!.id, { kind: 'lesson', lessonId: 'py-05-numbers' }).save;
     r = abandonTraining(r, activePlan(r)!.id).save;
     expect(r.training.activePlanId).toBeNull();

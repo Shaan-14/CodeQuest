@@ -308,6 +308,8 @@ export interface Challenge {
   diagnostics?: ChallengeDiagnostics;
   /** Present only on Boss challenges (content/bosses.ts): which boss version this is. */
   boss?: { bossId: string; version: string };
+  /** Present only on problems authored for TRAINING (content/training/): which skills they train and their role in a plan. */
+  training?: { skills: string[]; role: 'practice' | 'proof'; requires: string[] };
 }
 
 export interface TeachStep {

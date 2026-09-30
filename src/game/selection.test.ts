@@ -6,8 +6,9 @@ import * as A from './actions';
 import { availableObjectives, hasAlternate, objectiveStatus, pickVariant, recommendPractice } from './selection';
 
 const started = () => A.acceptQuest(A.createPlayer(newSave(), 'Ada', 'spellwright').save, 'wake-the-robot').save;
-const fail = (s: SaveData, id: string) => A.submitChallenge(s, id, false, 1, 'x').save;
-const pass = (s: SaveData, id: string) => A.submitChallenge(s, id, true, 1, 'x').save;
+// Practice-source attempts: these tests are about variants and retry evidence, not the required-training hold that lesson failures create.
+const fail = (s: SaveData, id: string) => A.submitChallenge(s, id, false, 1, 'x', { source: 'practice' }).save;
+const pass = (s: SaveData, id: string) => A.submitChallenge(s, id, true, 1, 'x', { source: 'practice' }).save;
 /** Play up to a lesson the way the game requires: every earlier lesson completed, then this one started. */
 const reach = (s: SaveData, lessonId: string) => {
   let out = s;

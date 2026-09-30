@@ -136,7 +136,8 @@ const skillById = new Map(skills.map((s) => [s.id, s]));
 export const getLesson = (id: string): Lesson | undefined => lessonById.get(id);
 export const getChallenge = (id: string): Challenge | undefined => challengeById.get(id);
 import { bossChallenges } from './boss';
-const dailyById = new Map([...dailyChallenges, ...bossChallenges].map((c) => [c.id, c]));
+import { trainingProblems } from './training/problems';
+const dailyById = new Map([...dailyChallenges, ...bossChallenges, ...trainingProblems].map((c) => [c.id, c]));
 /** A lesson/practice challenge OR a Daily Challenge (evidence and the daily screen need both). */
 export const getAnyChallenge = (id: string): Challenge | undefined => challengeById.get(id) ?? dailyById.get(id);
 export const getSkill = (id: string): Skill | undefined => skillById.get(id);

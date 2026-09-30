@@ -16,7 +16,7 @@ export function introDialogue(name: string): DialogueLine[] {
     { who: 'Juno', text: 'FOCUS is your mental energy. A failed submission costs some. Run your code as often as you like, that is free. When Focus is empty, come back to the Academy and rest. Coins buy tea, snacks, and a few fashionable things.' },
     { who: 'Juno', text: 'This is not a quiz. There is no multiple choice. You will type real Python, and it will really run. When it breaks, you will read the error and fix it, just like people who do this for a living.' },
     { who: 'Juno', text: 'I will not hand you answers. Hints exist, but every hint you open lowers your reward and is written in your record. The best reward comes from working it out yourself.' },
-    { who: 'Juno', text: 'Now, the Training Grounds. Our training robot, Bolt-7, cannot move. His control program is unfinished. Wake him up, and along the way you will learn to program. Will you help?' },
+    { who: 'Juno', text: 'Now, the Programming Hall. Our training robot, Bolt-7, cannot move. His control program is unfinished. Wake him up, and along the way you will learn to program. Will you help?' },
   ];
 }
 
@@ -29,9 +29,9 @@ export function mentorAdvice(save: SaveData): string {
     const trial = save.learning.challenges['py-14-warehouse-audit']?.passed;
     return trial
       ? 'You woke Bolt and passed the Trial of the Blank Page. There is much more to learn, but the rest of the Academy is still being built. Check the world map for what is coming.'
-      : 'Bolt is awake, thanks to you. But remember: finishing lessons is not the same as mastery. Try the Trial of the Blank Page in the Training Grounds. No hints, no scaffolding.';
+      : 'Bolt is awake, thanks to you. But remember: finishing lessons is not the same as mastery. Try the Trial of the Blank Page in the Programming Hall. No hints, no scaffolding.';
   }
   const next = lessons.find((l) => !save.learning.lessons[l.id]?.completed && l.prerequisites.every((p) => save.learning.lessons[p]?.completed));
   const title = next ? getLesson(next.id)?.title : undefined;
-  return title ? `Bolt is waiting. Your next lesson at the Training Grounds is “${title}”. Struggling is part of it. Read the error, try something, run it again.` : 'Head to the Training Grounds.';
+  return title ? `Bolt is waiting. Your next lesson in the Programming Hall is “${title}”. Struggling is part of it. Read the error, try something, run it again.` : 'Head to the Programming Hall.';
 }

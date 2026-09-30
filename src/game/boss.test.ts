@@ -6,7 +6,8 @@ import { summarizeSkill } from '../learning/mastery';
 import { getSkill } from '../content';
 import * as A from './actions';
 import { bossStatus, campaignProgress, currentBossChallenge, nextVersion, sealingWeakness, submitBoss } from './boss';
-import { activePlan, beginStep, completeReadingStep, submitTrainingStep } from './training';
+import { moduleFor } from '../content/training/modules';
+import { activePlan, answerPrediction, beginStep, completeReadingStep, submitTrainingStep, weaknessOf } from './training';
 
 const started = () => A.acceptQuest(A.createPlayer(newSave(), 'Ada', 'spellwright').save, 'wake-the-robot').save;
 const completeThrough = (s: SaveData, lessonId: string): SaveData => {
@@ -30,6 +31,7 @@ function finishPlan(save: SaveData): SaveData {
     const st = p.steps.find((x) => !x.done);
     if (!st) break;
     if (st.kind === 'review' || st.kind === 'example') s = completeReadingStep(s, p.id, st.id).save;
+    else if (st.kind === 'predict') s = answerPrediction(s, p.id, st.id, moduleFor(weaknessOf(s, p.weaknessId)!.skillIds)!.predict!.correct).save;
     else { s = beginStep(s, p.id, st.id).save; s = submitTrainingStep(s, p.id, st.id, true, 1000, 'x').save; }
   }
   return s;

@@ -4,15 +4,20 @@
  * remembers where the player was (`returnTo`) and hands them back when the independent demonstration is done.
  *
  * Training is not a punishment: failed training steps cost no Focus, passed steps give a little Focus back, there is
- * no failure limit and no waiting timer. A failed independent step makes the plan GROW with fresh problems.
+ * no failure limit and no waiting timer. A failed final proof makes the plan GROW (more practice, then a NEW proof).
+ *
+ * A weakness that came from a lesson or a boss is REQUIRED (`Weakness.required`): the curriculum is blocked until its
+ * plan is complete (`requiredTraining`). Nothing is rolled back; the plan remembers the exact place to return to.
  */
-import { getAnyChallenge } from '../content';
+import { getAnyChallenge, lessonOfChallenge } from '../content';
+import type { Challenge } from '../content/schema';
 import { MAX_FOCUS, type PlanLevel, type ReturnPoint, type SaveData, type TrainingPlan, type TrainingStep, type Weakness } from '../core/save';
 import type { FailureDetail } from '../learning/mastery';
 import { draft, progressFor, settle, type Result } from './actions';
 import { LEVEL_OF, maxSeverity, SEVERITY_ORDER } from './diagnosis';
 import { buildEvidence, independentPassesOn } from './evidence';
 import { buildSteps, shakyPrerequisites } from './trainingPlan';
+import { moduleFor } from '../content/training/modules';
 import { nextTrainingId } from './weakness';
 
 const now = () => new Date().toISOString();
@@ -24,31 +29,31 @@ export const activePlan = (s: SaveData): TrainingPlan | undefined => (s.training
 
 /** Level of plan a weakness deserves. A hinted pass earns a targeted (never larger than its severity) plan. */
 export function levelFor(w: Weakness): PlanLevel {
-  if (w.kind === 'hint-reliance') return w.severity === 'minor' || w.severity === 'moderate' ? 'targeted' : w.severity === 'serious' ? 'extended' : 'deep';
+  // A hint means short reinforcement and ONE fresh problem; only a serious or major pattern of hints earns more.
+  if (w.kind === 'hint-reliance') return w.severity === 'minor' || w.severity === 'moderate' ? 'refresher' : w.severity === 'serious' ? 'targeted' : 'extended';
   if (w.kind === 'rust' || w.kind === 'prerequisite' || w.kind === 'review' || w.kind === 'boss-prep') return w.severity === 'minor' ? 'refresher' : LEVEL_OF[w.severity];
   return LEVEL_OF[w.severity];
 }
 
-/** A major weakness that surfaced inside a lesson holds that lesson's completion until training is done. */
-export function lessonBlockedBy(s: SaveData, lessonId: string): Weakness | undefined {
-  return s.training.weaknesses.find((w) => w.status !== 'resolved' && w.severity === 'major' && w.source === 'lesson' && w.exposedBy.lessonId === lessonId);
+/** The weakness whose training is REQUIRED before the player may go on with the curriculum (undefined when nothing blocks). */
+export const requiredTraining = (s: SaveData): Weakness | undefined => s.training.weaknesses.find((w) => w.required && w.status !== 'resolved');
+
+/** The plan for a weakness (active or the newest), if any. */
+export const planFor = (s: SaveData, weaknessId: string): TrainingPlan | undefined => [...s.training.plans].reverse().find((p) => p.weaknessId === weaknessId && p.status !== 'abandoned');
+
+/** Where a failure in a lesson challenge hands the player back to: the same lesson, the same step. */
+export function returnToFor(s: SaveData, c: Challenge): ReturnPoint {
+  const l = lessonOfChallenge(c.id);
+  return l ? { kind: 'lesson', lessonId: l.id, stepIndex: s.learning.lessons[l.id]?.stepIndex ?? 0, challengeId: c.id } : { kind: 'map' };
 }
 
 const countBefore = (s: SaveData, w: Weakness) => ({ independentPasses: independentPassesOn(s.evidence, w.skillIds), failures: s.evidence.filter((r) => !r.passed && w.skillIds.some((k) => r.skillIds.includes(k))).length });
 
-/** Start (or resume) training for a weakness. Curriculum progress is untouched. */
-export function startTraining(save: SaveData, weaknessId: string, returnTo: ReturnPoint): Result {
-  const { s, events } = draft(save);
-  const w = weaknessOf(s, weaknessId);
-  if (!w || w.status === 'resolved') return { save: s, events };
-  const existing = s.training.plans.find((p) => p.weaknessId === w.id && p.status === 'active');
-  if (existing) { s.training.activePlanId = existing.id; return { save: s, events }; }
-  // Only one plan at a time: an unfinished plan for another weakness stays active (it can be abandoned explicitly).
-  const other = activePlan(s);
-  if (other) return { save: s, events };
+/** Creates the plan for a weakness on a DRAFT save (no other plan may be active). */
+function beginPlan(s: SaveData, events: Result['events'], w: Weakness, returnTo: ReturnPoint): TrainingPlan {
   const level = levelFor(w);
   const plan: TrainingPlan = {
-    id: nextTrainingId(s, 'p'), weaknessId: w.id, level, required: w.severity === 'major' && w.source === 'lesson', createdAt: now(), returnTo,
+    id: nextTrainingId(s, 'p'), weaknessId: w.id, level, required: !!w.required, createdAt: now(), returnTo,
     steps: [], status: 'active', escalations: 0, before: countBefore(s, w),
   };
   plan.steps = buildSteps(s, w, level);
@@ -57,13 +62,38 @@ export function startTraining(save: SaveData, weaknessId: string, returnTo: Retu
   w.status = 'training';
   w.planIds.push(plan.id);
   events.push({ type: 'trainingStarted', planId: plan.id });
+  return plan;
+}
+
+/**
+ * Called right after a meaningful failure created (or deepened) a required weakness: makes sure a plan exists and is the
+ * active one, so the Training Grounds already knows what to do. An optional plan the player had started is set aside.
+ */
+export function ensureRequiredPlan(s: SaveData, events: Result['events'], w: Weakness, returnTo: ReturnPoint): void {
+  if (!w.required || w.status === 'resolved') return;
+  if (s.training.plans.some((p) => p.weaknessId === w.id && p.status === 'active')) return;
+  const other = activePlan(s);
+  if (other) { other.status = 'abandoned'; const ow = weaknessOf(s, other.weaknessId); if (ow && ow.status === 'training') ow.status = 'open'; s.training.activePlanId = null; }
+  beginPlan(s, events, w, returnTo);
+}
+
+/** Start (or resume) training for a weakness. Curriculum progress is untouched. */
+export function startTraining(save: SaveData, weaknessId: string, returnTo: ReturnPoint): Result {
+  const { s, events } = draft(save);
+  const w = weaknessOf(s, weaknessId);
+  if (!w || w.status === 'resolved') return { save: s, events };
+  const existing = s.training.plans.find((p) => p.weaknessId === w.id && p.status === 'active');
+  if (existing) { s.training.activePlanId = existing.id; return { save: s, events }; }
+  // A required plan always wins; an optional one waits while another plan is active.
+  if (w.required) ensureRequiredPlan(s, events, w, returnTo);
+  else if (!activePlan(s)) beginPlan(s, events, w, returnTo);
   return { save: s, events };
 }
 
 export function abandonTraining(save: SaveData, planId: string): Result {
   const { s, events } = draft(save);
   const p = planOf(s, planId);
-  if (!p || p.status !== 'active') return { save: s, events };
+  if (!p || p.status !== 'active' || p.required) return { save: s, events }; // required training cannot be set aside
   p.status = 'abandoned';
   if (s.training.activePlanId === planId) s.training.activePlanId = null;
   const w = weaknessOf(s, p.weaknessId);
@@ -95,6 +125,7 @@ export function beginStep(save: SaveData, planId: string, stepId: string): Resul
   return { save: s, events };
 }
 
+/** The final proof (and the legacy `combined` kind from older saves). */
 const isDemonstration = (st: TrainingStep) => st.kind === 'independent' || st.kind === 'combined';
 
 /** A graded submission of a training step. Costs no Focus; never changes curriculum progress. */
@@ -130,7 +161,10 @@ export function submitTrainingStep(save: SaveData, planId: string, stepId: strin
   return { save: s, events };
 }
 
-/** A failed independent step means the weakness runs deeper than planned: add fresh problems (and, from the second time, foundations). */
+/**
+ * A failed final proof means the weakness runs deeper than planned: the plan grows with more practice (from the second
+ * time also foundations and a prediction) and ends with a NEW proof. Exactly one unfinished proof exists at any time.
+ */
 function escalate(s: SaveData, p: TrainingPlan): void {
   const w = weaknessOf(s, p.weaknessId);
   if (!w) return;
@@ -139,15 +173,27 @@ function escalate(s: SaveData, p: TrainingPlan): void {
   const sev = SEVERITY_ORDER[Math.min(SEVERITY_ORDER.length - 1, SEVERITY_ORDER.indexOf(w.severity) + (p.escalations % 2 === 0 ? 1 : 0))]!;
   w.severity = maxSeverity(w.severity, sev);
   const target: PlanLevel = p.escalations >= 2 && p.level !== 'deep' ? levelFor(w) : p.level;
-  const extra = buildSteps(s, w, p.escalations >= 2 ? 'extended' : 'targeted').filter((x) => x.kind !== 'review' || !p.steps.some((y) => y.kind === 'review' && y.skillId === x.skillId));
-  // Never leave a stale unfinished demonstration in front of the new ones: the newest independent step is the test.
-  const pending = p.steps.filter((x) => !x.done && isDemonstration(x));
-  for (const x of pending) x.done = true, (x.passed = false);
+  for (const x of p.steps.filter((y) => !y.done && isDemonstration(y))) { x.done = true; x.passed = false; }
   if (p.escalations >= 2) for (const pre of shakyPrerequisites(s, w.skillIds)) if (!p.steps.some((x) => x.kind === 'review' && x.skillId === pre)) p.steps.push({ id: nextTrainingId(s, 't'), kind: 'review', skillId: pre, done: false, attempts: 0 });
-  p.steps.push(...extra);
+  const extra: ('practice' | 'predict' | 'independent')[] = [...(p.escalations >= 2 ? (['predict'] as const) : []), 'practice', ...(p.escalations >= 2 ? (['practice'] as const) : []), 'independent'];
+  p.steps.push(...buildSteps(s, w, p.level, undefined, extra));
   if (SEVERITY_ORDER.indexOf(LEVEL_TO_SEV[target]) > SEVERITY_ORDER.indexOf(LEVEL_TO_SEV[p.level])) p.level = target;
 }
 const LEVEL_TO_SEV: Record<PlanLevel, Weakness['severity']> = { refresher: 'minor', targeted: 'moderate', extended: 'serious', deep: 'major' };
+
+/** A prediction step: the answer is a choice. A wrong choice costs nothing and shows why; the step is done on the right one. */
+export function answerPrediction(save: SaveData, planId: string, stepId: string, choice: number): Result & { correct?: boolean } {
+  const { s, events } = draft(save);
+  const p = planOf(s, planId);
+  const st = p?.steps.find((x) => x.id === stepId);
+  const w = p ? weaknessOf(s, p.weaknessId) : undefined;
+  const q = w ? moduleFor(w.skillIds)?.predict : undefined;
+  if (!p || p.status !== 'active' || !st || st.kind !== 'predict' || st.done || !q) return { save: s, events };
+  st.attempts++;
+  const correct = choice === q.correct;
+  if (correct) { st.done = true; st.passed = true; events.push({ type: 'trainingStep', planId }); finishIfDone(s, events, p); }
+  return { save: s, events, correct };
+}
 
 function finishIfDone(s: SaveData, events: Result['events'], p: TrainingPlan): void {
   if (p.status !== 'active') return;

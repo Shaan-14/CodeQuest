@@ -1,16 +1,16 @@
 import { useState } from 'preact/hooks';
-import { getSkill } from '../../content';
 import { getBoss } from '../../content/bosses';
 import { bossStatus, currentBossChallenge, sealingWeakness, submitBoss } from '../../game/boss';
 import { getStore, useGame } from '../../game/store';
 import { failureDetailOf } from '../../learning/failure';
 import { ChallengeStepView } from '../components/ChallengeStep';
+import { DiagnosisCard } from '../components/DiagnosisCard';
 
 /**
  * One boss attempt. The problem is chosen by the game (a version never attempted before), has no hints and no starter
  * code, and is graded once: after Submit the outcome is final for this version. The result is ordinary evidence.
  */
-export function BossRun({ bossId, onBack, onTrain }: { bossId: string; onBack: () => void; onTrain: (weaknessId: string) => void }) {
+export function BossRun({ bossId, onBack, onGoTraining }: { bossId: string; onBack: () => void; onGoTraining: () => void }) {
   const { save } = useGame();
   const boss = getBoss(bossId);
   const [begun, setBegun] = useState(false);
@@ -36,9 +36,8 @@ export function BossRun({ bossId, onBack, onTrain }: { bossId: string; onBack: (
         <section class="panel" data-testid="boss-defeat">
           <h2>🩹 Not yet</h2>
           <p>{boss.defeat}</p>
-          {w && <p>What the attempt showed: {w.reasons[0] ?? 'these skills need another look'} ({w.skillIds.map((k) => getSkill(k)?.title ?? k).join(', ')}). Nothing you had before is lost, and there is no penalty or timer.</p>}
-          {w && <button class="btn gold" onClick={() => onTrain(w.id)} data-testid="boss-train">Start the training →</button>}
-          <button class="btn ghost" onClick={onBack}>Back to the Summit</button>
+          <p class="muted small">This boss is sealed until you finish training. Nothing you had before is lost, and there is no penalty or timer.</p>
+          {w ? <DiagnosisCard weakness={w} onGoTraining={onGoTraining} /> : <button class="btn ghost" onClick={onBack}>Back to the Summit</button>}
         </section>
       </main>
     );

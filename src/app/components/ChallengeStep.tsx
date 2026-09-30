@@ -8,6 +8,7 @@ import { failureDetailOf } from '../../learning/failure';
 import { FOCUS_LOSS_PER_FAILED_SUBMIT, recordLookup, recordRun, revealHint, saveDraftCode, startReplay, submitChallenge } from '../../game/actions';
 import { rewardFor } from '../../game/progression';
 import { getStore, useGame } from '../../game/store';
+import { requiredTraining } from '../../game/training';
 import { RichText } from './RichText';
 import { DiagnosisCard } from './DiagnosisCard';
 import { emptyConsole, type ConsoleState } from './Console';
@@ -40,8 +41,8 @@ interface Props {
   submitOverride?: (graded: GradeResult, ms: number, code: string) => void;
   /** Training independent steps and bosses: no hints at all, presented like an independent trial. */
   noHints?: boolean;
-  /** Offered after a diagnosis: start training for this weakness (the parent handles navigation and remembers the return point). */
-  onTrain?: (weaknessId: string) => void;
+  /** After a meaningful failure the Mentor's single button: leave for the Training Grounds (the parent navigates). */
+  onGoTraining?: () => void;
   /** Shown instead of the standard failure footer, e.g. boss text. */
   failureNote?: string;
 }
@@ -58,7 +59,7 @@ export function explainFailure(result: GradeResult): string {
   return parts.join(' ');
 }
 
-export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitchVariant, variantInfo, source = 'lesson', submitOverride, noHints = false, onTrain, failureNote }: Props) {
+export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitchVariant, variantInfo, source = 'lesson', submitOverride, noHints = false, onGoTraining, failureNote }: Props) {
   const game = useGame();
   const progress = game.save.learning.challenges[c.id];
   const startCode = c.language === 'web' ? JSON.stringify(c.starterFiles ?? { html: '', css: '', js: '' }) : c.starterCode;
@@ -146,21 +147,23 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
     setCode(startCode); setCons(emptyConsole); setResult(null); setPayout(null);
   };
 
+  // Required training holds the curriculum: nothing here can be submitted or hinted until it is done (training/boss runs use submitOverride and stay open).
+  const held = !submitOverride && !!requiredTraining(game.save);
   const exhausted = focus < 1 && !submitOverride;
   const failedChecks = result?.checks.filter((k) => !k.passed) ?? [];
   const failedConstraints = result?.constraints.filter((k) => !k.passed) ?? [];
 
   const tools = (
     <>
-        <button class="btn gold" onClick={submit} disabled={busy || exhausted} data-testid="submit" title={exhausted ? 'Out of Focus' : 'Check your solution'}>✔ Submit</button>
+        <button class="btn gold" onClick={submit} disabled={busy || exhausted || held} data-testid="submit" title={held ? 'Training comes first' : exhausted ? 'Out of Focus' : 'Check your solution'}>✔ Submit</button>
         {!independent && c.hints.length > 0 && (
-          <button class="btn" onClick={hint} disabled={hintsUsed >= c.hints.length} data-testid="hint" title="Hints lower your reward and are recorded in your evidence">
+          <button class="btn" onClick={hint} disabled={hintsUsed >= c.hints.length || held} data-testid="hint" title="Hints lower your reward and are recorded in your evidence">
             💡 Hint ({hintsUsed}/{c.hints.length})
           </button>
         )}
         {independent && <button class="btn" onClick={() => setNotes(true)}>📚 Notes</button>}
         <button class="btn" onClick={() => setManual(true)} data-testid="open-manual" title="Search the documentation. Looking things up is a professional skill.">📖 Field Manual</button>
-        {passed && hintsUsed > 0 && <button class="btn" onClick={replay} data-testid="replay">🔁 Replay without hints</button>}
+        {passed && hintsUsed > 0 && !held && <button class="btn" onClick={replay} data-testid="replay">🔁 Replay without hints</button>}
     </>
   );
 
@@ -217,8 +220,8 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
                 {payout && <p data-testid="payout">{payout.xp > 0 ? `+${payout.xp} XP` : 'No new XP (already earned)'}{payout.coins > 0 ? `, +${payout.coins} coins` : ''} <span class="muted small">({payout.note})</span></p>}
                 {c.mode === 'learning' && <p class="small" data-testid="evidence-note">Recorded as <strong>guided</strong> practice. Independent evidence comes from challenges with less guidance.</p>}
                 {c.mode !== 'learning' && progress && progress.hintsUsed === 0 && <p class="small" data-testid="evidence-note">Solved with no hints, and that is recorded as <strong>independent</strong> evidence.</p>}
-                {c.mode !== 'learning' && progress && progress.hintsUsed > 0 && <p class="small" data-testid="evidence-note">Solved with {progress.hintsUsed} hint{progress.hintsUsed > 1 ? 's' : ''}. That is recorded honestly. Replay without hints for stronger evidence.</p>}
-                {onSwitchVariant && <p><button class="btn small" onClick={onSwitchVariant} data-testid="other-variant">🔀 Practise this idea with a different problem</button></p>}
+                {c.mode !== 'learning' && progress && progress.hintsUsed > 0 && <p class="small" data-testid="evidence-note">Solved with {progress.hintsUsed} hint{progress.hintsUsed > 1 ? 's' : ''}. That is recorded honestly as guided evidence.</p>}
+                {!submitOverride && held && onGoTraining && <DiagnosisCard onGoTraining={onGoTraining} />}
               </>
             ) : (
               <>
@@ -226,11 +229,13 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
                 {result.error && <pre class="console-error">{result.error}</pre>}
                 <p class="small" data-testid="failure-explanation">{explainFailure(result)} {!submitOverride && <span class="muted">(−{FOCUS_LOSS_PER_FAILED_SUBMIT} Focus)</span>}</p>
                 {failureNote && <p class="small">{failureNote}</p>}
-                {!submitOverride && <DiagnosisCard challengeId={c.id} onTrain={onTrain} />}
-                <div class="retry-actions">
-                  <p class="small muted">Fix your code and submit again, open a hint, or try a different problem on the same idea. This attempt stays in your record either way.</p>
-                  {onSwitchVariant && <button class="btn small" onClick={onSwitchVariant} data-testid="other-variant">🔀 Try a different problem on this idea</button>}
-                </div>
+                {!submitOverride && held && onGoTraining && <DiagnosisCard onGoTraining={onGoTraining} />}
+                {!submitOverride && !held && (
+                  <div class="retry-actions">
+                    <p class="small muted">Fix your code and submit again, or open a hint. This attempt stays in your record either way.</p>
+                    {onSwitchVariant && <button class="btn small" onClick={onSwitchVariant} data-testid="other-variant">🔀 Try a different problem on this idea</button>}
+                  </div>
+                )}
               </>
             )}
             {result.error === '' && (

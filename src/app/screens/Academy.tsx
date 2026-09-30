@@ -78,7 +78,7 @@ export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') =>
                   <span class={`chip ${save.quests[quest.id]?.status ?? 'none'}`}>{save.quests[quest.id]?.status === 'complete' ? 'Complete' : save.quests[quest.id] ? 'In progress' : 'Available'}</span>
                 </div>
                 <p class="muted">{quest.summary}</p>
-                <button class="btn" onClick={() => onGo('grounds')}>Go to the Training Grounds →</button>
+                <button class="btn" onClick={() => onGo('grounds')}>Go to the Programming Hall →</button>
               </section>
               <section class="panel">
                 <h2>🛏️ Rest</h2>

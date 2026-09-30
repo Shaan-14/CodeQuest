@@ -58,6 +58,12 @@ Baseball is a recurring *theme* and source of examples, never the limit of the c
 - **Test-only solution files must run under plain Node** (the e2e runner imports them): no imports, only type annotations. Python code in them is written with `String.raw`.
 - **Check helpers can leak state between runs.** The Python harness resets logging (handlers, levels, named loggers) before every run so a program that forgets `setLevel` cannot pass because an earlier run set it. Keep the harness's "fresh program" promise when adding standard-library-heavy lessons.
 
+## Educational design rules added in the Phase 4 revision (keep them)
+- **Required training is enforced in the game layer, not just the UI.** After a meaningful lesson failure or any failed boss attempt, `requiredTraining(save)` holds `submitChallenge`, `advanceStep`, `completeLesson` and practice until the plan is complete. Never add a second route around it (no retry buttons, no "try a fresh problem", no skip) and never let a screen start training on its own: the Mentor has ONE button, "Go to the Training Grounds".
+- **Training is a separate place** (`TrainingYard`, area `training-yard`). The lessons area (`training-grounds`, shown as "Programming Hall") must not host training UI.
+- **Training content is authored, not replayed** (`content/training/`): a reframing, a different-context example, a prediction, practice, and exactly ONE independent, hint-free proof at the end of a plan (a failed proof adds targeted practice and a NEW proof). Every module/problem needs tests and wrong attempts; test-only solutions run under plain Node.
+- **Optional vs required**: lesson/boss sources create required weaknesses; practice, daily and quiet-skill weaknesses are optional and appear only on the Training Board. A hinted pass in a learning-mode exercise is never required.
+
 ## Development guidelines
 - Stack: Vite + TypeScript (strict) + Preact + CodeMirror 6 + Pyodide + Vitest (+ playwright-core for e2e). See ARCHITECTURE.md.
 - Commands: `npm run dev`, `npm run typecheck`, `npm test`, `npm run build`, `npm run e2e` (builds, generates `e2e/.fixtures.json`, serves, drives real Chromium; `E2E_ONLY=<substring>` runs matching tests only, e.g. `E2E_ONLY=Daily node e2e/run.mjs` against an existing build). All of typecheck, test, build and e2e should pass before finishing a phase. Web content tests need a Chromium (`CHROMIUM_PATH`, or `/opt/pw-browsers`); run one challenge with `npx vitest run src/content/web -t "<challenge id>"`.
