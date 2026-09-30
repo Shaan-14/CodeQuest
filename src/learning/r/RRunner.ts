@@ -18,7 +18,7 @@ interface WebRLike {
 }
 interface EnvLike { get(name: string): Promise<{ toJs(): Promise<unknown> } | unknown>; bind?(n: string, v: unknown): Promise<void> }
 interface ShelterLike {
-  captureR(code: string, opts: { env?: EnvLike; captureStreams?: boolean; captureConditions?: boolean }): Promise<{ result: { toJs(): Promise<unknown> }; output: { type: string; data: unknown }[] }>;
+  captureR(code: string, opts: { env?: EnvLike; captureStreams?: boolean; captureConditions?: boolean; captureGraphics?: boolean }): Promise<{ result: { toJs(): Promise<unknown> }; output: { type: string; data: unknown }[] }>;
   purge(): Promise<void>;
 }
 
@@ -61,7 +61,7 @@ export class RRunner implements CodeRunner {
 
   /** Runs code in a fresh environment. Output and errors are captured, never thrown. */
   private async exec(code: string, env: EnvLike): Promise<{ out: string; err: string }> {
-    const r = await this.shelter!.captureR(code, { env, captureStreams: true, captureConditions: false });
+    const r = await this.shelter!.captureR(code, { env, captureStreams: true, captureConditions: false, captureGraphics: false });
     const join = (t: string) => r.output.filter((o) => o.type === t).map((o) => String(o.data)).join('\n');
     return { out: join('stdout'), err: join('stderr') };
   }

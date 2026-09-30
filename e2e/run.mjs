@@ -38,7 +38,7 @@ function findChromium() {
 let passed = 0;
 const failures = [];
 async function test(name, fn) {
-  if (process.env.E2E_ONLY && !name.includes(process.env.E2E_ONLY)) return; // e.g. E2E_ONLY=focus
+  if (process.env.E2E_ONLY && !process.env.E2E_ONLY.split('|').some((k) => name.includes(k))) return; // e.g. E2E_ONLY='focus|Daily'
   const t = Date.now();
   try {
     await fn();
@@ -270,7 +270,7 @@ async function main() {
       const first = await tid(page, 'dialogue-text').innerText();
       assert(first.includes('Juno'), 'mentor introduces self');
       for (let i = 0; i < 5; i++) await tid(page, 'dialogue-next').click();
-      assert((await tid(page, 'dialogue-text').innerText()).includes('Bolt-7'), 'last line mentions quest');
+      assert((await tid(page, 'dialogue-text').innerText()).includes('worlds'), 'last line explains the worlds');
       await tid(page, 'accept-quest').click();
       await tid(page, 'world-chooser').waitFor();
       await tid(page, 'enter-python').click();
@@ -587,7 +587,7 @@ async function main() {
       await startGame(page);
       await introAndAccept(page);
       // give coins via a real save edit (as if earned)
-      await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('codequest.save')); s.stats.coins = 200; s.stats.focus = 30; s.learning.lessons['py-02-fixing-errors'] = { stepIndex: 9, completed: true }; localStorage.setItem('codequest.save', JSON.stringify(s)); });
+      await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('codequest.save')); s.stats.coins = 200; s.stats.focus = 30; s.learning.lessons['py-01-first-program'] = { stepIndex: 9, completed: true }; s.learning.lessons['py-02-fixing-errors'] = { stepIndex: 9, completed: true }; localStorage.setItem('codequest.save', JSON.stringify(s)); });
       await page.reload();
       await page.locator('button[title="World map"]').click();
       await tid(page, 'area-shop').click();
@@ -1221,7 +1221,8 @@ async function main() {
     });
 
     console.log('Phase 5: nonlinear worlds, real runtimes, graph gates');
-    const stepTo = async (page, kind) => { for (let i = 0; i < 12; i++) { if (await stepKind(page, i) === kind) return i; await tid(page, 'continue').click(); } throw new Error('no ' + kind + ' step'); };
+    // A lesson opens on step 0 (Continue moves on, as in the pipeline test); returns the index where `kind` is on screen.
+    const stepTo = async (page, kind, from = 1) => { for (let i = from; i < 12; i++) { if (await stepKind(page, i) === kind) return i; await tid(page, 'continue').click(); } throw new Error('no ' + kind + ' step'); };
 
     await test('Nonlinear start: Spreadsheets, Git and R open without any Python; Statistics explains what it needs', async () => {
       const page = await newPage();
@@ -1253,10 +1254,11 @@ async function main() {
       await seed(page, []);
       await gotoArea(page, 'spreadsheet-guild');
       await openLesson(page, 'xl-01-formulas');
-      await stepTo(page, 'demo');
+      await tid(page, 'continue').click();
+      const d = await stepTo(page, 'demo');
       await tid(page, 'run').click();
       await tid(page, 'continue').click();
-      await stepTo(page, 'challenge');
+      await stepTo(page, 'challenge', d + 1);
       for (const [cell, f] of [['D2', '=B2*C2'], ['D3', '=B3*C3'], ['D4', '=B4*C4']]) {
         await page.locator(`td[data-cell="${cell}"]`).click();
         await tid(page, 'formula-bar').fill(f);
@@ -1278,10 +1280,11 @@ async function main() {
       await seed(page, []);
       await gotoArea(page, 'spreadsheet-guild');
       await openLesson(page, 'xl-01-formulas');
-      await stepTo(page, 'demo');
+      await tid(page, 'continue').click();
+      const d = await stepTo(page, 'demo');
       await tid(page, 'run').click();
       await tid(page, 'continue').click();
-      await stepTo(page, 'challenge');
+      await stepTo(page, 'challenge', d + 1);
       // Guided exercises cost nothing: the failure is recorded, the answer is not shown.
       for (const [cell, f] of [['D2', '10'], ['D3', '4'], ['D4', '24']]) {
         await page.locator(`td[data-cell="${cell}"]`).click();
@@ -1300,10 +1303,11 @@ async function main() {
       await seed(page, []);
       await gotoArea(page, 'version-vault');
       await openLesson(page, 'git-01-repositories');
-      await stepTo(page, 'demo');
+      await tid(page, 'continue').click();
+      const d = await stepTo(page, 'demo');
       await tid(page, 'run').click();
       await tid(page, 'continue').click();
-      await stepTo(page, 'challenge');
+      await stepTo(page, 'challenge', d + 1);
       for (const line of ['git init', 'git add notes.txt', 'git commit -m "Add robot arm notes"']) {
         await tid(page, 'git-input').fill(line);
         await tid(page, 'git-run').click();
@@ -1321,11 +1325,38 @@ async function main() {
       await seed(page, []);
       await gotoArea(page, 'r-lab');
       await openLesson(page, 'r-01-console');
-      await stepTo(page, 'demo');
+      await tid(page, 'continue').click();
+      const d = await stepTo(page, 'demo');
       await tid(page, 'run').click();
       await tid(page, 'stdout').waitFor({ timeout: 120000 });
       assert((await tid(page, 'stdout').innerText()).trim().length > 0, 'R printed output');
+      await tid(page, 'continue').click();
+      await stepTo(page, 'challenge', d + 1);
+      await setCode(page, 'v <- as.numeric(readLines("trip.txt"))\nprint(v[1] / v[2])');
+      await tid(page, 'submit').click();
+      await tid(page, 'result').waitFor({ timeout: 120000 });
+      assert(await page.locator('.result.pass').count() === 1, 'real R grades the answer against hidden data');
       await page.screenshot({ path: SHOTS + '64-r-world.png' });
+      await page.context().close();
+    });
+
+    await test('Summit: any three guardians open it, and the finale is taken in a technology the player mastered (route chooser)', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, PY_THROUGH_14);
+      await page.evaluate(() => {
+        const s = JSON.parse(localStorage.getItem('codequest.save'));
+        for (const id of ['mastery-python', 'mastery-sheets', 'mastery-r']) s.bosses[id] = { attempts: [], passedAt: new Date().toISOString() };
+        localStorage.setItem('codequest.save', JSON.stringify(s));
+      });
+      await page.reload();
+      await gotoArea(page, 'summit');
+      await tid(page, 'boss-hall').waitFor();
+      await tid(page, 'boss-open-summit').click();
+      await tid(page, 'boss-routes').waitFor();
+      assert(await tid(page, 'boss-route-sheets').count() === 1 && await tid(page, 'boss-route-r').count() === 1, 'the routes of mastered technologies are offered');
+      eq(await tid(page, 'boss-route-data').count(), 0, 'Python alone does not open the data route (it needs SQL too)');
+      await page.screenshot({ path: SHOTS + '65-summit-routes.png' });
       await page.context().close();
     });
 
