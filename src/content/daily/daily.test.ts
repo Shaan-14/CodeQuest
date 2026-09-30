@@ -8,9 +8,11 @@ import { createPythonEngine, type PythonEngine } from '../../learning/python/pyt
 import { sourcesFor } from '../databases';
 import { challenges, getLesson, skills } from '../index';
 import { databasesUsedBy } from '../helpers';
-import { dailyChallenges } from './index';
+import { dailyChallenges as allDailies } from './index';
 import { dailySolutions } from './solutions.testdata';
 
+/** Web dailies run in real Chromium: see content/web/web.test.ts. */
+const dailyChallenges = allDailies.filter((c) => c.language !== 'web');
 let engine: PythonEngine;
 beforeAll(async () => {
   engine = createPythonEngine((await loadPyodide()) as never);
@@ -40,6 +42,20 @@ describe('daily challenge metadata', () => {
       expect(c.context, c.id).toBeTruthy();
       expect(c.guidedSteps, c.id).toBeUndefined();
     }
+  });
+  it('web dailies are independent-style too', () => {
+    const webOnes = allDailies.filter((c) => c.language === 'web');
+    expect(webOnes.length).toBeGreaterThanOrEqual(20);
+    for (const c of webOnes) {
+      expect(c.mode, c.id).toBe('independent');
+      expect(c.hints, c.id).toEqual([]);
+      expect(c.concepts, c.id).toEqual([]);
+      expect(c.checks.every((k) => 'visible' in k && k.visible === false), `${c.id}: all checks hidden`).toBe(true);
+      for (const l of c.daily!.requires) expect(getLesson(l), `${c.id} requires ${l}`).toBeDefined();
+      for (const s of c.skillIds) expect(skills.some((k) => k.id === s), `${c.id} skill ${s}`).toBe(true);
+    }
+    const skillsCovered = new Set(webOnes.flatMap((c) => c.skillIds));
+    for (const s of ['web.html', 'web.forms', 'web.css', 'web.layout', 'js.basics', 'js.data', 'js.dom', 'js.forms', 'js.async', 'web.http']) expect(skillsCovered.has(s), s).toBe(true);
   });
   it('cover the skills of every phase, with several difficulty levels and varied contexts', () => {
     const covered = new Set(dailyChallenges.flatMap((c) => c.skillIds));

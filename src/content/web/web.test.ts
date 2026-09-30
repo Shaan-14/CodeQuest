@@ -10,6 +10,8 @@ import type { WebFiles } from '../schema';
 import { blank } from './helpers';
 import { webSolutions } from './solutions.testdata';
 import { reference } from '../reference';
+import { dailyChallenges } from '../daily';
+import { webDailySolutions } from '../daily/solutions.web.testdata';
 import { S, web as webCheck } from './helpers';
 
 const web = challenges.filter((c) => c.language === 'web');
@@ -70,6 +72,30 @@ describe('Field Manual web entries run in real Chromium', () => {
     it(`${e.id}: the example page runs without errors`, async () => {
       const r = await harness.grade(e.run!, [webCheck('runs', S.noErrors)]);
       expect(r.passed, JSON.stringify(r.checks)).toBe(true);
+    });
+  }
+});
+
+describe('web Daily Challenges behave correctly in real Chromium', () => {
+  const dailies = dailyChallenges.filter((c) => c.language === 'web');
+  it('has solutions for every web daily and none for unknown ones', () => {
+    for (const c of dailies) expect(webDailySolutions[c.id], c.id).toBeDefined();
+    for (const id of Object.keys(webDailySolutions)) expect(dailies.some((c) => c.id === id), id).toBe(true);
+  });
+  for (const c of dailies) {
+    describe(c.id, () => {
+      const sol = webDailySolutions[c.id];
+      const run = (f: WebFiles) => harness.grade(f, c.checks);
+      it('the starter files do not already pass', async () => {
+        expect((await run(c.starterFiles ?? blank)).passed).toBe(false);
+      });
+      sol?.valid.forEach((f, i) => it(`valid solution #${i + 1} passes`, async () => {
+        const r = await run(f);
+        expect(r.passed, JSON.stringify(r.checks.filter((k) => !k.passed), null, 1)).toBe(true);
+      }));
+      sol?.wrong.forEach((f, i) => it(`wrong attempt #${i + 1} fails`, async () => {
+        expect((await run(f)).passed).toBe(false);
+      }));
     });
   }
 });

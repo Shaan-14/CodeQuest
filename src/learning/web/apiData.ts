@@ -39,6 +39,8 @@ export function apiCollections(variant: ApiVariant): Record<string, Record<strin
     id: i + 1, name: `${pick(r, ['Bolt', 'Gear', 'Clamp', 'Valve', 'Hose', 'Gauge', 'Filter', 'Belt'])} ${100 + i * 7}`, category: pick(r, ['Fasteners', 'Tools', 'Safety', 'Electrical']),
     price: round(3 + r() * 120), stock: Math.floor(r() * 80),
   }));
+  // Boundary stock levels in both data sets (0, 9 and exactly 10) so "low stock" rules must get the edge right.
+  products[2]!.stock = 9; products[5]!.stock = 10; products[7]!.stock = 0;
   const employees = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1, name: person(), role: pick(r, ['operator', 'technician', 'supervisor']), department: pick(r, ['Assembly', 'Machining', 'Packing']), rate: round(15 + r() * 30),
   }));

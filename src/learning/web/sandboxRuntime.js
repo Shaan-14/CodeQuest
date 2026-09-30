@@ -309,7 +309,14 @@
       },
       select: function (s, value) { var e = needEl(s); nativeSet(e, 'value', value); fire(e, 'input'); fire(e, 'change'); return e; },
       check: function (s, on) { var e = needEl(s); if (e.checked !== !!on) e.click(); return e; },
-      press: function (s, key) { var e = needEl(s); e.focus(); fire(e, 'keydown', { key: key }); fire(e, 'keyup', { key: key }); return e; },
+      press: function (s, key) {
+        var e = needEl(s);
+        e.focus();
+        var init = { bubbles: true, cancelable: true, key: key, code: key };
+        e.dispatchEvent(new KeyboardEvent('keydown', init));
+        e.dispatchEvent(new KeyboardEvent('keyup', init));
+        return e;
+      },
       /** Submit through the browser's own validation. Returns { fired, valid }. */
       submit: function (s) {
         var f = needEl(s);
