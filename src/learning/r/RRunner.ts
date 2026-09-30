@@ -130,7 +130,9 @@ export class RRunner implements CodeRunner {
       case 'output': {
         const expect = (c as { expect: string }).expect;
         const ignoreCase = (c as { ignoreCase?: boolean }).ignoreCase;
-        const a = out.trim(); const e = expect.trim();
+        // Trailing spaces on a line are not part of the answer (cat("x", "\n") leaves one before the newline).
+        const norm = (t: string) => t.split('\n').map((l) => l.trimEnd()).join('\n').trim();
+        const a = norm(out); const e = norm(expect);
         return (ignoreCase ? a.toLowerCase() === e.toLowerCase() : a === e) ? { ...base, passed: true, message: '' } : fail('The printed output is not what the task asks for.', e, a);
       }
       case 'variable': {
