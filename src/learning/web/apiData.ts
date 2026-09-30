@@ -71,5 +71,5 @@ export const apiRequired: Record<string, string[]> = {
 };
 
 export function apiConfig(variant: ApiVariant, latency = 20) {
-  return { collections: apiCollections(variant), required: apiRequired, latency };
+  return { collections: apiCollections(variant), required: apiRequired, latency, retryAfter: variant === 'a' ? 2 : 7 };
 }

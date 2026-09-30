@@ -13,7 +13,7 @@
  *   DELETE /api/<collection>/<id>       -> 204
  *   GET    /api/private/<collection>    same as GET but needs `Authorization: Bearer codequest-key`, else 401
  *   GET    /api/flaky                   503 twice, then 200 (per server instance): for retry/error handling
- *   GET    /api/rate-limited            200 three times, then 429 with Retry-After
+ *   GET    /api/rate-limited            200 three times, then 429 with Retry-After (2 seconds; the hidden data set uses another value)
  *   GET    /api/slow                    like a normal 200 but with 400 ms latency
  * Anything else: 404 (unknown path) or 405 (method not allowed).
  */
@@ -92,13 +92,21 @@ function createApiServer(config) {
     return { rows: rows.slice(off, off + lim), total: total };
   }
 
+  function note(method, p, headers, options) {
+    log.push({ method: method, path: p.path, query: p.query, headers: headers, body: options.body === undefined ? null : options.body });
+  }
+  /** Log a request that never reached the routes (the sandbox simulated a failure), so request counts stay honest. */
+  function record(method, url, options) {
+    options = options || {};
+    note(String(method || 'GET').toUpperCase(), parse(url), lower(options.headers), options);
+  }
   /** Handle one request synchronously. Returns { status, headers, body } (body is a JSON string). */
   function handle(method, url, options) {
     options = options || {};
     method = String(method || 'GET').toUpperCase();
     var headers = lower(options.headers);
     var p = parse(url);
-    log.push({ method: method, path: p.path, query: p.query, headers: headers, body: options.body === undefined ? null : options.body });
+    note(method, p, headers, options);
     var parts = p.path.split('/').filter(Boolean);
     if (parts[0] !== 'api') return json(404, { error: 'Not found', path: p.path });
     var rest = parts.slice(1);
@@ -110,7 +118,7 @@ function createApiServer(config) {
     }
     if (rest[0] === 'rate-limited' && rest.length === 1) {
       counters.limited++;
-      return counters.limited <= 3 ? json(200, { ok: true, call: counters.limited }) : json(429, { error: 'Too many requests' }, { 'Retry-After': '2' });
+      return counters.limited <= 3 ? json(200, { ok: true, call: counters.limited }) : json(429, { error: 'Too many requests' }, { 'Retry-After': String(config.retryAfter === undefined ? 2 : config.retryAfter) });
     }
     if (rest[0] === 'slow' && rest.length === 1) return json(200, { ok: true });
 
@@ -168,5 +176,5 @@ function createApiServer(config) {
     return json(405, { error: 'Method not allowed' }, { Allow: 'GET, PUT, PATCH, DELETE' });
   }
 
-  return { handle: handle, log: log, collections: collections, latencyFor: function (url) { return /\/api\/slow/.test(String(url)) ? 400 : (config.latency === undefined ? 20 : config.latency); } };
+  return { handle: handle, record: record, log: log, collections: collections, latencyFor: function (url) { return /\/api\/slow/.test(String(url)) ? 400 : (config.latency === undefined ? 20 : config.latency); } };
 }

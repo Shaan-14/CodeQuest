@@ -309,3 +309,93 @@ Object.assign(appSolutions, {
     ],
   },
 });
+
+/* ------------------------------------------------------------ lesson 24: writing and resilience */
+import { HTML as H24 } from './24-fetch-write';
+
+const addApp = 'const form = document.querySelector("#add-form");\nconst button = document.querySelector("#add");\nconst msg = document.querySelector("#msg");\nconst list = document.querySelector("#list");\nconst nameBox = document.querySelector("#name");\n\nfunction addItem(m) {\n  const li = document.createElement("li");\n  li.textContent = `${m.name} (${m.type})`;\n  list.append(li);\n}\nasync function loadStart() {\n  const response = await fetch("/api/machines?limit=3");\n  for (const m of await response.json()) addItem(m);\n}\nform.addEventListener("submit", async (event) => {\n  event.preventDefault();\n  button.disabled = true;\n  try {\n    const response = await fetch("/api/machines", {\n      method: "POST",\n      headers: { "Content-Type": "application/json" },\n      body: JSON.stringify({ name: nameBox.value.trim(), type: document.querySelector("#type").value }),\n    });\n    const data = await response.json();\n    if (response.status === 201) {\n      msg.textContent = `Added ${data.name} (id ${data.id})`;\n      addItem(data);\n      nameBox.value = "";\n    } else {\n      msg.textContent = `Could not add: ${data.error}`;\n    }\n  } finally {\n    button.disabled = false;\n  }\n});\nloadStart();\n';
+const restockApp = 'const rows = document.querySelector("#rows");\nconst msg = document.querySelector("#msg");\n\nfunction addRow(p) {\n  const tr = document.createElement("tr");\n  tr.dataset.id = p.id;\n  const name = document.createElement("td");\n  name.className = "name";\n  name.textContent = p.name;\n  const stock = document.createElement("td");\n  stock.className = "stock";\n  stock.textContent = p.stock;\n  const cell = document.createElement("td");\n  const button = document.createElement("button");\n  button.className = "restock";\n  button.textContent = "+10";\n  button.addEventListener("click", async () => {\n    button.disabled = true;\n    try {\n      const response = await fetch(`/api/products/${p.id}`, {\n        method: "PATCH",\n        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({ stock: Number(stock.textContent) + 10 }),\n      });\n      if (response.ok) {\n        stock.textContent = (await response.json()).stock;\n        msg.textContent = "";\n      } else {\n        msg.textContent = `Update failed (status ${response.status})`;\n      }\n    } finally {\n      button.disabled = false;\n    }\n  });\n  cell.append(button);\n  tr.append(name, stock, cell);\n  rows.append(tr);\n}\nasync function load() {\n  const response = await fetch("/api/products?limit=4");\n  (await response.json()).forEach(addRow);\n}\nload();\n';
+const teamsApp = 'const list = document.querySelector("#teams");\nconst msg = document.querySelector("#msg");\n\nfunction addItem(t) {\n  const li = document.createElement("li");\n  li.dataset.id = t.id;\n  const name = document.createElement("span");\n  name.className = "name";\n  name.textContent = t.name;\n  const button = document.createElement("button");\n  button.className = "delete";\n  button.textContent = "Remove";\n  button.addEventListener("click", async () => {\n    const response = await fetch(`/api/teams/${t.id}`, { method: "DELETE" });\n    if (response.status === 204) {\n      li.remove();\n      msg.textContent = `Removed ${t.name}`;\n    } else if (response.status === 404) {\n      li.remove();\n      msg.textContent = `${t.name} was already gone`;\n    } else {\n      msg.textContent = `Could not remove ${t.name} (status ${response.status})`;\n    }\n  });\n  li.append(name, button);\n  list.append(li);\n}\nasync function load() {\n  const response = await fetch("/api/teams");\n  (await response.json()).forEach(addItem);\n}\nload();\n';
+const payrollApp = 'const state = document.querySelector("#state");\nconst rows = document.querySelector("#rows");\nconst total = document.querySelector("#total");\n\ndocument.querySelector("#load").addEventListener("click", async () => {\n  const key = document.querySelector("#key").value.trim();\n  rows.replaceChildren();\n  total.textContent = "";\n  if (key === "") {\n    state.textContent = "Enter your API key";\n    return;\n  }\n  state.textContent = "Loading...";\n  const response = await fetch("/api/private/employees", { headers: { Authorization: `Bearer ${key}` } });\n  if (response.status === 401) {\n    state.textContent = "Access denied: check your API key";\n    return;\n  }\n  if (!response.ok) {\n    state.textContent = `Could not load payroll (status ${response.status})`;\n    return;\n  }\n  const people = await response.json();\n  state.textContent = "";\n  for (const p of people) {\n    const tr = document.createElement("tr");\n    for (const value of [p.name, p.role, `£${p.rate.toFixed(2)}/h`]) {\n      const td = document.createElement("td");\n      td.textContent = value;\n      tr.append(td);\n    }\n    rows.append(tr);\n  }\n  const mean = people.reduce((sum, p) => sum + p.rate, 0) / people.length;\n  total.textContent = `Average rate: £${mean.toFixed(2)}`;\n});\n';
+const flakyApp = 'const button = document.querySelector("#fetch");\nconst state = document.querySelector("#state");\nconst out = document.querySelector("#out");\nconst wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));\n\nbutton.addEventListener("click", async () => {\n  button.disabled = true;\n  out.textContent = "";\n  for (let attempt = 1; attempt <= 3; attempt++) {\n    state.textContent = `Attempt ${attempt} of 3...`;\n    const response = await fetch("/api/flaky");\n    if (response.ok) {\n      out.textContent = JSON.stringify(await response.json());\n      state.textContent = `Loaded after ${attempt} attempt${attempt === 1 ? "" : "s"}`;\n      button.disabled = false;\n      return;\n    }\n    if (response.status < 500) {\n      state.textContent = `Request rejected (status ${response.status})`;\n      button.disabled = false;\n      return;\n    }\n    if (attempt < 3) {\n      state.textContent = `Attempt ${attempt} failed, retrying...`;\n      await wait(1000);\n    }\n  }\n  state.textContent = "Gave up after 3 attempts";\n  button.disabled = false;\n});\n';
+const rateApp = 'const state = document.querySelector("#state");\nconst log = document.querySelector("#log");\n\ndocument.querySelector("#run").addEventListener("click", async () => {\n  log.replaceChildren();\n  state.textContent = "Sending...";\n  for (let n = 1; n <= 5; n++) {\n    const response = await fetch("/api/rate-limited");\n    const li = document.createElement("li");\n    log.append(li);\n    if (response.ok) {\n      li.textContent = `Request ${n}: ok`;\n      continue;\n    }\n    if (response.status === 429) {\n      li.textContent = `Request ${n}: rate limited`;\n      state.textContent = `Rate limited. Try again in ${response.headers.get("Retry-After")} seconds`;\n    } else {\n      li.textContent = `Request ${n}: failed (status ${response.status})`;\n      state.textContent = "Stopped after an error";\n    }\n    return;\n  }\n  state.textContent = "All done";\n});\n';
+
+Object.assign(appSolutions, {
+  'web-24-add-machine': {
+    valid: [fj(addApp, H24.add)],
+    wrong: [
+      fj(rep(addApp, '      headers: { "Content-Type": "application/json" },\n', ''), H24.add),
+      fj(rep(addApp, '  event.preventDefault();\n', ''), H24.add),
+      fj(rep(addApp, '  button.disabled = true;\n', ''), H24.add),
+      fj(rep(addApp, '  } finally {\n    button.disabled = false;\n  }', '  } catch (e) {}'), H24.add),
+      fj(rep(addApp, 'msg.textContent = `Could not add: ${data.error}`;', 'msg.textContent = "Could not add";'), H24.add),
+      fj(rep(addApp, '      addItem(data);\n', '      addItem({ name: nameBox.value, type: "press" });\n'), H24.add),
+      fj(rep(addApp, '      nameBox.value = "";\n', ''), H24.add),
+      fj(rep(addApp, 'if (response.status === 201) {', 'if (true) {'), H24.add),
+      fj(rep(addApp, 'JSON.stringify({ name: nameBox.value.trim(), type: document.querySelector("#type").value })', 'JSON.stringify({ name: nameBox.value.trim(), type: document.querySelector("#type").value, id: 99 })'), H24.add),
+    ],
+  },
+  'web-24-restock-products': {
+    valid: [fj(restockApp, H24.restock)],
+    wrong: [
+      fj(rep(restockApp, 'method: "PATCH"', 'method: "POST"'), H24.restock),
+      fj(rep(restockApp, '        headers: { "Content-Type": "application/json" },\n', ''), H24.restock),
+      fj(rep(restockApp, '    button.disabled = true;\n', ''), H24.restock),
+      fj(rep(restockApp, 'JSON.stringify({ stock: Number(stock.textContent) + 10 })', 'JSON.stringify({ stock: Number(stock.textContent) + 10, name: p.name })'), H24.restock),
+      fj(rep(restockApp, 'Number(stock.textContent) + 10 })', 'Number(stock.textContent) + 1 })'), H24.restock),
+      fj(rep(restockApp, '      if (response.ok) {\n        stock.textContent = (await response.json()).stock;\n        msg.textContent = "";\n      } else {\n        msg.textContent = `Update failed (status ${response.status})`;\n      }', '      stock.textContent = Number(stock.textContent) + 10;\n      if (!response.ok) msg.textContent = `Update failed (status ${response.status})`;'), H24.restock),
+      fj(rep(restockApp, '        msg.textContent = "";\n', ''), H24.restock),
+      fj(rep(restockApp, '    } finally {\n      button.disabled = false;\n    }', '    } catch (e) {}'), H24.restock),
+    ],
+  },
+  'web-24-remove-teams': {
+    valid: [fj(teamsApp, H24.teams)],
+    wrong: [
+      fj(rep(teamsApp, '{ method: "DELETE" }', '{ method: "POST" }'), H24.teams),
+      fj(rep(teamsApp, '    if (response.status === 204) {', '    const body = await response.json();\n    if (response.status === 204) {'), H24.teams),
+      fj(rep(teamsApp, '    } else if (response.status === 404) {\n      li.remove();\n      msg.textContent = `${t.name} was already gone`;\n    } else {', '    } else {'), H24.teams),
+      fj(rep(teamsApp, '    if (response.status === 204) {\n      li.remove();', '    li.remove();\n    if (response.status === 204) {'), H24.teams),
+      fj(rep(teamsApp, '`/api/teams/${t.id}`', '`/api/teams/1`'), H24.teams),
+      fj(rep(teamsApp, '`Removed ${t.name}`', '"Removed"'), H24.teams),
+    ],
+  },
+  'web-24-payroll-report': {
+    valid: [fj(payrollApp, H24.payroll)],
+    wrong: [
+      fj(rep(payrollApp, '{ headers: { Authorization: `Bearer ${key}` } }', '{ headers: { Authorization: key } }'), H24.payroll),
+      fj(rep(payrollApp, 'const key = document.querySelector("#key").value.trim();', 'const key = document.querySelector("#key").value;'), H24.payroll),
+      fj(rep(payrollApp, '  rows.replaceChildren();\n  total.textContent = "";\n', ''), H24.payroll),
+      fj(rep(payrollApp, '  if (key === "") {\n    state.textContent = "Enter your API key";\n    return;\n  }\n', ''), H24.payroll),
+      fj(rep(payrollApp, '  if (response.status === 401) {\n    state.textContent = "Access denied: check your API key";\n    return;\n  }\n', ''), H24.payroll),
+      fj(rep(payrollApp, '  if (!response.ok) {\n    state.textContent = `Could not load payroll (status ${response.status})`;\n    return;\n  }\n', ''), H24.payroll),
+      fj(rep(payrollApp, '`£${p.rate.toFixed(2)}/h`', '`£${p.rate}/h`'), H24.payroll),
+      fj(rep(payrollApp, 'mean.toFixed(2)', 'mean.toFixed(1)'), H24.payroll),
+      fj(rep(payrollApp, '  state.textContent = "Loading...";\n', ''), H24.payroll),
+      fj(rep(payrollApp, '  state.textContent = "";\n  for', '  for'), H24.payroll),
+    ],
+  },
+  'web-24-flaky-retry': {
+    valid: [fj(flakyApp, H24.flaky)],
+    wrong: [
+      fj(rep(flakyApp, '      await wait(1000);\n', ''), H24.flaky),
+      fj(rep(flakyApp, 'wait(1000)', 'wait(100)'), H24.flaky),
+      fj(rep(flakyApp, 'attempt <= 3', 'attempt <= 4'), H24.flaky),
+      fj(rep(flakyApp, '    if (response.status < 500) {\n      state.textContent = `Request rejected (status ${response.status})`;\n      button.disabled = false;\n      return;\n    }\n', ''), H24.flaky),
+      fj(rep(flakyApp, '`Loaded after ${attempt} attempt${attempt === 1 ? "" : "s"}`', '`Loaded after ${attempt} attempts`'), H24.flaky),
+      fj(rep(flakyApp, '  state.textContent = "Gave up after 3 attempts";\n  button.disabled = false;', '  state.textContent = "Gave up after 3 attempts";'), H24.flaky),
+      fj(rep(flakyApp, '  button.disabled = true;\n', ''), H24.flaky),
+      fj(rep(flakyApp, '      out.textContent = JSON.stringify(await response.json());\n', ''), H24.flaky),
+      fj(rep(flakyApp, '  out.textContent = "";\n', ''), H24.flaky),
+    ],
+  },
+  'web-24-rate-limit': {
+    valid: [fj(rateApp, H24.rate)],
+    wrong: [
+      fj(rep(rateApp, 'response.headers.get("Retry-After")', '2'), H24.rate),
+      fj(rep(rateApp, '    return;\n  }\n  state.textContent = "All done";', '    continue;\n  }\n  state.textContent = "All done";'), H24.rate),
+      fj(rep(rateApp, '  log.replaceChildren();\n', ''), H24.rate),
+      fj(rep(rateApp, '`Request ${n}: failed (status ${response.status})`', '`Request ${n}: rate limited`'), H24.rate),
+      fj(rep(rateApp, '"Stopped after an error"', '"Rate limited"'), H24.rate),
+    ],
+  },
+});

@@ -85,7 +85,9 @@
     var quiet = 0;
     for (var i = 0; i < 600 && quiet < 3; i++) {
       await tick(0);
-      if (state.pending > 0) { await tick(25); quiet = 0; } else quiet++;
+      // Advance in 1 ms steps and stop the moment the last request completes, so timers the page sets in response to
+      // a reply (e.g. "wait 1 s, then retry") are exactly that far in the future, not a few ms less.
+      if (state.pending > 0) { for (var k = 0; k < 40 && state.pending > 0; k++) await tick(1); quiet = 0; } else quiet++;
       await realSleep(3);
     }
   }
@@ -143,6 +145,7 @@
         state.pending--;
         var res;
         var override = state.failNext && state.failNext.count > 0 ? (state.failNext.count--, state.failNext.status) : 0;
+        if (override) state.server.record(method, url, { headers: headers, body: body });
         if (override) res = { status: override, headers: { 'Content-Type': 'application/json' }, body: nativeJsonStringify({ error: 'Simulated server error' }) };
         else res = state.server.handle(method, url, { headers: headers, body: body });
         var bodyOut = res.status === 204 || res.status === 205 || res.status === 304 ? null : res.body;
