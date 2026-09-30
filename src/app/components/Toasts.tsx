@@ -14,7 +14,8 @@ function describe(e: GameEvent): { icon: string; title: string; body?: string; k
     }
     case 'areaUnlocked': {
       const a = areas.find((x) => x.id === e.id);
-      return a && a.id !== 'academy' ? { icon: a.icon, title: `${a.name} unlocked`, kind: 'area' } : null;
+      // Worlds that are open from the first minute are not news; only areas that just OPENED (a skill gate passed) are.
+      return a && a.id !== 'academy' && a.lock.type !== 'none' ? { icon: a.icon, title: `${a.name} unlocked`, kind: 'area' } : null;
     }
     case 'questAccepted': return { icon: '📜', title: 'Quest accepted', body: quests.find((q) => q.id === e.id)?.title, kind: 'quest' };
     case 'questComplete': return { icon: '🏅', title: 'Quest complete!', body: quests.find((q) => q.id === e.id)?.title, kind: 'quest' };
@@ -36,6 +37,8 @@ function describe(e: GameEvent): { icon: string; title: string; body?: string; k
     case 'bossFailed': return { icon: '🩹', title: 'Boss not yet beaten', body: 'Go to the Training Grounds for your diagnosis and training.', kind: 'boss' };
     case 'campaignComplete': return { icon: '🏔️', title: 'You reached the Summit!', body: 'CodeQuest complete.', kind: 'boss' };
     case 'worldEffect': return { icon: '🌍', title: 'Something in the world changed', body: `${e.target.replace('.', ': ').replaceAll('-', ' ')} · ${e.action.replaceAll('-', ' ')}`, kind: 'world' };
+    // The 3D world reacts to these itself (and announces them in captions); toasts would only repeat them.
+    case 'challengeFailed': case 'challengePassed': case 'talked': case 'inspected': return null;
     case 'dailyFailed': return { icon: '🌙', title: 'Daily Challenge attempted', body: 'No penalty. A fresh one arrives soon.', kind: 'daily' };
   }
 }

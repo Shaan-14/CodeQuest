@@ -1,3 +1,4 @@
+import { playQuests } from './play/quests';
 import type { Area, AchievementDef, Item, Quest } from './schema';
 
 /**
@@ -331,6 +332,7 @@ export const quests: Quest[] = [
     ],
     reward: { xp: 450, coins: 160 },
   },
+  ...playQuests,
 ];
 
 /**

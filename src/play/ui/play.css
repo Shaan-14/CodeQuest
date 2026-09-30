@@ -1,0 +1,63 @@
+/* The playable world. Loaded only with the 3D layer. Colours come from the game's own variables so both views look like one game. */
+.play { position: relative; flex: 1; min-height: 420px; height: calc(100vh - 96px); background: #0a0c1c; overflow: hidden; touch-action: none; user-select: none; }
+.play canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+.play-overlay { position: absolute; inset: 0; pointer-events: none; }
+.play-overlay > * { pointer-events: auto; }
+.play .pill { background: rgba(12,14,30,.82); border: 2px solid var(--edge, #34397a); border-radius: 10px; color: #f3f4ff; padding: .35rem .7rem; backdrop-filter: blur(3px); }
+
+.play-prompt { position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%); font-weight: 800; font-size: 1.15rem; display: flex; gap: .5rem; align-items: center; animation: promptIn .18s ease both; pointer-events: none !important; }
+.play-prompt kbd { background: var(--gold, #f2c14e); color: #1b1b2f; border-radius: 6px; padding: .1rem .45rem; font-family: var(--mono, monospace); box-shadow: 0 2px 0 #7a4b00; }
+@keyframes promptIn { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+.play-caption { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: min(520px, 38%); text-align: center; font-size: 1rem; pointer-events: none !important; animation: promptIn .2s ease both; }
+.play-where { position: absolute; top: 12px; left: 12px; display: grid; gap: .15rem; max-width: min(300px, 34%); }
+.play-where .where-title { font-weight: 800; }
+.play-where .muted { color: #aab0d8; font-size: .8rem; }
+
+.play-tracker { position: absolute; top: 12px; right: 12px; width: min(300px, 40%); display: grid; gap: .3rem; font-size: .9rem; }
+.play-tracker h3 { margin: 0; font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; color: var(--gold, #f2c14e); }
+.play-tracker .step { color: #e8ecff; }
+.play-tracker .step.done { color: #7dffb3; text-decoration: line-through; opacity: .8; }
+.play-tracker .hint { color: #aab0d8; font-size: .8rem; }
+
+.play-controls { position: absolute; left: 12px; bottom: 12px; display: flex; gap: .4rem; flex-wrap: wrap; font-size: .78rem; color: #c8cdf0; max-width: 60%; }
+.play-controls kbd { background: #242a55; border: 1px solid var(--edge, #34397a); border-radius: 5px; padding: 0 .35rem; font-family: var(--mono, monospace); color: #fff; }
+.play-buttons { position: absolute; right: 12px; bottom: 12px; display: flex; gap: .4rem; }
+
+.play-dialogue { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(820px, 94%); display: grid; grid-template-columns: auto 1fr; gap: .8rem; padding: .9rem 1rem; }
+.play-dialogue .portrait { width: 64px; height: 64px; border-radius: 12px; border: 3px solid var(--edge, #34397a); display: grid; place-items: center; font-size: 2rem; background: #1b1f45; }
+.play-dialogue .speaker { font-weight: 800; color: var(--gold, #f2c14e); }
+.play-dialogue .role { color: #aab0d8; font-size: .8rem; margin-left: .4rem; font-weight: 400; }
+.play-dialogue p { margin: .3rem 0 .6rem; line-height: 1.45; font-size: 1.05rem; }
+.play-dialogue .row { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
+
+.play-terminal { position: absolute; inset: 0; background: rgba(6,8,20,.985); display: grid; grid-template-rows: auto 1fr; z-index: 5; overflow: auto; }
+.play-terminal .term-head { display: flex; gap: .8rem; align-items: center; padding: .6rem 1rem; border-bottom: 3px solid var(--edge, #34397a); background: #101430; position: sticky; top: 0; z-index: 2; }
+.play-terminal .term-head h2 { margin: 0; font-size: 1.05rem; flex: 1; }
+.play-terminal .term-body { padding: .8rem 1rem 2rem; max-width: 1180px; width: 100%; margin: 0 auto; }
+.play-terminal .lesson { min-height: 0; }
+.modules { display: grid; gap: .4rem; margin: .6rem 0 1rem; }
+.modules button { text-align: left; display: flex; gap: .6rem; align-items: center; }
+.modules .mod-state { width: 1.6rem; text-align: center; }
+
+.play-pause { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6,8,20,.7); z-index: 6; }
+.play-pause .panel { width: min(420px, 92%); display: grid; gap: .6rem; }
+.play-loading { position: absolute; inset: 0; display: grid; place-items: center; background: #0a0c1c; color: #c8cdf0; z-index: 7; }
+.play-fail { padding: 2rem; max-width: 640px; margin: 2rem auto; }
+
+.play-map { position: absolute; inset: 0; background: rgba(6,8,20,.94); z-index: 6; overflow: auto; padding: 1rem; }
+.play-map .map-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; max-width: 1100px; margin: 1rem auto; }
+.world-tile { border: 3px solid var(--edge, #34397a); border-radius: 12px; padding: .8rem; background: #141834; display: grid; gap: .3rem; }
+.world-tile.here { border-color: var(--gold, #f2c14e); }
+.world-tile.closed { opacity: .78; }
+.world-tile h3 { margin: 0; }
+.world-tile .tile-status { font-size: .8rem; color: #aab0d8; }
+
+.play-hud-speed { position: absolute; right: 14px; bottom: 60px; font-family: var(--mono, monospace); font-size: 1.4rem; text-align: right; }
+.play-race { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 1rem; font-family: var(--mono, monospace); }
+
+.play-cine { position: absolute; left: 0; right: 0; bottom: 0; top: 0; pointer-events: none !important; display: grid; place-items: center; }
+.play-cine .banner-text { font-size: clamp(1.4rem, 4vw, 2.4rem); font-weight: 900; text-align: center; color: #fff; text-shadow: 0 3px 0 #000, 0 0 24px #f2c14e; animation: promptIn .6s ease both; }
+
+@media (prefers-reduced-motion: reduce) { .play-prompt, .play-caption, .play-cine .banner-text { animation: none; } }
+@media (max-width: 720px) { .play-tracker { width: 46%; font-size: .8rem; } .play-controls { display: none; } }

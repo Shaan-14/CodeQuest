@@ -163,6 +163,7 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   const owner = (opts.source ?? 'lesson') === 'lesson' ? lessonOfChallenge(challengeId) : undefined;
   if (owner && !s.learning.lessons[owner.id]?.completed && !lessonAccess(s, owner).open) return { save: s, events };
   const p = progressFor(s, challengeId);
+  const firstPass = passed && !p.passed;
   p.attempts++;
   p.timeMs += timeMs;
   p.code = code;
@@ -170,6 +171,8 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   const record = buildEvidence(s, c, { passed, at: now(), timeMs: p.timeMs, hintsUsed: p.hintsUsed, lookups: p.lookups ?? 0, attemptNumber: p.attempts, source: opts.source, detail: opts.detail });
   emitWorldEffects(s, events, c, passed); // before the record is appended, so "first pass" is still knowable
   s.evidence.push(record);
+  // The 3D world shows a consequence for any graded attempt (sparks, a misfire); Focus and training below decide what the LEARNER owes.
+  events.push(passed ? { type: 'challengePassed', challengeId, first: firstPass } : { type: 'challengeFailed', challengeId });
 
   if (passed) {
     const reward = rewardFor(c, p.hintsUsed);

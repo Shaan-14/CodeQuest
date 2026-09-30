@@ -7,12 +7,14 @@ import { Avatar } from './Avatar';
 export type PanelTab = 'pack' | 'quests' | 'trophies' | 'skills' | 'menu';
 
 interface Props {
+  onPlay?: () => void;
+  playing?: boolean;
   onMap: () => void;
   onPanel: (tab: PanelTab) => void;
   onDaily: () => void;
 }
 
-export function Hud({ onMap, onPanel, onDaily }: Props) {
+export function Hud({ onPlay, playing, onMap, onPanel, onDaily }: Props) {
   const { save } = useGame();
   if (!save.player) return null;
   const lp = levelProgress(save.stats.xp);
@@ -39,6 +41,7 @@ export function Hud({ onMap, onPanel, onDaily }: Props) {
       </div>
       <div class="hud-coins" data-testid="coins" title="Coins">🪙 {save.stats.coins}</div>
       <nav class="hud-nav" aria-label="Game menu">
+        {onPlay && <button onClick={onPlay} title="Play: the 3D world" data-testid="hud-play" aria-pressed={playing}>🎮<span>World</span></button>}
         <button onClick={onMap} title="World map">🗺️<span>Map</span></button>
         <button onClick={onDaily} title="Daily Challenge" data-testid="hud-daily">🌅<span>Daily{save.daily.current?.status === 'open' ? ' •' : ''}</span></button>
         <button onClick={() => onPanel('quests')} title="Quest log">📜<span>Quests</span></button>

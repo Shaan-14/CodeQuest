@@ -7,6 +7,7 @@ import { visitArea } from '../game/explore';
 import { requiredTraining } from '../game/training';
 import { isAreaUnlocked } from '../game/world';
 import { Hud, type PanelTab } from './components/Hud';
+import { setUiMode, uiMode } from '../play/mode';
 import { Panel } from './components/Panel';
 import { Toasts } from './components/Toasts';
 import { Academy } from './screens/Academy';
@@ -29,18 +30,19 @@ const LessonScreen = lazy(() => import('./screens/LessonScreen').then((m) => ({ 
 const TrainingRun = lazy(() => import('./screens/TrainingRun').then((m) => ({ default: m.TrainingRun })));
 const BossHall = lazy(() => import('./screens/BossHall').then((m) => ({ default: m.BossHall })));
 const BossRun = lazy(() => import('./screens/BossRun').then((m) => ({ default: m.BossRun })));
+const PlayScreen = lazy(() => import('../play/ui/PlayScreen').then((m) => ({ default: m.PlayScreen })));
 const Shop = lazy(() => import('./screens/Shop').then((m) => ({ default: m.Shop })));
 const Loading = <main class="scene"><div class="scene-card"><p class="muted center">Loading…</p></div></main>;
 
 const areaForLesson = (lessonId: string): string => worldOfTrack(trackOfLessonId(lessonId)).areaId;
 
 /** Screens are plain state, not URL routes: the game is a single-page app with one save. */
-type Route = { name: 'map' } | { name: 'area'; id: string } | { name: 'lesson'; id: string } | { name: 'practice' } | { name: 'daily' } | { name: 'daily-run' } | { name: 'practice-run'; challengeId: string } | { name: 'training-run'; planId: string } | { name: 'boss'; id: string };
+type Route = { name: 'play' } | { name: 'map' } | { name: 'area'; id: string } | { name: 'lesson'; id: string } | { name: 'practice' } | { name: 'daily' } | { name: 'daily-run' } | { name: 'practice-run'; challengeId: string } | { name: 'training-run'; planId: string } | { name: 'boss'; id: string };
 
 export function App() {
   const game = useGame();
   const { save } = game;
-  const [route, setRoute] = useState<Route>({ name: 'area', id: 'academy' });
+  const [route, setRoute] = useState<Route>(() => (uiMode() === '3d' ? { name: 'play' } : { name: 'area', id: 'academy' }));
   const [panel, setPanel] = useState<PanelTab | null>(null);
   const [lastArea, setLastArea] = useState('academy');
   const [notice, setNotice] = useState(game.loadStatus === 'recovered');
@@ -60,7 +62,7 @@ export function App() {
   if (!save.player) {
     return (
       <>
-        <Title onStart={() => setRoute({ name: 'area', id: 'academy' })} />
+        <Title onStart={() => setRoute(uiMode() === '3d' ? { name: 'play' } : { name: 'area', id: 'academy' })} />
         <Toasts />
       </>
     );
@@ -70,7 +72,8 @@ export function App() {
   const goTraining = () => open('training-yard');
   const required = requiredTraining(save);
   let screen;
-  if (route.name === 'map') screen = <WorldMap current={lastArea} onOpen={open} />;
+  if (route.name === 'play') screen = <PlayScreen onClassic={() => { setUiMode('classic'); open('academy'); }} onOpenTraining={() => { setRoute({ name: 'area', id: 'training-yard' }); setLastArea('training-yard'); }} />;
+  else if (route.name === 'map') screen = <WorldMap current={lastArea} onOpen={open} />;
   else if (route.name === 'daily') screen = <DailyScreen onStart={() => setRoute({ name: 'daily-run' })} />;
   else if (route.name === 'daily-run') screen = <DailyRun onBack={() => setRoute({ name: 'daily' })} onGoTraining={goTraining} />;
   else if (required && (route.name === 'practice' || route.name === 'practice-run')) screen = <TrainingYard onOpenPlan={(planId) => setRoute({ name: 'training-run', planId })} onBack={() => open('academy')} />;
@@ -94,7 +97,7 @@ export function App() {
 
   return (
     <div class="app">
-      <Hud onMap={toMap} onPanel={setPanel} onDaily={() => { setPanel(null); setRoute({ name: 'daily' }); }} />
+      <Hud onPlay={() => { setPanel(null); setUiMode('3d'); setRoute({ name: 'play' }); }} playing={route.name === 'play'} onMap={toMap} onPanel={setPanel} onDaily={() => { setPanel(null); setRoute({ name: 'daily' }); }} />
       {required && route.name !== 'lesson' && route.name !== 'training-run' && route.name !== 'boss' && !(route.name === 'area' && route.id === 'training-yard') && (
         <div class="banner required-banner" role="alert" data-testid="required-banner">
           <span>⏳ Not ready: Focus {save.stats.focus}/100. Train <strong>{weaknessNames(required)}</strong> to regain it before your next attempt.</span>
@@ -107,7 +110,7 @@ export function App() {
           <button class="btn small" onClick={() => setNotice(false)}>Dismiss</button>
         </div>
       )}
-      <div class="screen" key={route.name === 'map' ? 'map' : route.name === 'lesson' ? `l-${route.id}` : route.name === 'area' ? `a-${route.id}` : route.name === 'practice' ? 'practice' : route.name === 'training-run' ? `t-${route.planId}` : route.name === 'boss' ? `b-${route.id}` : route.name === 'daily' || route.name === 'daily-run' ? route.name : `p-${route.challengeId}`}><Suspense fallback={Loading}>{screen}</Suspense></div>
+      <div class="screen" key={route.name === 'map' ? 'map' : route.name === 'lesson' ? `l-${route.id}` : route.name === 'area' ? `a-${route.id}` : route.name === 'practice' ? 'practice' : route.name === 'training-run' ? `t-${route.planId}` : route.name === 'boss' ? `b-${route.id}` : route.name === 'daily' || route.name === 'daily-run' || route.name === 'play' ? route.name : `p-${route.challengeId}`}><Suspense fallback={Loading}>{screen}</Suspense></div>
       {panel && <Panel tab={panel} onTab={setPanel} onClose={() => setPanel(null)} onReset={() => { setPanel(null); setRoute({ name: 'area', id: 'academy' }); setLastArea('academy'); }} />}
       <Toasts />
     </div>

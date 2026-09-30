@@ -1,0 +1,31 @@
+import type { WorldEffect } from '../schema';
+
+/**
+ * WHAT CODE DOES IN THE PLAYABLE WORLD. Finishing a lesson's final challenge causes these effects (same contract as content/worldEffects.ts:
+ * `target` is `area.object`, `action` one verb). The derived world state remembers them forever, so the robot stays repaired after a reload.
+ * Scenes decide how each looks (their `reactions`); the learning engine never knows.
+ */
+export const PLAY_EFFECTS: Record<string, WorldEffect[]> = {
+  // Maintenance Bay: Bolt-7 is repaired a module at a time.
+  'py-01-first-program': [{ target: 'bay.bolt', action: 'eyes' }],
+  'py-02-fixing-errors': [{ target: 'bay.bolt', action: 'arm' }],
+  'py-03-variables': [{ target: 'bay.bolt', action: 'power' }],
+  'py-04-strings': [{ target: 'bay.bolt', action: 'voice' }],
+  'py-05-numbers': [{ target: 'bay.bolt', action: 'servo' }],
+  'py-06-input-conversion': [{ target: 'bay.bolt', action: 'ears' }],
+  'py-07-logic': [{ target: 'bay.bolt', action: 'decide' }],
+  'py-08-if-else': [{ target: 'bay.bolt', action: 'senses' }],
+  'py-10-while': [{ target: 'bay.bolt', action: 'cycle' }],
+  'py-11-for-range': [{ target: 'bay.bolt', action: 'loop' }],
+  'py-12-functions': [{ target: 'bay.bolt', action: 'routine' }],
+  'py-13-wake-robot': [{ target: 'bay.bolt', action: 'awake' }],
+  // Manufacturing Floor: the line comes back to life.
+  'py-14-independent-trial': [{ target: 'floor.gate', action: 'open' }],
+  'py-15-lists': [{ target: 'floor.belt', action: 'run' }],
+  'py-16-dicts': [{ target: 'floor.arm', action: 'run' }],
+  'py-17-records': [{ target: 'floor.scanner', action: 'online' }],
+  'py-18-function-design': [{ target: 'floor.arm', action: 'precise' }],
+  'py-19-debugging': [{ target: 'floor.belt', action: 'repair' }],
+  'py-20-files': [{ target: 'floor.logs', action: 'open' }],
+  'py-21-cleaning': [{ target: 'floor.dashboard', action: 'light' }],
+};

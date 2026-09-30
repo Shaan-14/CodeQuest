@@ -1,5 +1,6 @@
 import type { Challenge, Lesson, WorldEffect } from './schema';
 import { objectiveOf } from './helpers';
+import { PLAY_EFFECTS } from './play/effects';
 
 /**
  * WORLD EFFECTS: what the game world should do when the player demonstrates something. This is the contract between learning and any
@@ -42,8 +43,8 @@ export const BOSS_EFFECTS: Record<string, WorldEffect[]> = {
 /** Attaches the effects above to the challenges that complete them (every variant of the lesson's final objective, and each boss version). */
 export function attachWorldEffects(lessons: Lesson[], challenges: Challenge[], bossChallenges: Challenge[]): void {
   for (const l of lessons) {
-    const effects = LESSON_EFFECTS[l.id];
-    if (!effects) continue;
+    const effects = [...(LESSON_EFFECTS[l.id] ?? []), ...(PLAY_EFFECTS[l.id] ?? [])];
+    if (!effects.length) continue;
     const last = [...l.steps].reverse().find((s) => s.kind === 'challenge');
     if (!last || last.kind !== 'challenge') continue;
     const final = challenges.find((c) => c.id === last.challengeId);

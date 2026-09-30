@@ -22,5 +22,10 @@ export type GameEvent =
   | { type: 'bossPassed'; id: string }
   | { type: 'bossFailed'; id: string }
   | { type: 'campaignComplete' }
+  /** Something was graded and did not pass (any challenge, any mode). Lets the world show a consequence; Focus and training are handled separately. */
+  | { type: 'challengeFailed'; challengeId: string }
+  | { type: 'challengePassed'; challengeId: string; first: boolean }
+  | { type: 'talked'; npc: string; first: boolean }
+  | { type: 'inspected'; id: string }
   /** Phase 6 boundary: something in the game WORLD should react (a door opens, a robot wakes). Emitted once, on the first pass of a challenge that declares it. */
   | { type: 'worldEffect'; target: string; action: string; detail?: Record<string, string | number | boolean>; challengeId: string };

@@ -1,0 +1,377 @@
+/**
+ * THE STAGE: the three.js host of one playable place at a time. It builds a scene from data, runs the player, NPCs and animated props, and
+ * reports what happens (a prompt to show, an interaction, a caption) through callbacks. It owns NO game rules: the learning engine, quests and
+ * save are reached only through the `env` it is given, so the 3D layer cannot fork progress.
+ *
+ * Performance rules: one draw of shared geometry per prop, pixel ratio capped by quality, real shadows only on "high", the loop stops when a
+ * terminal/dialogue covers the view or the tab is hidden, and every scene's GPU resources are released when the player leaves it.
+ */
+import {
+  AmbientLight, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
+} from 'three';
+import type { SaveData } from '../../core/save';
+import type { GameEvent } from '../../game/events';
+import { hasEffect, holds } from '../logic/conditions';
+import type { Npc3D } from '../logic/dialogue';
+import { nearestInteractable } from '../logic/interact';
+import { markersFor, type Marker } from '../logic/markers';
+import { collidersOf, newBody, poseOf, stepBody, type Body } from '../logic/movement';
+import type { Collider, Interactable, SceneDef } from '../logic/sceneTypes';
+import type { QuestObjective } from '../../content/schema';
+import { Audio } from './audio';
+import { builders, type BuildCtx, type Dyn } from './builders';
+import { Fx } from './fx';
+import { Input } from './input';
+import { createRig, type Rig } from './rig';
+import { Tweens } from './tween';
+import { mat } from './kit';
+
+export type Quality = 'low' | 'medium' | 'high';
+
+/** What the stage needs from the outside world. */
+export interface StageEnv {
+  getSave(): SaveData;
+  getNpc(id: string): Npc3D | undefined;
+  /** Which station (terminal) a quest objective is worked at. */
+  stationMatches(station: string, o: QuestObjective): boolean;
+  /** The station a lesson belongs to (so a failed attempt can make the right thing react). */
+  stationOfChallenge(challengeId: string): string | undefined;
+  onPrompt(it: Interactable | null): void;
+  onInteract(it: Interactable): void;
+  onCaption(text: string): void;
+  onPause(): void;
+  onPosition(scene: string, x: number, z: number, ry: number): void;
+  onAction?(name: string): void;
+  playerLook: { body: number; head: number; accent: number; hair?: number };
+  quality: Quality;
+  reducedMotion: boolean;
+}
+
+interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number }
+
+const markerGeo = new OctahedronGeometry(0.22);
+
+export class Stage {
+  readonly renderer: WebGLRenderer;
+  readonly scene = new Scene();
+  readonly camera = new PerspectiveCamera(55, 1, 0.1, 160);
+  readonly input: Input;
+  readonly tweens = new Tweens();
+  readonly audio = new Audio();
+  readonly fx: Fx;
+  def: SceneDef | null = null;
+  body: Body = newBody(0, 0);
+  private playerRig: Rig;
+  private world = new Group();
+  private dyns = new Map<string, Dyn>();
+  private npcs: NpcRuntime[] = [];
+  private colliders: Collider[] = [];
+  private active: Interactable[] = [];
+  private markers: Marker[] = [];
+  private markerMeshes = new Map<string, Mesh>();
+  private prompt: Interactable | null = null;
+  private yaw = 0; private pitch = 0.55; private dist = 8;
+  private camPos = new Vector3(); private camLook = new Vector3();
+  private raf = 0; private last = 0; private running = false; private t = 0;
+  private stepClock = 0; private posClock = 0; private shake = 0;
+  private hemi: HemisphereLight; private sun: DirectionalLight; private amb: AmbientLight;
+  private onResize: () => void;
+  private resizeObs: ResizeObserver | null = null;
+  private ctx: BuildCtx;
+  /** Extra per-frame hooks from scene modes (a car, a simulation). */
+  hooks: ((dt: number, t: number) => void)[] = [];
+  /** When set, the player body is driven by something else (a vehicle) and normal walking is off. */
+  driver: ((dt: number, input: Input) => void) | null = null;
+  reduced: boolean;
+
+  constructor(canvas: HTMLCanvasElement, private host: HTMLElement, private env: StageEnv) {
+    this.reduced = env.reducedMotion;
+    this.renderer = new WebGLRenderer({ canvas, antialias: env.quality !== 'low', powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, env.quality === 'high' ? 2 : env.quality === 'medium' ? 1.5 : 1));
+    this.renderer.shadowMap.enabled = env.quality === 'high';
+    this.renderer.shadowMap.type = PCFShadowMap;
+    this.hemi = new HemisphereLight(0xbcd2ff, 0x3a3f58, 0.9);
+    this.amb = new AmbientLight(0xffffff, 0.25);
+    this.sun = new DirectionalLight(0xffffff, 1.1);
+    this.sun.castShadow = env.quality === 'high';
+    this.sun.shadow.mapSize.set(1024, 1024);
+    this.scene.add(this.hemi, this.amb, this.sun, this.sun.target, this.world);
+    this.fx = new Fx(this.scene);
+    this.fx.density = env.reducedMotion ? 0.35 : env.quality === 'low' ? 0.5 : 1;
+    this.tweens.instant = env.reducedMotion;
+    this.input = new Input(host);
+    this.playerRig = createRig({ ...env.playerLook, hat: 'none' });
+    this.scene.add(this.playerRig.group);
+    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced };
+    this.onResize = () => this.resize();
+    if (typeof ResizeObserver !== 'undefined') { this.resizeObs = new ResizeObserver(this.onResize); this.resizeObs.observe(host); }
+    window.addEventListener('resize', this.onResize);
+    document.addEventListener('visibilitychange', this.onVisibility);
+    this.resize();
+  }
+
+  private onVisibility = () => { if (document.hidden) this.pause(); else if (this.wantRun) this.start(); };
+  private wantRun = false;
+
+  resize(): void {
+    const w = Math.max(2, this.host.clientWidth), h = Math.max(2, this.host.clientHeight);
+    this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+  }
+
+  /* ------------------------------------------------------------------ scenes */
+
+  /** Build a scene from data and put the player at a spawn (or a saved position). */
+  load(def: SceneDef, at?: { x: number; z: number; ry: number } | string): void {
+    this.unload();
+    this.def = def;
+    const look = def.look;
+    this.scene.background = new Color(look.sky);
+    this.scene.fog = new Fog(look.fog, look.fogNear ?? 28, look.fogFar ?? 75);
+    this.hemi.color.setHex(look.sky === 0 ? 0x88aaff : 0xbcd2ff); this.hemi.groundColor.setHex(look.ground);
+    this.hemi.intensity = look.night ? 0.55 : 0.95; this.amb.intensity = look.ambient ?? 0.25;
+    this.sun.intensity = look.sun ?? (look.night ? 0.45 : 1.1);
+    const sd = look.sunDir ?? [0.5, 1, 0.4]; this.sun.position.set(sd[0] * 30, sd[1] * 30, sd[2] * 30);
+    const b = def.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+    if (this.sun.castShadow) { const s = Math.max(b.maxX - b.minX, b.maxZ - b.minZ) * 0.6; const sc = this.sun.shadow.camera; sc.left = -s; sc.right = s; sc.top = s; sc.bottom = -s; sc.updateProjectionMatrix(); this.sun.target.position.set(cx, 0, cz); }
+    // ground
+    const ground = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ color: look.ground }));
+    ground.rotation.x = -Math.PI / 2; ground.scale.set(b.maxX - b.minX + 120, b.maxZ - b.minZ + 120, 1); ground.position.set(cx, 0, cz);
+    this.world.add(ground);
+    // props
+    const save = this.env.getSave();
+    for (const p of def.props) {
+      const make = builders[p.kind];
+      if (!make) { console.warn('unknown prop kind', p.kind); continue; }
+      const built = make(p, this.ctx);
+      built.object.position.set(p.x, p.y ?? 0, p.z);
+      built.object.rotation.y = p.ry ?? 0;
+      this.world.add(built.object);
+      if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
+    }
+    this.colliders = collidersOf(def);
+    // NPCs
+    for (const pl of def.npcs) {
+      const npc = this.env.getNpc(pl.npc); if (!npc) continue;
+      const rig = createRig(npc.look);
+      rig.group.position.set(pl.x, 0, pl.z); rig.group.rotation.y = pl.ry ?? 0;
+      this.scene.add(rig.group);
+      const collider = { kind: 'circle' as const, x: pl.x, z: pl.z, r: 0.5 };
+      this.colliders.push(collider);
+      this.npcs.push({ npc, rig, x: pl.x, z: pl.z, ry: pl.ry ?? 0, home: { x: pl.x, z: pl.z }, patrol: pl.patrol, leg: 0, collider, speed: 0 });
+    }
+    // where the player stands
+    const spawn = typeof at === 'string' ? def.spawns[at] : at;
+    const s0 = spawn ?? def.spawns.default ?? Object.values(def.spawns)[0] ?? { x: 0, z: 0, ry: 0 };
+    this.body = newBody(s0.x, s0.z, s0.ry);
+    this.yaw = s0.ry; this.pitch = 0.55;
+    this.snapCamera();
+    this.playerRig.group.position.set(s0.x, 0, s0.z);
+    // state the player's code has already earned: instant, no animation
+    for (const r of def.reactions ?? []) if (hasEffect(save, r.effect)) this.dyns.get(r.prop)?.setState(r.state, true);
+    this.refresh();
+    this.audio.setAmbience(def.ambience ?? 'none');
+    this.env.onCaption(`${def.title}. ${def.blurb}`);
+  }
+
+  private unload(): void {
+    this.tweens.clear();
+    for (const o of [...this.world.children]) this.world.remove(o);
+    const dispose = (o: Mesh) => {
+      const m = o.material as MeshBasicMaterial | undefined;
+      if (m && !m.userData.shared) { (m.map && !m.map.userData.shared) && m.map.dispose(); m.dispose(); }
+      if (o.geometry && o.geometry.type === 'PlaneGeometry' && o.userData.own) o.geometry.dispose();
+    };
+    this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); });
+    for (const n of this.npcs) this.scene.remove(n.rig.group);
+    this.npcs = []; this.dyns.clear(); this.colliders = []; this.active = []; this.markers = [];
+    for (const m of this.markerMeshes.values()) this.scene.remove(m);
+    this.markerMeshes.clear();
+    this.prompt = null; this.driver = null; this.hooks = [];
+  }
+
+  /** The save changed: which interactables exist now, which things to mark, and what the world shows. Cheap; call after every action. */
+  refresh(): void {
+    const def = this.def; if (!def) return;
+    const save = this.env.getSave();
+    const all: Interactable[] = [...def.interactables, ...def.exits.map((e): Interactable => ({ id: `exit:${e.id}`, verb: 'Enter', label: e.label, x: e.x, z: e.z, range: 1.9, action: { type: 'exit', to: e.to, spawn: e.spawn } }))];
+    this.active = all.filter((i) => holds(save, i.when));
+    this.markers = markersFor(save, def, this.active, this.env.getNpc, this.env.stationMatches);
+    const want = new Set(this.markers.map((m) => m.id));
+    for (const [id, mesh] of this.markerMeshes) if (!want.has(id)) { this.scene.remove(mesh); this.markerMeshes.delete(id); }
+    for (const m of this.markers) {
+      let mesh = this.markerMeshes.get(m.id);
+      if (!mesh) { mesh = new Mesh(markerGeo, mat(m.kind === 'offer' ? 0xffd166 : 0x4fd1ff, 1.2)); this.scene.add(mesh); this.markerMeshes.set(m.id, mesh); }
+      mesh.material = mat(m.kind === 'offer' ? 0xffd166 : 0x4fd1ff, 1.2);
+      mesh.position.set(m.x, m.kind === 'offer' ? 2.5 : 2.2, m.z);
+    }
+  }
+
+  /* ------------------------------------------------------------------ reacting to the game */
+
+  /** Something happened in the learning engine. Show it in the world. */
+  react(events: readonly GameEvent[]): void {
+    const def = this.def; if (!def) return;
+    let won = false, lost = false;
+    for (const e of events) {
+      if (e.type === 'worldEffect') {
+        const ref = `${e.target}:${e.action}`;
+        for (const r of def.reactions ?? []) if (r.effect === ref) { this.dyns.get(r.prop)?.setState(r.state, false); if (r.say) this.env.onCaption(r.say); won = true; }
+      } else if (e.type === 'challengeFailed') {
+        const station = this.env.stationOfChallenge(e.challengeId);
+        for (const c of def.consequences ?? []) if (c.station === station) { this.dyns.get(c.prop)?.play?.('malfunction'); this.env.onCaption(c.say); lost = true; }
+      } else if (e.type === 'questComplete') { this.audio.sfx('quest'); won = true; }
+      else if (e.type === 'questAccepted') this.audio.sfx('quest');
+    }
+    if (won) { this.playerRig.play('success'); this.fx.burst('confetti', this.body.x, 2, this.body.z, 26); this.audio.sfx('success'); }
+    if (lost) { this.playerRig.play('damage'); this.playerRig.flash(true); this.tweens.after(0.35, () => this.playerRig.flash(false)); if (!this.reduced) this.shake = 0.5; }
+    this.refresh();
+  }
+
+  /** Play an animation on the player (the UI asks: cast, interact, success...). */
+  playerAnim(a: Parameters<Rig['play']>[0]): void { this.playerRig.play(a); }
+  dyn(id: string): Dyn | undefined { return this.dyns.get(id); }
+  npcRig(id: string): Rig | undefined { return this.npcs.find((n) => n.npc.id === id)?.rig; }
+
+  /* ------------------------------------------------------------------ loop */
+
+  start(): void {
+    this.wantRun = true;
+    if (this.running || document.hidden) return;
+    this.running = true; this.last = performance.now();
+    const tick = (now: number) => {
+      if (!this.running) return;
+      this.raf = requestAnimationFrame(tick);
+      const dt = Math.min(0.1, (now - this.last) / 1000); this.last = now; // capped, but high enough that a slow machine slows the picture, not the walking speed
+      this.frame(dt);
+    };
+    this.raf = requestAnimationFrame(tick);
+  }
+  pause(): void { this.running = false; cancelAnimationFrame(this.raf); this.input.clear(); }
+  /** Stop for good reason (terminal open): stops rendering entirely until `start()`. */
+  suspend(): void { this.wantRun = false; this.pause(); }
+  setInputEnabled(on: boolean): void { this.input.enabled = on; if (!on) this.input.clear(); }
+
+  private snapCamera(): void {
+    this.updateCamera(0, true);
+  }
+
+  private updateCamera(dt: number, snap = false): void {
+    const b = this.body;
+    const cy = 1.5 + b.y * 0.6;
+    const dist = this.dist;
+    // The camera stays inside the room: if the orbit would leave it, the camera comes closer (and higher) instead of looking at a wall from outside.
+    const bd = this.def?.bounds;
+    let flat = Math.cos(this.pitch) * dist;
+    const dirX = Math.sin(this.yaw), dirZ = Math.cos(this.yaw);
+    if (bd) {
+      const m = 0.5;
+      const lim = (d: number, p: number, lo: number, hi: number) => (d > 1e-4 ? (hi - m - p) / d : d < -1e-4 ? (lo + m - p) / d : Infinity);
+      flat = Math.max(1.2, Math.min(flat, lim(dirX, b.x, bd.minX, bd.maxX), lim(dirZ, b.z, bd.minZ, bd.maxZ)));
+    }
+    const ex = b.x + dirX * flat;
+    const ey = cy + Math.max(Math.sin(this.pitch) * dist, (dist * Math.cos(this.pitch) - flat) * 0.9 + Math.sin(this.pitch) * flat);
+    const ez = b.z + dirZ * flat;
+    const k = snap ? 1 : Math.min(1, dt * 7);
+    this.camPos.x += (ex - this.camPos.x) * k; this.camPos.y += (ey - this.camPos.y) * k; this.camPos.z += (ez - this.camPos.z) * k;
+    this.camLook.x += (b.x - this.camLook.x) * k; this.camLook.y += (cy - this.camLook.y) * k; this.camLook.z += (b.z - this.camLook.z) * k;
+    this.camera.position.copy(this.camPos);
+    if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 2); this.camera.position.x += (Math.random() - 0.5) * this.shake * 0.3; this.camera.position.y += (Math.random() - 0.5) * this.shake * 0.3; }
+    this.camera.lookAt(this.camLook);
+  }
+
+  private frame(dt: number): void {
+    this.t += dt;
+    const inp = this.input;
+    if (inp.wasPressed('Escape')) this.env.onPause();
+    if (inp.wasPressed('m')) this.env.onAction?.('map');
+    if (inp.wasPressed('j')) this.env.onAction?.('journal');
+    // camera: mouse drag, wheel, Q/R keys (for players without a mouse)
+    this.yaw -= inp.dragX; this.pitch = Math.max(0.12, Math.min(1.2, this.pitch + inp.dragY));
+    if (inp.isDown('q')) this.yaw += dt * 1.8;
+    if (inp.isDown('r')) this.yaw -= dt * 1.8;
+    if (inp.wheel) this.dist = Math.max(3.5, Math.min(12, this.dist + inp.wheel * 0.8));
+
+    if (this.driver) this.driver(dt, inp);
+    else this.walk(dt);
+
+    // NPCs: patrol, and watch the player when close
+    for (const n of this.npcs) this.updateNpc(n, dt);
+    for (const d of this.dyns.values()) d.update?.(dt, this.t);
+    for (const h of this.hooks) h(dt, this.t);
+    this.tweens.update(dt);
+    this.fx.update(dt);
+    // markers bob
+    for (const [id, m] of this.markerMeshes) { m.rotation.y += dt * 2; const base = this.markers.find((x) => x.id === id); if (base) m.position.y = (base.kind === 'offer' ? 2.5 : 2.2) + Math.sin(this.t * 3) * 0.08; }
+
+    // interaction prompt
+    if (!this.driver) {
+      const it = nearestInteractable(this.body.x, this.body.z, this.body.ry, this.active);
+      if (it?.id !== this.prompt?.id) { this.prompt = it; this.env.onPrompt(it); }
+      if (it && inp.wasPressed('e', 'f')) { this.audio.resume(); this.audio.sfx('interact'); this.playerRig.play('interact'); this.env.onInteract(it); }
+    }
+    // remember where we stand (rate-limited; silent)
+    this.posClock += dt;
+    if (this.posClock > 3 && this.def) { this.posClock = 0; this.env.onPosition(this.def.id, this.body.x, this.body.z, this.body.ry); }
+
+    this.updateCamera(dt);
+    this.renderer.render(this.scene, this.camera);
+    inp.endFrame();
+  }
+
+  private walk(dt: number): void {
+    const inp = this.input, b = this.body, def = this.def;
+    if (!def) return;
+    if (inp.isDown('w', 'ArrowUp', 's', 'ArrowDown', 'a', 'ArrowLeft', 'd', 'ArrowRight', ' ', 'Shift')) this.audio.resume();
+    const f = (inp.isDown('w', 'ArrowUp') ? 1 : 0) - (inp.isDown('s', 'ArrowDown') ? 1 : 0);
+    const r = (inp.isDown('d', 'ArrowRight') ? 1 : 0) - (inp.isDown('a', 'ArrowLeft') ? 1 : 0);
+    const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw); // away from the camera
+    const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
+    const run = inp.isDown('Shift');
+    const wasAir = !b.onGround;
+    stepBody(b, { dx: fx * f + rx * r, dz: fz * f + rz * r, run, jump: inp.isDown(' ') }, this.colliders, def.bounds, dt);
+    if (wasAir && b.onGround) this.audio.sfx('step');
+    const speed = Math.hypot(b.vx, b.vz);
+    const pose = poseOf(b, run);
+    this.playerRig.update(dt, pose, speed);
+    if (speed > 0.6 && b.onGround) { this.stepClock += dt * (run ? 4 : 3); if (this.stepClock > 1) { this.stepClock = 0; this.audio.sfx('step'); } }
+    if (!wasAir && !b.onGround) this.audio.sfx('jump');
+    const g = this.playerRig.group; g.position.set(b.x, b.y, b.z); g.rotation.y = b.ry;
+  }
+
+  private updateNpc(n: NpcRuntime, dt: number): void {
+    const dx = this.body.x - n.x, dz = this.body.z - n.z, d = Math.hypot(dx, dz);
+    let moving = false;
+    if (n.patrol && n.patrol.length > 1 && d > 4) {
+      const tgt = n.patrol[n.leg % n.patrol.length]!;
+      const tx = tgt.x - n.x, tz = tgt.z - n.z, td = Math.hypot(tx, tz);
+      if (td < 0.2) n.leg++;
+      else { n.x += (tx / td) * dt * 1.0; n.z += (tz / td) * dt * 1.0; n.ry = Math.atan2(-tx, -tz); moving = true; }
+    } else if (d < 5) {
+      const target = Math.atan2(-dx, -dz); let df = target - n.ry;
+      while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
+      n.ry += df * Math.min(1, dt * 3);
+    }
+    n.collider.x = n.x; n.collider.z = n.z;
+    n.rig.group.position.set(n.x, 0, n.z); n.rig.group.rotation.y = n.ry;
+    n.rig.update(dt, moving ? 'walk' : 'idle', moving ? 1 : 0);
+    if (d < 6) n.rig.lookAt(this.body.x, this.body.z);
+  }
+
+  /* ------------------------------------------------------------------ test and debug surface (read-only state; teleport only for e2e) */
+
+  snapshot(): { scene: string | null; x: number; z: number; ry: number; y: number; prompt: string | null; npcs: { id: string; x: number; z: number }[]; markers: string[]; fps: number } {
+    return { scene: this.def?.id ?? null, x: this.body.x, z: this.body.z, ry: this.body.ry, y: this.body.y, prompt: this.prompt?.id ?? null, npcs: this.npcs.map((n) => ({ id: n.npc.id, x: n.x, z: n.z })), markers: this.markers.map((m) => m.id), fps: 0 };
+  }
+  teleport(x: number, z: number, ry?: number): void { this.body.x = x; this.body.z = z; this.body.vx = 0; this.body.vz = 0; if (ry !== undefined) { this.body.ry = ry; this.yaw = ry; } this.snapCamera(); }
+  /** Renderer statistics for the performance report. */
+  stats(): { calls: number; triangles: number; geometries: number; textures: number } { const i = this.renderer.info; return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures }; }
+
+  dispose(): void {
+    this.suspend();
+    this.unload();
+    this.fx.dispose(); this.audio.dispose(); this.input.dispose();
+    this.resizeObs?.disconnect(); window.removeEventListener('resize', this.onResize); document.removeEventListener('visibilitychange', this.onVisibility);
+    this.renderer.dispose(); this.renderer.forceContextLoss();
+  }
+}
