@@ -87,3 +87,83 @@ Object.assign(appSolutions, {
     ],
   },
 } satisfies Record<string, Sol>);
+
+/* ------------------------------------------------------------ lesson 21: storage and JSON */
+import { HTML as H21 } from './21-storage-json';
+
+const nameJs = 'const input = document.querySelector("#name");\nconst greeting = document.querySelector("#greeting");\ngreeting.textContent = "Hello, " + (localStorage.getItem("name") || "stranger");\ndocument.querySelector("#save").addEventListener("click", () => {\n  const name = input.value.trim();\n  localStorage.setItem("name", name);\n  greeting.textContent = "Hello, " + name;\n});\n';
+const settingsJs = 'const dark = document.querySelector("#dark");\nconst size = document.querySelector("#size");\nconst SIZES = ["small", "medium", "large"];\n\nfunction load() {\n  try {\n    const saved = JSON.parse(localStorage.getItem("settings"));\n    return { dark: saved?.dark === true, size: SIZES.includes(saved?.size) ? saved.size : "medium" };\n  } catch {\n    return { dark: false, size: "medium" };\n  }\n}\nfunction apply() {\n  document.body.classList.toggle("dark", dark.checked);\n  document.body.dataset.size = size.value;\n}\nfunction save() {\n  localStorage.setItem("settings", JSON.stringify({ dark: dark.checked, size: size.value }));\n}\n\nconst start = load();\ndark.checked = start.dark;\nsize.value = start.size;\napply();\nfor (const control of [dark, size]) {\n  control.addEventListener("change", () => {\n    apply();\n    save();\n  });\n}\n';
+const cartJs = 'const KEY = "cart";\nconst counter = document.querySelector("#count");\n\nfunction load() {\n  try {\n    const data = JSON.parse(localStorage.getItem(KEY));\n    if (!Array.isArray(data)) return [];\n    return data.filter((i) => i && typeof i.sku === "string" && i.sku !== "" && Number.isInteger(i.qty) && i.qty >= 1).map((i) => ({ sku: i.sku, qty: i.qty }));\n  } catch {\n    return [];\n  }\n}\nlet cart = load();\n\nfunction update() {\n  localStorage.setItem(KEY, JSON.stringify(cart));\n  counter.textContent = cart.reduce((sum, i) => sum + i.qty, 0);\n}\nfor (const button of document.querySelectorAll(".add")) {\n  button.addEventListener("click", () => {\n    const sku = button.dataset.sku;\n    const line = cart.find((i) => i.sku === sku);\n    if (line) line.qty++;\n    else cart.push({ sku, qty: 1 });\n    update();\n  });\n}\ndocument.querySelector("#clear").addEventListener("click", () => {\n  cart = [];\n  update();\n});\nupdate();\n';
+const recentJs = 'const box = document.querySelector("#q");\nconst list = document.querySelector("#recent");\n\nfunction load() {\n  try {\n    const data = JSON.parse(localStorage.getItem("recent"));\n    return Array.isArray(data) ? data.filter((x) => typeof x === "string" && x !== "").slice(0, 5) : [];\n  } catch {\n    return [];\n  }\n}\nlet recent = load();\n\nfunction update() {\n  localStorage.setItem("recent", JSON.stringify(recent));\n  list.replaceChildren();\n  for (const term of recent) {\n    const li = document.createElement("li");\n    li.textContent = term;\n    list.append(li);\n  }\n}\ndocument.querySelector("#go").addEventListener("click", () => {\n  const term = box.value.trim();\n  if (term === "") return;\n  recent = [term, ...recent.filter((t) => t.toLowerCase() !== term.toLowerCase())].slice(0, 5);\n  box.value = "";\n  update();\n});\ndocument.querySelector("#wipe").addEventListener("click", () => {\n  recent = [];\n  update();\n});\nupdate();\n';
+const configJs = 'function readConfig(text) {\n  const defaults = { retries: 3, timeout: 30, name: "job" };\n  let data;\n  try {\n    data = JSON.parse(text);\n  } catch {\n    return defaults;\n  }\n  if (data === null || typeof data !== "object" || Array.isArray(data)) return defaults;\n  const retries = Number.isInteger(data.retries) && data.retries >= 0 && data.retries <= 10 ? data.retries : defaults.retries;\n  const timeout = typeof data.timeout === "number" && data.timeout > 0 ? data.timeout : defaults.timeout;\n  const name = typeof data.name === "string" && data.name.trim() !== "" ? data.name.trim() : defaults.name;\n  return { retries, timeout, name };\n}\n';
+const rosterJs = 'function readRoster(text) {\n  let data;\n  try {\n    data = JSON.parse(text);\n  } catch {\n    return [];\n  }\n  if (!Array.isArray(data)) return [];\n  const roster = [];\n  for (const p of data) {\n    if (p && typeof p.name === "string" && p.name.trim() !== "" && Number.isInteger(p.age) && p.age >= 0 && p.age <= 120) {\n      roster.push({ name: p.name.trim(), age: p.age });\n    }\n  }\n  return roster;\n}\n';
+
+Object.assign(appSolutions, {
+  'web-21-saved-name': {
+    valid: [fj(nameJs, H21.name)],
+    wrong: [fj(rep(nameJs, '.trim();\n  localStorage', ';\n  localStorage'), H21.name), fj(rep(nameJs, 'localStorage.setItem("name", name);\n', ''), H21.name), fj(rep(nameJs, 'greeting.textContent = "Hello, " + (localStorage.getItem("name") || "stranger");\n', ''), H21.name), fj(rep(nameJs, ' || "stranger"', ''), H21.name), fj(rep(nameJs, 'localStorage.setItem("name"', 'localStorage.setItem("user"'), H21.name)],
+  },
+  'web-21-settings-panel': {
+    valid: [fj(settingsJs, H21.settings, '.dark { background: #222; color: #eee; }\n')],
+    wrong: [
+      fj(rep(settingsJs, 'saved?.dark === true', 'Boolean(saved?.dark)'), H21.settings),
+      fj(rep(settingsJs, 'SIZES.includes(saved?.size) ? saved.size : "medium"', 'saved?.size ?? "medium"'), H21.settings),
+      fj(rep(settingsJs, '  } catch {\n    return { dark: false, size: "medium" };\n  }', '  } finally {\n  }'), H21.settings),
+      fj(rep(settingsJs, 'dark.checked = start.dark;\n', ''), H21.settings),
+      fj(rep(settingsJs, 'size.value = start.size;\n', ''), H21.settings),
+      fj(rep(settingsJs, 'apply();\nfor', 'for'), H21.settings),
+      fj(rep(settingsJs, '    save();\n', ''), H21.settings),
+      fj(rep(settingsJs, 'JSON.stringify({ dark: dark.checked, size: size.value })', 'JSON.stringify({ dark: dark.checked })'), H21.settings),
+    ],
+  },
+  'web-21-cart-storage': {
+    valid: [fj(cartJs, H21.cart)],
+    wrong: [
+      fj(rep(cartJs, '.filter((i) => i && typeof i.sku === "string" && i.sku !== "" && Number.isInteger(i.qty) && i.qty >= 1)', ''), H21.cart),
+      fj(rep(cartJs, 'Number.isInteger(i.qty) && ', ''), H21.cart),
+      fj(rep(cartJs, ' && i.qty >= 1', ''), H21.cart),
+      fj(rep(cartJs, '  } catch {\n    return [];\n  }', '  } finally {\n  }\n  return [];'), H21.cart),
+      fj(rep(cartJs, 'if (line) line.qty++;\n    else cart.push({ sku, qty: 1 });', 'cart.push({ sku, qty: 1 });'), H21.cart),
+      fj(rep(cartJs, 'counter.textContent = cart.reduce((sum, i) => sum + i.qty, 0);', 'counter.textContent = cart.length;'), H21.cart),
+      fj(rep(cartJs, '  cart = [];\n  update();', '  cart = [];\n  counter.textContent = 0;'), H21.cart),
+    ],
+  },
+  'web-21-recent-searches': {
+    valid: [fj(recentJs, H21.recent)],
+    wrong: [
+      fj(rep(recentJs, '.slice(0, 5);\n  box', ';\n  box'), H21.recent),
+      fj(rep(recentJs, 't.toLowerCase() !== term.toLowerCase()', 't !== term'), H21.recent),
+      fj(rep(recentJs, '[term, ...recent.filter((t) => t.toLowerCase() !== term.toLowerCase())]', '[...recent.filter((t) => t.toLowerCase() !== term.toLowerCase()), term]'), H21.recent),
+      fj(rep(recentJs, 'const term = box.value.trim();\n  if (term === "") return;', 'const term = box.value.trim();'), H21.recent),
+      fj(rep(recentJs, '  box.value = "";\n', ''), H21.recent),
+      fj(rep(recentJs, 'typeof x === "string" && x !== ""', 'true'), H21.recent),
+      fj(rep(recentJs, 'Array.isArray(data) ? data.filter((x) => typeof x === "string" && x !== "").slice(0, 5) : []', 'data'), H21.recent),
+      fj(rep(recentJs, '  } catch {\n    return [];\n  }', '  } finally {\n  }\n  return [];'), H21.recent),
+    ],
+  },
+  'web-21-parse-config': {
+    valid: [fj(configJs)],
+    wrong: [
+      fj(rep(configJs, '  } catch {\n    return defaults;\n  }', '  } finally {\n  }'), ''),
+      fj(rep(configJs, 'data === null || ', ''), ''),
+      fj(rep(configJs, 'data.retries <= 10', 'data.retries < 10'), ''),
+      fj(rep(configJs, 'data.retries >= 0 && ', ''), ''),
+      fj(rep(configJs, 'Number.isInteger(data.retries) && ', 'typeof data.retries === "number" && '), ''),
+      fj(rep(configJs, 'data.timeout > 0', 'data.timeout >= 0'), ''),
+      fj(rep(configJs, 'data.name.trim() !== "" ? data.name.trim()', 'data.name !== "" ? data.name'), ''),
+    ],
+  },
+  'web-21-parse-roster': {
+    valid: [fj(rosterJs), fj('const readRoster = (text) => {\n  try {\n    const data = JSON.parse(text);\n    return (Array.isArray(data) ? data : []).filter((p) => p && typeof p.name === "string" && p.name.trim() && Number.isInteger(p.age) && p.age >= 0 && p.age <= 120).map(({ name, age }) => ({ name: name.trim(), age }));\n  } catch {\n    return [];\n  }\n};\n')],
+    wrong: [
+      fj(rep(rosterJs, '  } catch {\n    return [];\n  }', '  } finally {\n  }'), ''),
+      fj(rep(rosterJs, '  if (!Array.isArray(data)) return [];\n', ''), ''),
+      fj(rep(rosterJs, 'p.age <= 120', 'p.age < 120'), ''),
+      fj(rep(rosterJs, 'p.age >= 0 && ', ''), ''),
+      fj(rep(rosterJs, 'Number.isInteger(p.age)', 'typeof p.age === "number"'), ''),
+      fj(rep(rosterJs, 'name: p.name.trim()', 'name: p.name'), ''),
+      fj(rep(rosterJs, 'p && typeof p.name === "string" && p.name.trim() !== ""', 'p && typeof p.name === "string"'), ''),
+      fj(rep(rosterJs, 'roster.push({ name: p.name.trim(), age: p.age });', 'roster.unshift({ name: p.name.trim(), age: p.age });'), ''),
+    ],
+  },
+});
