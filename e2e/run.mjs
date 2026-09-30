@@ -66,6 +66,8 @@ async function newPage(viewport = { width: 1280, height: 900 }) {
   return page;
 }
 const tid = (page, id) => page.getByTestId(id);
+/** The text of a locked screen, whether it is a skill gate (prerequisite panel) or a plain reason. */
+async function lockText(page) { await tid(page, 'locked-screen').waitFor(); return tid(page, 'locked-screen').innerText(); }
 async function startGame(page, name = 'Tester') {
   await tid(page, 'name-input').fill(name);
   await tid(page, 'begin').click();
@@ -74,6 +76,7 @@ async function introAndAccept(page) {
   await tid(page, 'dialogue').waitFor();
   for (let i = 0; i < 5; i++) await tid(page, 'dialogue-next').click();
   await tid(page, 'accept-quest').click();
+  await tid(page, 'enter-python').click(); // Phase 5: the intro ends at the world chooser; Python is one open world among several
   await tid(page, 'grounds').waitFor();
 }
 async function setCode(page, code) {
@@ -269,6 +272,8 @@ async function main() {
       for (let i = 0; i < 5; i++) await tid(page, 'dialogue-next').click();
       assert((await tid(page, 'dialogue-text').innerText()).includes('Bolt-7'), 'last line mentions quest');
       await tid(page, 'accept-quest').click();
+      await tid(page, 'world-chooser').waitFor();
+      await tid(page, 'enter-python').click();
       await tid(page, 'grounds').waitFor();
       await page.screenshot({ path: SHOTS + '03-training-grounds.png' });
       eq(await tid(page, 'robot-power').innerText(), 'Power 0%', 'robot power');
@@ -282,21 +287,21 @@ async function main() {
       await page.locator('button[title="World map"]').click();
       await tid(page, 'worldmap').waitFor();
       await page.screenshot({ path: SHOTS + '04-map.png' });
-      // Library and Shop are locked at first; the Database District needs cleaning skills; the Web District needs the robot finished; the Observatory is a future area.
+      // Phase 5: every foundation world is open from the first minute; only the Library (plain reason) and skill-gated areas are closed.
       await tid(page, 'area-library').click();
-      await tid(page, 'locked-screen').waitFor();
-      assert((await tid(page, 'lock-reason').innerText()).includes('first lesson'), 'library reason');
-      await page.locator('button:has-text("Back to the map")').click();
-      await tid(page, 'area-data-center').click();
-      assert((await tid(page, 'lock-reason').innerText()).includes('Messy Data'), 'database district reason');
-      await page.locator('button:has-text("Back to the map")').click();
-      await tid(page, 'area-web-district').click();
-      assert((await tid(page, 'lock-reason').innerText()).includes('Wake the Training Robot'), 'web district reason');
+      assert((await lockText(page)).includes('first lesson'), 'library reason');
       await page.locator('button:has-text("Back to the map")').click();
       await tid(page, 'area-observatory').click();
-      assert((await tid(page, 'lock-reason').innerText()).includes('Phase 4'), 'future area reason');
+      const gate = await lockText(page);
+      assert(gate.includes('Prerequisite required'), 'statistics names a prerequisite');
       await page.screenshot({ path: SHOTS + '05-locked.png' });
       await page.locator('button:has-text("Back to the map")').click();
+      await tid(page, 'area-web-district').click();
+      await tid(page, 'area-screen-web-district').waitFor();
+      await page.locator('button[title="World map"]').click();
+      await tid(page, 'area-data-center').click();
+      await tid(page, 'area-screen-data-center').waitFor();
+      await page.locator('button[title="World map"]').click();
       await tid(page, 'area-training-grounds').click();
       await tid(page, 'grounds').waitFor();
       await page.context().close();
@@ -736,8 +741,8 @@ async function main() {
       await seed(page, ['py-21-cleaning']);
       await gotoArea(page, 'pipeline-works');
       await tid(page, 'locked-screen').waitFor();
-      assert((await tid(page, 'lock-reason').innerText()).includes('Safe and Fast'), 'pipeline reason');
-      await seed(page, ['sql-13-integrity-performance']);
+      assert((await lockText(page)).includes('Prerequisite required'), 'pipeline names what is missing');
+      await seed(page, ['py-01-first-program', 'py-02-fixing-errors', 'py-03-variables', 'py-04-strings', 'py-05-numbers', 'py-06-input-conversion', 'py-07-logic', 'py-08-if-else', 'py-09-elif', 'py-10-while', 'py-11-for-range', 'py-12-functions', 'py-13-wake-robot', 'py-14-independent-trial', 'py-15-lists', 'py-16-dicts', 'py-17-records', 'py-18-function-design', 'py-19-debugging', 'py-20-files', 'py-21-cleaning', 'sql-01-select', 'sql-02-sort-limit', 'sql-03-null', 'sql-04-aggregates', 'sql-05-group', 'sql-06-joins', 'sql-07-left-join', 'sql-08-case', 'sql-09-modify', 'sql-10-subqueries', 'sql-11-window', 'sql-12-design', 'sql-13-integrity-performance']);
       await gotoArea(page, 'pipeline-works');
       await tid(page, 'area-screen-pipeline-works').waitFor();
       await tid(page, 'npc-sana').waitFor();
@@ -1133,11 +1138,11 @@ async function main() {
     });
 
     const PY_THROUGH_14 = [...PY_EARLY, 'py-14-independent-trial'];
-    await test('Summit: locked until the first independent trial; then bosses show honest status and reasons', async () => {
+    await test('Summit: closed until ten lessons are done (any worlds); then bosses show honest status and reasons', async () => {
       const page = await newPage();
       await startGame(page);
       await tid(page, 'dialogue').waitFor();
-      await seed(page, PY_EARLY);
+      await seed(page, ['py-01-first-program']);
       await gotoArea(page, 'summit');
       await tid(page, 'locked-screen').waitFor();
       await seed(page, PY_THROUGH_14);
@@ -1212,6 +1217,115 @@ async function main() {
       assert(await page.locator('[data-testid^=history-]').count() >= 1, 'a history note is shown for the skill with recent trouble');
       const text = await tid(page, 'skills-view').innerText();
       assert(!/\bXP\b|\blevel\b/i.test(text.replace(/XP and level never appear here because they do not prove skill\./i, '')), 'no XP or level in the evidence view');
+      await page.context().close();
+    });
+
+    console.log('Phase 5: nonlinear worlds, real runtimes, graph gates');
+    const stepTo = async (page, kind) => { for (let i = 0; i < 12; i++) { if (await stepKind(page, i) === kind) return i; await tid(page, 'continue').click(); } throw new Error('no ' + kind + ' step'); };
+
+    await test('Nonlinear start: Spreadsheets, Git and R open without any Python; Statistics explains what it needs', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await tid(page, 'dialogue').waitFor();
+      for (let i = 0; i < 5; i++) await tid(page, 'dialogue-next').click();
+      await tid(page, 'accept-quest').click();
+      await tid(page, 'world-chooser').waitFor();
+      for (const w of ['python', 'sql', 'web', 'git', 'sheets', 'r']) eq(await tid(page, `enter-${w}`).innerText(), 'Start', `${w} is open from the first minute`);
+      assert((await tid(page, 'world-needs-stats').innerText()).startsWith('Needs:'), 'statistics names what it needs');
+      await tid(page, 'enter-sheets').click();
+      await tid(page, 'area-screen-spreadsheet-guild').waitFor();
+      await page.screenshot({ path: SHOTS + '60-sheets-world.png' });
+      await page.locator('button[title="World map"]').click();
+      await tid(page, 'area-observatory').click();
+      await tid(page, 'prerequisites').waitFor();
+      assert((await tid(page, 'prerequisites').innerText()).includes('Prerequisite required'), 'panel headline');
+      assert(await tid(page, 'prereq-missing').count() === 1, 'lists what is missing');
+      await page.screenshot({ path: SHOTS + '61-prerequisite-panel.png' });
+      const save = await readSave(page);
+      eq(save.version, 8, 'save version');
+      assert(save.explore && save.explore.last, 'the last world is remembered');
+      await page.context().close();
+    });
+
+    await test('Spreadsheet world: formulas recalculate, the answer is graded by recomputing the workbook', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, []);
+      await gotoArea(page, 'spreadsheet-guild');
+      await openLesson(page, 'xl-01-formulas');
+      await stepTo(page, 'demo');
+      await tid(page, 'run').click();
+      await tid(page, 'continue').click();
+      await stepTo(page, 'challenge');
+      for (const [cell, f] of [['D2', '=B2*C2'], ['D3', '=B3*C3'], ['D4', '=B4*C4']]) {
+        await page.locator(`td[data-cell="${cell}"]`).click();
+        await tid(page, 'formula-bar').fill(f);
+        await tid(page, 'formula-bar').press('Enter');
+      }
+      await tid(page, 'submit').click();
+      await tid(page, 'result').waitFor({ timeout: 30000 });
+      assert(await page.locator('.result.pass').count() === 1, 'a correct formula passes');
+      await page.screenshot({ path: SHOTS + '62-sheet-pass.png' });
+      const save = await readSave(page);
+      assert(save.evidence.some((e) => e.challengeId === 'xl-01-line-total'), 'evidence recorded');
+      assert(!save.evidence.some((e) => e.language === 'python'), 'no Python was needed');
+      await page.context().close();
+    });
+
+    await test('Spreadsheet world: a typed number instead of a formula is not accepted and the answer is not shown', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, []);
+      await gotoArea(page, 'spreadsheet-guild');
+      await openLesson(page, 'xl-01-formulas');
+      await stepTo(page, 'demo');
+      await tid(page, 'run').click();
+      await tid(page, 'continue').click();
+      await stepTo(page, 'challenge');
+      // Guided exercises cost nothing: the failure is recorded, the answer is not shown.
+      for (const [cell, f] of [['D2', '10'], ['D3', '4'], ['D4', '24']]) {
+        await page.locator(`td[data-cell="${cell}"]`).click();
+        await tid(page, 'formula-bar').fill(f);
+        await tid(page, 'formula-bar').press('Enter');
+      }
+      await tid(page, 'submit').click();
+      await tid(page, 'result').waitFor({ timeout: 30000 });
+      assert(await page.locator('.result.pass').count() === 0, 'typed numbers do not pass');
+      await page.context().close();
+    });
+
+    await test('Git world: a real terminal; the repository STATE is graded, not the commands', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, []);
+      await gotoArea(page, 'version-vault');
+      await openLesson(page, 'git-01-repositories');
+      await stepTo(page, 'demo');
+      await tid(page, 'run').click();
+      await tid(page, 'continue').click();
+      await stepTo(page, 'challenge');
+      for (const line of ['git init', 'git add notes.txt', 'git commit -m "Add robot arm notes"']) {
+        await tid(page, 'git-input').fill(line);
+        await tid(page, 'git-run').click();
+      }
+      await tid(page, 'submit').click();
+      await tid(page, 'result').waitFor({ timeout: 30000 });
+      assert(await page.locator('.result.pass').count() === 1, 'the resulting repository passes');
+      await page.screenshot({ path: SHOTS + '63-git-terminal.png' });
+      await page.context().close();
+    });
+
+    await test('R world: real R (webR) runs the demo in the browser', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, []);
+      await gotoArea(page, 'r-lab');
+      await openLesson(page, 'r-01-console');
+      await stepTo(page, 'demo');
+      await tid(page, 'run').click();
+      await tid(page, 'stdout').waitFor({ timeout: 120000 });
+      assert((await tid(page, 'stdout').innerText()).trim().length > 0, 'R printed output');
+      await page.screenshot({ path: SHOTS + '64-r-world.png' });
       await page.context().close();
     });
 
