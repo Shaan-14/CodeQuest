@@ -97,3 +97,39 @@ Object.assign(projectSolutions, {
     ],
   },
 });
+
+/* ------------------------------------------------------------ D: expense log */
+const expHtml = '<main>\n  <h1>Expense Log</h1>\n  <form id="expense-form" novalidate>\n    <label for="amount">Amount</label>\n    <input id="amount" autocomplete="off">\n    <label for="category">Category</label>\n    <select id="category">\n      <option value="food">Food</option>\n      <option value="travel">Travel</option>\n      <option value="tools">Tools</option>\n    </select>\n    <label for="note">Note</label>\n    <input id="note" autocomplete="off">\n    <button type="submit">Add expense</button>\n    <p id="error" role="alert"></p>\n  </form>\n  <label for="view">Show</label>\n  <select id="view">\n    <option value="all">All</option>\n    <option value="food">Food</option>\n    <option value="travel">Travel</option>\n    <option value="tools">Tools</option>\n  </select>\n  <p id="summary"></p>\n  <table id="entries">\n    <caption>Expenses</caption>\n    <tbody></tbody>\n  </table>\n</main>\n';
+const expCss = '* { box-sizing: border-box; }\nbody { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }\n#expense-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }\n#error { flex-basis: 100%; margin: 0; color: #b00020; }\n@media (max-width: 499px) {\n  #expense-form { flex-direction: column; align-items: stretch; }\n}\ntable { border-collapse: collapse; width: 100%; }\ntd { padding: 6px 8px; border-bottom: 1px solid #dddddd; }\n.amount { text-align: right; }\n.entry.big { color: #b00020; font-weight: bold; }\n';
+const expJs = 'const KEY = "expenses";\nconst CATEGORIES = ["food", "travel", "tools"];\nconst form = document.querySelector("#expense-form");\nconst amountBox = document.querySelector("#amount");\nconst noteBox = document.querySelector("#note");\nconst error = document.querySelector("#error");\nconst view = document.querySelector("#view");\nconst summary = document.querySelector("#summary");\nconst body = document.querySelector("#entries tbody");\n\nfunction load() {\n  try {\n    const data = JSON.parse(localStorage.getItem(KEY));\n    if (!Array.isArray(data)) return [];\n    return data\n      .filter((e) => e && typeof e.amount === "number" && Number.isFinite(e.amount) && e.amount > 0 && CATEGORIES.includes(e.category) && typeof e.note === "string" && e.note.trim() !== "")\n      .map((e) => ({ amount: e.amount, category: e.category, note: e.note }));\n  } catch {\n    return [];\n  }\n}\nlet entries = load();\nconst money = (n) => "£" + n.toFixed(2);\n\nfunction save() {\n  localStorage.setItem(KEY, JSON.stringify(entries));\n}\nfunction render() {\n  const shown = entries.filter((e) => view.value === "all" || e.category === view.value);\n  body.replaceChildren();\n  for (const entry of shown) {\n    const tr = document.createElement("tr");\n    tr.className = entry.amount > 100 ? "entry big" : "entry";\n    tr.dataset.category = entry.category;\n    for (const [cls, text] of [["amount", money(entry.amount)], ["category", entry.category], ["note", entry.note]]) {\n      const td = document.createElement("td");\n      td.className = cls;\n      td.textContent = text;\n      tr.append(td);\n    }\n    const cell = document.createElement("td");\n    const remove = document.createElement("button");\n    remove.className = "delete";\n    remove.textContent = "×";\n    remove.setAttribute("aria-label", `Delete ${entry.note}`);\n    remove.addEventListener("click", () => {\n      entries = entries.filter((e) => e !== entry);\n      save();\n      render();\n    });\n    cell.append(remove);\n    tr.append(cell);\n    body.append(tr);\n  }\n  const total = shown.reduce((sum, e) => sum + Math.round(e.amount * 100), 0) / 100;\n  summary.textContent = `${shown.length} ${shown.length === 1 ? "entry" : "entries"}, total ${money(total)}`;\n}\nform.addEventListener("submit", (event) => {\n  event.preventDefault();\n  const raw = amountBox.value.trim();\n  const note = noteBox.value.trim();\n  const amount = Number(raw);\n  let message = "";\n  if (!/^\\d+(\\.\\d{1,2})?$/.test(raw) || amount <= 0) message = "Amount must be a positive number with at most 2 decimals";\n  else if (note === "") message = "Note is required";\n  else if (note.length > 40) message = "Note must be 40 characters or fewer";\n  error.textContent = message;\n  if (message) return;\n  entries.unshift({ amount, category: document.querySelector("#category").value, note });\n  amountBox.value = "";\n  noteBox.value = "";\n  save();\n  render();\n});\nview.addEventListener("change", render);\nrender();\n';
+const exp = F(expHtml, expCss, expJs);
+Object.assign(projectSolutions, {
+  'web-25-expense-log': {
+    valid: [exp],
+    wrong: [
+      rep(exp, 'js', '  event.preventDefault();\n', ''),
+      rep(exp, 'js', '/^\\d+(\\.\\d{1,2})?$/.test(raw) || amount <= 0', 'Number.isNaN(amount) || amount <= 0'),
+      rep(exp, 'js', '(\\.\\d{1,2})?', '(\\.\\d+)?'),
+      rep(exp, 'js', ' || amount <= 0', ''),
+      rep(exp, 'js', 'else if (note === "") message = "Note is required";\n  else if (note.length > 40)', 'else if (note.length > 40)'),
+      rep(exp, 'js', 'note.length > 40', 'note.length >= 40'),
+      rep(exp, 'js', 'const raw = amountBox.value.trim();', 'const raw = amountBox.value;'),
+      rep(exp, 'js', 'entries.unshift(', 'entries.push('),
+      rep(exp, 'js', '${shown.length === 1 ? "entry" : "entries"}', 'entries'),
+      rep(exp, 'js', 'const total = shown.reduce', 'const total = entries.reduce'),
+      rep(exp, 'js', 'entry.amount > 100 ?', 'entry.amount >= 100 ?'),
+      rep(exp, 'js', '      entries = entries.filter((e) => e !== entry);\n      save();\n', '      entries = entries.filter((e) => e !== entry);\n'),
+      rep(exp, 'js', '  entries.unshift({ amount, category: document.querySelector("#category").value, note });\n  amountBox.value = "";\n  noteBox.value = "";\n  save();\n', '  entries.unshift({ amount, category: document.querySelector("#category").value, note });\n  amountBox.value = "";\n  noteBox.value = "";\n'),
+      rep(exp, 'js', ' && e.amount > 0', ''),
+      rep(exp, 'js', ' && CATEGORIES.includes(e.category)', ''),
+      rep(exp, 'js', '  } catch {\n    return [];\n  }', '  } finally {\n  }'),
+      rep(exp, 'js', 'money(entry.amount)', 'entry.amount'),
+      rep(exp, 'js', '  error.textContent = message;\n  if (message) return;', '  if (message) { error.textContent = message; return; }'),
+      rep(exp, 'html', ' role="alert"', ''),
+      rep(exp, 'html', '  <label for="view">Show</label>\n', ''),
+      rep(exp, 'css', '.amount { text-align: right; }\n', ''),
+      rep(exp, 'css', '.entry.big { color: #b00020; font-weight: bold; }\n', '.entry.big { color: #b00020; }\n'),
+      rep(exp, 'css', '  #expense-form { flex-direction: column; align-items: stretch; }', '  #expense-form { display: flex; }'),
+    ],
+  },
+});

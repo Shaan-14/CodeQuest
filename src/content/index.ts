@@ -48,6 +48,7 @@ import { bundle as s14 } from './sql/14-independent-sql';
 import { bundle as d01 } from './dataeng/01-pipelines';
 import { bundle as d02 } from './dataeng/02-python-sql';
 import { bundle as d03 } from './dataeng/03-independent-de';
+import { phase3Variants } from './python/variants-phase3';
 import { bundle as p27 } from './python/27-independent-review-a';
 import { bundle as p28 } from './python/28-independent-review-b';
 import { bundle as s15 } from './sql/15-independent-review';
@@ -78,7 +79,10 @@ import { bundle as w24 } from './web/24-fetch-write';
 import { bundle as w25 } from './web/25-web-projects';
 import { bundle as w26 } from './web/26-web-trial';
 
-export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, p27, p28, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, d01, d02, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w12, w13, w14, w15, w16, w17, w18, w19, w20, w21, w22, w23, w24, w25, w26];
+const base: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, p27, p28, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, d01, d02, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w12, w13, w14, w15, w16, w17, w18, w19, w20, w21, w22, w23, w24, w25, w26];
+
+/** Phase 3 variants are authored separately (data) and attached to the lesson that teaches their objective. */
+export const bundles: LessonBundle[] = base.map((b) => (phase3Variants[b.lesson.id] ? { ...b, challenges: [...b.challenges, ...phase3Variants[b.lesson.id]!] } : b));
 
 import { dailyChallenges } from './daily';
 export { dailyChallenges };
