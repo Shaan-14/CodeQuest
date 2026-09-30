@@ -7,7 +7,15 @@ Programming fundamentals · Python · SQL & databases · **data engineering (dee
 
 The world is an RPG with baseball as an occasional theme; examples span engineering, manufacturing, business, finance, science, data, automation and games.
 
-## What exists today (Phase 4)
+## What exists today (Phase 5)
+**Phase 5 turns the line into a graph** (126 lessons, 584 challenges, 90 skills, 52 Daily Challenges, 11 bosses): *begin in any world, prove skills by doing, and gates always tell you exactly what you are missing, where to learn it and what it opens.*
+- **Six open worlds, real runtimes.** Python, SQL, Web, **Git**, **Spreadsheets** and **R** all open from the first minute (Git: a simulator graded by repository state; spreadsheets: a formula/pivot/chart engine graded by recomputing on hidden data; R: real R in your browser via webR). **Statistics** and **Data Engineering** open when the skills they combine have been shown, in any order you like.
+- **Gates explain themselves**: "Prerequisite required" lists what you have shown, what is missing, the open lesson that teaches it and what it unlocks. Competency (introduced → developing → demonstrated) comes only from evidence, never from XP or completion.
+- **Dailies, review and training across every world.** A Daily can be old, new, mixed or cross-world and never costs Focus; reviews are scheduled (2/7/14/30/60 days) and always say why; the Training Grounds builds a small plan from whatever you have been taught.
+- **An open Summit.** Defeat any three mastery guardians and take the finale in a technology you have mastered (Python + SQL, analytics, spreadsheets or R). It still ends the campaign.
+- **Ready for visual worlds**: code → event → world state → (future) animation; see [docs/FUTURE_WORLDS.md](docs/FUTURE_WORLDS.md). Nothing graphical was built in this phase.
+
+## Phase 4 (still here)
 **Phase 4 makes the game adaptive, deeper and finite** (94 lessons, 424 challenges, 60 skills, 52 Daily Challenges, 8 bosses): *you do not redo old lessons; after a real failure you go to the Training Grounds, train the weakness, prove it on one fresh problem alone, and return to exactly where you were.*
 - **Adaptive training.** When your evidence shows trouble (a failure, a hint, skills that fail only together, a skill gone quiet) the game diagnoses *what* and offers a training plan sized to it: a small refresher after a slip, reinforcement plus a fresh problem plus an independent attempt after a hint, a longer path for a real gap. A wrong answer on real work costs **Focus**, and below 100 Focus you are *not ready* to try again: there is no Rest and no shortcut, you earn Focus back in the **Training Grounds** (a detour: your lessons, quests and unlocks never move), prove it on one fresh problem, and return to the exact step with a new variant. Training and retries always use **different problems, contexts and data**.
 - **Mastery is never erased.** A later mistake adds a note to your history; it never removes what you demonstrated. The Skills view shows earlier independent performance next to recent trouble, and skills used **together** (loops + dictionaries, files + dictionaries, API + JSON + errors, …). The **Training Board** lists what to work on, in order, with the reason.

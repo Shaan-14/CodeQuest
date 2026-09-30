@@ -1,10 +1,22 @@
 # PROGRESS.md
 
-_Last updated: Phase 4 final correction (the Focus gate)._
+_Last updated: Phase 5 (nonlinear skill graph, adaptive curriculum, professional problem solving)._
 
 ## Current phase
-**Phase 4 (adaptive mastery, deep curriculum, bosses and a finite campaign): COMPLETE.** Phase 5 has not been started; wait for explicit instruction.
-(Phases 0-3 are preserved: same repo, same architecture. Save format v1 → v2 → v3 → v4 → v5 → **v6**, migrations tested; older saves load unchanged and gain empty `training`, `bosses` and `campaign` blocks.)
+**Phase 5 (nonlinear skill graph, adaptive curriculum, professional problem solving): COMPLETE.** Phase 6 (visual worlds) has NOT been started; wait for explicit instruction.
+Save format v1 → … → v7 → **v8** (`daily` Focus bookkeeping, `explore` = last world / worlds visited); migrations tested, older saves load unchanged.
+
+## What Phase 5 built
+- **A skill graph instead of a line** (`game/graph.ts`, data in `content/skills.ts`, `content/worlds.ts`, `Lesson.requires`). Six foundation worlds (Python, SQL, Web, Git, Spreadsheets, R) are open from the first minute; Statistics, Data Engineering, the Summit and cross-world lessons are gated by *demonstrated competencies* (`none < introduced < developing < demonstrated`, from evidence only). Every gate explains itself (`PrerequisitePanel`: what you have shown, what is missing, which open lesson teaches it, what it unlocks). Intro, map, shop/library gates, quests and the Summit no longer say "finish Python first".
+- **Three new real runtimes**: R (real R in webR, fresh environment per check), spreadsheets (in-house formula/pivot/chart engine, graded by recomputing on hidden data) and Git (a simulator; the repository STATE is graded, never the commands).
+- **New curriculum** (126 lessons, 584 challenges, 90 skills, 354 objectives): Statistics (10), R (6), Spreadsheets (9, incl. a "functions nobody taught you" research lesson), Git (6), Data Engineering analytics (+1), 4 new NPC givers and quests, a professional Field Manual (116 entries, every example executed by `reference.pro.test.ts`), authored refresher notes for every skill.
+- **Dailies draw from everything taught** (`game/dailySelect.ts`: current / review / mixed rotation over the whole eligible pool), stay optional, one attempt, no hints, never cost Focus, never a remediation.
+- **Meaningful spaced review** (`game/retention.ts` `reviewSchedule`: 2/7/14/30/60-day intervals by consecutive independent passes; a failure or hinted pass brings it back the next day; every due review says why). Nothing is scored.
+- **Global Training Grounds**: a failure in any world yields a small plan from content taught in any world, in different contexts; depth follows the failure level; balance is one coherent table (`game/balance.ts`).
+- **Focus preserved exactly** (100 = ready, below 100 = train first, no Rest/shortcut, hints are not failures, Focus never above 100).
+- **An open, multi-technology, still finite Summit**: any three mastery guardians open it (`requiresAnyOf`) and the finale is taken in a mastered technology (`routes`: Python+SQL, analytics, spreadsheets, R; new mastery guardians for analytics, sheets and R; 28 boss problems in all). A retry is a NEW version in the route chosen.
+- **A clean boundary for Phase 6** (`Challenge.worldEffects` → `worldEffect` event → `deriveWorldState(save)`; `docs/FUTURE_WORLDS.md`). No graphics were built.
+- **Bugs found by the browser tests and fixed**: R did not run in the browser (webR's graphics capture needs a canvas the worker lacks, and a relative base URL resolved under `/webr/`); several e2e expectations that encoded the old linear start.
 
 ## Phase 4 final correction: Focus is readiness (no Rest, no free retry)
 - **Rule**: a challenge can only be attempted at 100 Focus. A wrong answer on real work costs Focus (level 1 small -50, 2 difficult -75, 3 independent / 4 mini-boss / 5 mastery boss -100; a hinted pass -25); guided exercises and the Practice Yard cost nothing. Below 100 the player is "Not ready": Submit, hints, Daily and boss attempts refuse in the game layer, reload changes nothing, and the only way back is training: each step of the required plan earns a share of the lost Focus (the fresh proof earns the rest), finishing the plan lands on exactly 100, and the player returns to the exact challenge/boss with a NEW variant.
@@ -94,6 +106,11 @@ Playtesting showed the first version of adaptive training was optional, duplicat
 1 first program (what programming is, execution order, print) · 2 reading errors/debugging · 3 variables · 4 strings/f-strings · 5 ints/floats/arithmetic/operators · 6 input & type conversion · 7 booleans/comparisons/and-or-not · 8 if/else · 9 elif · 10 while · 11 for/range · 12 functions · 13 control program (capstone) · 14 Independent Trial. Contexts include engineering, manufacturing, business, finance, science, data analysis, automation, games, logistics, with one baseball problem.
 
 ## Tests performed
+**Phase 5**
+- **Unit/content suite (`npm test`): @@UNIT@@.** New: graph/gates and exact "Prerequisite required" text, daily selection over the full pool and Focus-free failure, review schedule, global training and balance coherence, save v7 → v8 migration, world-event derivation, Summit routes, per-language content tests that run every challenge (Python/SQL in Pyodide, web in Chromium, **R in real webR**, spreadsheets in the engine, Git in the simulator) with reference solutions AND wrong attempts (hidden data rebuilt wherever a wrong attempt passed), Field Manual examples executed.
+- **End-to-end in real Chromium (`npm run e2e`): @@E2E@@.** New scenarios: nonlinear start (Spreadsheets, Git, R open without Python; Statistics names what it needs), spreadsheet formula graded by recomputation (and a typed number refused), Git terminal graded by repository state, real R in the browser (demo + hidden-data grading), Summit route chooser. Existing scenarios were updated for the new start and gates.
+- **Type check / build**: `npx tsc --noEmit` clean, `npm run build` succeeds.
+
 **Phase 4**
 - **Full suite (`npm test`, Vitest): 22 files, 4,155 tests passed.** New: adaptive-training unit tests (diagnosis scales with evidence and targets hints; repeated failure escalates to deep training; fresh problems; composite weaknesses; training as a detour with no Focus loss and no lockout; a hinted pass on a demonstration does not complete it; major-weakness gating of a lesson only; mastery retained; guided vs independent evidence; the Training Board; save round-trip, v4 → v5 migration, corrupt-block repair), boss tests (gates, sealed-after-failure, new version after training, escalation without a dead end, rewards, exactly-once campaign ending, save/load, v4 migration), daily-combination tests, and content tests that run every new problem: **Python/SQLite in real CPython/SQLite (Pyodide in Node)** and **web problems in real Chromium** (starter fails, reference solutions pass, every wrong attempt fails, hidden twins, hints do not leak). Boss problems are validated in both.
 - **End-to-end in real Chromium (`npm run e2e`): 36 of 36 passed** against the production build (32 earlier scenarios + 4 new): a failed challenge → diagnosis card → "Train this now" → a full training plan played with reference solutions → back on the SAME lesson step with lesson progress untouched and training evidence recorded; the Summit locked/unlocked with reasons for locked bosses; a boss miss → sealed → training whose return point is the boss gate → a **different** problem → victory, achievements, no Focus lost, no hint button; the Skills view showing history and no XP/level.
@@ -103,24 +120,22 @@ Playtesting showed the first version of adaptive training was optional, duplicat
 - 3,347 tests at the end of Phase 3 (every lesson challenge and daily validated by behaviour; Field Manual web examples executed; sandbox isolation; the Daily Challenge; retention) and 32 e2e scenarios.
 
 ## Known limitations / issues
-- **Not tamper-proof** (unchanged): the Python worker and the web sandbox are not a server-trusted boundary; a determined player can forge results or edit their save. Fine for single-player.
-- **Bundle grew**: the largest chunk (curriculum + engine, `retention-*.js`) is now ~1.14 MB minified (~329 KB gzip), up from ~0.98 MB. Curriculum payloads are still one chunk; loading them per track/lesson on demand needs an async content registry and is now the most valuable performance task.
-- **Adaptive training is deterministic and authored, not learned.** Severity rules are explicit and explainable; they are also simple. Authored refresher notes (`content/trainingNotes.ts`) are empty (refreshers fall back to the lesson's reference card) and only default `diagnostics` metadata is used (the schema supports per-challenge `checkSkills` and named `mistakes`; few challenges use them yet).
-- **Thin training pools in the first lessons**: authored training problems exist for strings and numbers (they carry a one-line `input()` tip because `input()` is taught later), but a failure in lessons 1-3 (output, errors, variables) has no earlier taught material to draw on, so its proof may come from the same lesson's other problems (a documented last resort so a plan can always finish). SQL/web skills fall back to other lessons' problems where no authored `tr-*` problem exists (authored: SQL select/aggregate/joins and Python skills from strings to loops+dicts).
-- **Required-training scope**: a failure in the *Daily Challenge* or Practice Yard never blocks (optional Training Board only); lesson and boss failures do. Practice and lessons are held while training is required.
-- **Bosses**: 8 bosses with 2 versions each (16 problems). When every version of a boss has been used the least recently used one is offered again. The web mastery boss and both web mini/mastery versions are Chromium-tested but the browser e2e drives the Python boss path only. The Summit Trial is a Python + SQLite integration task on the factory database (no structure provided), not yet a multi-technology open project.
-- **Story is light**: acts and boss text are data; there is no cutscene or new art. New lessons only got a few NPC lines.
-- **Still not built (roadmap)**: data analysis and statistics, R, Excel/spreadsheets, Git/GitHub, open-ended multi-technology projects (the Analytics Observatory stays locked as a future area). See `docs/CURRICULUM_AUDIT.md`.
-- Several new skills (`sql.text`, `py.nested`, `py.algorithms`, `js.closures`, `js.testing`, `js.state`) have one objective with two variants; their mastery requirements ask for one objective and two contexts, so "Demonstrated" for them is a lighter bar than for older skills.
-- Runnable languages: Python, SQLite (SQL) and browser HTML/CSS/JavaScript. No R, no Git, no spreadsheet runner. The in-game API simulates HTTP but not CORS, cookies, WebSockets or real latency variance.
-- Web grading measures structure, computed styles and geometry (including after real scrolling) with tolerances in Chromium; other browsers may differ slightly. Checks cannot judge visual taste, only stated measurable outcomes.
-- Some "hidden data" tweaks are deliberate (boundary rows in the API data and in the hidden twin databases); changing them can change content (re-run the content tests).
-- Database designs are judged structurally; pipeline tasks are code tasks, not a visual pipeline editor. Art is CSS/SVG/emoji; no audio. Routing is in-memory. Accessibility is good in the web content, basic in the game shell.
+- **Not tamper-proof** (unchanged): the Python worker, webR worker and web sandbox are not a server-trusted boundary; a determined player can forge results or edit their save. Fine for single-player.
+- **Bundle and first load**: the curriculum is still one chunk (now larger: 126 lessons). webR (~30 MB with its VFS) loads only when an R lesson opens, but the content chunk should load per track on demand (needs an async content registry).
+- **R** runs real R but only base R (no CRAN packages, no graphics device); plots are not gradable. webR startup takes a few seconds the first time. R content tests run real R in Node and take minutes.
+- **Spreadsheets** use an in-house engine: the common ~60 functions, pivots (one per workbook) and 4 chart kinds; no macros, external links, array-spill formulas or conditional formatting. Charts are graded by type and ranges, not by looks.
+- **Git** is a simulator (init/add/commit/branch/switch/merge/rebase-free workflow, stash, tags, revert, reset, remotes as a local stand-in); no real network, no GitHub pull-request UI, no rebase -i.
+- **Statistics** is taught with stated methods (median-of-halves quartiles, nearest-rank percentiles, t-based intervals for small samples); other conventions would grade differently.
+- **Adaptive training** is deterministic and authored, not learned. Training pools are thinnest for the newest worlds (Git, R), where refresher notes are authored but fewer independent training problems exist than in Python/SQL.
+- **Dailies**: 52 authored challenges; the eligible pool also includes every non-guided lesson challenge, but the daily copy rules (hidden checks, no concepts) are only guaranteed for the authored ones.
+- **Summit**: four routes, eight versions; the R and sheets versions are validated by tests but play-tested less than the Python route.
+- **Story is light** and there is no art/audio beyond CSS/SVG/emoji; the world-effect events are emitted and derived but nothing consumes them yet (by design).
+- **Accessibility** is good in the web content, basic in the game shell and the spreadsheet grid (keyboard navigation of cells is minimal).
+- Some "hidden data" tweaks are deliberate; changing them can change content (re-run the content tests).
 
-## Recommended Phase 5 priorities
-1. **Analysis, statistics and the Analytics Observatory** (data analysis, statistics, visualisation; R via webR and Excel-style spreadsheets), reusing fixtures, hidden data, variants, dailies, bosses and the training system. Each new skill should ship with composites and diagnostics metadata so training works from day one.
-2. **Load curriculum per track/lesson on demand** (async content registry) to cut the first load, which now carries 94 lessons.
-3. **Deepen the Summit**: turn the Summit Trial into a genuinely open multi-technology project (a brief, a database, an API and a page, with a research step), add more boss versions and a Git/GitHub simulation; then a proper ending sequence.
-4. **Authored training material**: per-skill refresher notes, worked examples and `diagnostics` (named mistakes, `checkSkills`) for the highest-traffic challenges, so diagnosis names specific misconceptions rather than skills only.
-5. A real spaced-review scheduler on top of `reviewsDue` and the Training Board's "quiet" category.
-6. Only when asked: a 3D presentation layer and the Baseball / Racing / original Magical Academy / Engineering worlds (see `docs/FUTURE_WORLDS.md`; they attach as acts + areas + new variants, and the training engine already ignores presentation).
+## Recommended Phase 6 priorities (only when asked)
+1. A presentation layer that *consumes* `deriveWorldState(save)` / `worldEffect` events: one world at a time (robot/engineering yard first, then the original magic academy, API/baseball district, racing). Each attaches as a scene + target map; no new rule, challenge or saved data.
+2. Load curriculum and runtimes per track on demand.
+3. More independent and transfer problems in the newest worlds (Git, R, Statistics) and more boss versions per route.
+4. Authored `diagnostics` (named mistakes) for the highest-traffic challenges.
+5. Keyboard-first spreadsheet editing and a proper accessibility pass on the shell.
