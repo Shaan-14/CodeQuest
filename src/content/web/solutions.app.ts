@@ -167,3 +167,63 @@ Object.assign(appSolutions, {
     ],
   },
 });
+
+/* ------------------------------------------------------------ lesson 22: time and promises */
+import { HTML as H22 } from './22-async';
+
+const countdownJs = 'const timer = document.querySelector("#timer");\nlet left = 5;\nconst id = setInterval(() => {\n  left--;\n  if (left === 0) {\n    timer.textContent = "Go!";\n    clearInterval(id);\n  } else {\n    timer.textContent = left;\n  }\n}, 1000);\n';
+const bannerJs = 'const MESSAGES = ["Sale ends today", "Free delivery", "New arrivals"];\nconst banner = document.querySelector("#banner");\nconst pause = document.querySelector("#pause");\nlet index = 0;\nlet timer = null;\n\nfunction show() {\n  banner.textContent = MESSAGES[index];\n}\nfunction start() {\n  timer = setInterval(() => {\n    index = (index + 1) % MESSAGES.length;\n    show();\n  }, 3000);\n}\nshow();\nstart();\npause.addEventListener("click", () => {\n  if (timer === null) {\n    start();\n    pause.textContent = "Pause";\n  } else {\n    clearInterval(timer);\n    timer = null;\n    pause.textContent = "Resume";\n  }\n});\n';
+const sessionJs = 'const field = document.querySelector("#field");\nconst warn = document.querySelector("#warn");\nlet timer;\nfunction arm() {\n  clearTimeout(timer);\n  timer = setTimeout(() => {\n    warn.textContent = "Session expired";\n  }, 30000);\n}\nfield.addEventListener("input", arm);\ndocument.querySelector("#renew").addEventListener("click", () => {\n  warn.textContent = "";\n  arm();\n});\narm();\n';
+const retryJs = 'async function retry(task, times) {\n  let last;\n  for (let attempt = 0; attempt < times; attempt++) {\n    try {\n      return await task();\n    } catch (error) {\n      last = error;\n    }\n  }\n  throw last;\n}\n';
+const timeoutJs = 'function withTimeout(task, ms) {\n  const timer = new Promise((_, reject) => {\n    setTimeout(() => reject(new Error("timeout")), ms);\n  });\n  return Promise.race([Promise.resolve().then(task), timer]);\n}\n';
+
+Object.assign(appSolutions, {
+  'web-22-countdown': {
+    valid: [fj(countdownJs, H22.countdown)],
+    wrong: [fj(rep(countdownJs, '    clearInterval(id);\n', ''), H22.countdown), fj(rep(countdownJs, 'left === 0', 'left === 1'), H22.countdown), fj(rep(countdownJs, '"Go!"', '"0"'), H22.countdown), fj(rep(countdownJs, '1000', '100'), H22.countdown), fj(rep(countdownJs, 'const id = setInterval', 'const id = setTimeout'), H22.countdown)],
+  },
+  'web-22-banner-rotator': {
+    valid: [fj(bannerJs, H22.banner)],
+    wrong: [
+      fj(rep(bannerJs, '    clearInterval(timer);\n', ''), H22.banner),
+      fj(rep(bannerJs, '(index + 1) % MESSAGES.length', 'index + 1'), H22.banner),
+      fj(rep(bannerJs, '    start();\n    pause.textContent = "Pause";', '    index = 0;\n    show();\n    start();\n    pause.textContent = "Pause";'), H22.banner),
+      fj(rep(bannerJs, '    pause.textContent = "Resume";\n', ''), H22.banner),
+      fj(rep(bannerJs, 'setInterval(() => {', 'setTimeout(() => {'), H22.banner),
+      fj(rep(bannerJs, '  if (timer === null) {\n    start();', '  start();\n  if (timer === null) {\n    start();'), H22.banner),
+      fj(rep(bannerJs, '}, 3000);', '}, 2000);'), H22.banner),
+    ],
+  },
+  'web-22-session-timeout': {
+    valid: [fj(sessionJs, H22.session)],
+    wrong: [
+      fj(rep(sessionJs, '  clearTimeout(timer);\n', ''), H22.session),
+      fj(rep(sessionJs, '  warn.textContent = "";\n  arm();', '  warn.textContent = "";'), H22.session),
+      fj(rep(sessionJs, '  warn.textContent = "";\n  arm();', '  arm();'), H22.session),
+      fj(rep(sessionJs, 'field.addEventListener("input", arm);\n', ''), H22.session),
+      fj(rep(sessionJs, '30000', '3000'), H22.session),
+      fj(rep(sessionJs, '30000', '31000'), H22.session),
+    ],
+  },
+  'web-22-retry-task': {
+    valid: [fj(retryJs), fj('async function retry(task, times) {\n  try {\n    return await task();\n  } catch (error) {\n    if (times <= 1) throw error;\n    return retry(task, times - 1);\n  }\n}\n')],
+    wrong: [
+      fj(rep(retryJs, 'attempt < times', 'attempt <= times')),
+      fj(rep(retryJs, 'throw last;', 'return undefined;')),
+      fj(rep(retryJs, 'return await task();', 'const value = await task();\n      if (attempt === 0) return value;')),
+      fj('async function retry(task, times) {\n  let last;\n  for (let attempt = 0; attempt < times; attempt++) {\n    try {\n      await task();\n    } catch (error) {\n      last = error;\n    }\n  }\n  return "ok";\n}\n'),
+      fj(rep(retryJs, 'last = error;', 'last = last ?? error;')),
+      fj('async function retry(task, times) {\n  let last;\n  for (let attempt = 0; attempt < times; attempt++) {\n    const p = task();\n    try {\n      return await p;\n    } catch (error) {\n      last = error;\n    }\n  }\n  throw last;\n}\n'),
+    ],
+  },
+  'web-22-with-timeout': {
+    valid: [fj(timeoutJs), fj('function withTimeout(task, ms) {\n  return new Promise((resolve, reject) => {\n    const id = setTimeout(() => reject(new Error("timeout")), ms);\n    Promise.resolve().then(task).then(\n      (value) => { clearTimeout(id); resolve(value); },\n      (error) => { clearTimeout(id); reject(error); },\n    );\n  });\n}\n')],
+    wrong: [
+      fj(rep(timeoutJs, 'Promise.race([Promise.resolve().then(task), timer])', 'Promise.race([timer, Promise.resolve().then(task)])').replace('reject(new Error("timeout")), ms', 'reject(new Error("timeout")), ms + 100')),
+      fj(rep(timeoutJs, 'new Error("timeout")', 'new Error("timed out")')),
+      fj('function withTimeout(task, ms) {\n  return task();\n}\n'),
+      fj('function withTimeout(task, ms) {\n  return new Promise((resolve) => {\n    setTimeout(() => resolve("timeout"), ms);\n    task().then(resolve);\n  });\n}\n'),
+      fj('function withTimeout(task, ms) {\n  return new Promise((resolve, reject) => {\n    setTimeout(() => reject(new Error("timeout")), ms);\n    task().then(resolve).catch(() => resolve(undefined));\n  });\n}\n'),
+    ],
+  },
+});
