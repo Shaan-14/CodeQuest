@@ -82,3 +82,16 @@ export function marketSql(seed: number): string {
   sql += insert('order_items', ['id', 'order_id', 'product_id', 'quantity', 'unit_price'], items);
   return sql;
 }
+
+/** Hidden twin with deliberate DATE boundary rows (anniversaries one day either side, leap-year drift), for "whole years" problems. */
+export function marketEdgeSql(): string {
+  return marketSql(404) + `
+INSERT INTO customers (id, name, city, joined_on) VALUES
+  (901, 'Edge A', 'Ely', '2023-03-15'),
+  (902, 'Edge B', 'Ely', '2023-03-16'),
+  (903, 'Edge C', NULL, '2023-03-14'),
+  (904, 'Edge D', 'Hull', '2020-03-15'),
+  (905, 'Edge E', NULL, '2024-03-15'),
+  (906, 'Edge F', 'Hull', '2024-03-16');
+`;
+}

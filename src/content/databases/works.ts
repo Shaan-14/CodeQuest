@@ -131,3 +131,24 @@ INSERT INTO production_runs (id, machine_id, operator_id, product_id, run_date, 
   (903, 11, 103, 1, '2020-03-03', 500, NULL, 8);
 `;
 }
+
+/** Hidden twin with deliberate DATE boundary rows (anniversaries one day either side, leap-year drift), for "whole years" problems. */
+export function worksEdgeSql(): string {
+  return worksSql(202) + `
+INSERT INTO employees (id, name, department_id, role, hourly_rate, hired_on, manager_id) VALUES
+  (201, 'Edge A', 1, 'operator', 20, '2023-03-15', NULL),
+  (202, 'Edge B', 1, 'operator', 21, '2023-03-16', NULL),
+  (203, 'Edge C', 1, 'operator', 22, '2023-03-14', NULL),
+  (204, 'Edge D', 1, 'operator', 23, '2020-03-15', NULL),
+  (205, 'Edge E', 1, 'operator', 24, '2024-03-15', NULL),
+  (206, 'Edge F', 1, 'operator', 25, '2024-03-16', NULL);
+INSERT INTO machines (id, name, machine_type, department_id, purchase_cost, installed_on) VALUES
+  (11, 'Edge Press', 'Press', 1, 15000, '2023-01-01'),
+  (12, 'Edge Lathe', 'Lathe', 1, 16000, '2023-01-01');
+-- machine 11: exactly 20 hours in total; machine 12: 24 hours in total but no single event above 8
+INSERT INTO maintenance_events (id, machine_id, technician_id, event_date, kind, downtime_hours, cost) VALUES
+  (901, 11, 9, '2024-01-01', 'repair', 4, NULL), (902, 11, 9, '2024-01-02', 'repair', 4, NULL), (903, 11, 9, '2024-01-03', 'repair', 4, NULL),
+  (904, 11, 9, '2024-01-04', 'repair', 4, NULL), (905, 11, 9, '2024-01-05', 'repair', 4, NULL),
+  (906, 12, 9, '2024-01-01', 'repair', 8, NULL), (907, 12, 9, '2024-01-02', 'repair', 8, NULL), (908, 12, 9, '2024-01-03', 'repair', 8, NULL);
+`;
+}

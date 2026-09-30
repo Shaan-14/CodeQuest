@@ -5,8 +5,8 @@
  */
 import { flatSql } from './flat';
 import { leagueSql } from './league';
-import { marketSql } from './market';
-import { worksBossSql, worksSql } from './works';
+import { marketEdgeSql, marketSql } from './market';
+import { worksBossSql, worksEdgeSql, worksSql } from './works';
 
 export interface TableDoc {
   name: string;
@@ -59,7 +59,9 @@ const defs: DatabaseDef[] = [
   { id: 'works', title: 'Bytehaven Works', about: 'A factory: employees, machines, production runs and maintenance.', setup: worksSql(101), tables: WORKS_TABLES },
   { id: 'works-b', title: 'Bytehaven Works (hidden data)', about: 'Same schema, different data.', setup: worksSql(202), tables: WORKS_TABLES },
   { id: 'works-boss', title: 'Bytehaven Works (boss data)', about: 'Same schema, different data, with deliberate boundary rows.', setup: worksBossSql(), tables: WORKS_TABLES },
+  { id: 'works-edge', title: 'Bytehaven Works (date edge cases)', about: 'Same schema, different data, with deliberate date boundary rows.', setup: worksEdgeSql(), tables: WORKS_TABLES },
   { id: 'market', title: 'Bytehaven Market', about: 'A market: customers, products, orders and order lines.', setup: marketSql(303), tables: MARKET_TABLES },
+  { id: 'market-edge', title: 'Bytehaven Market (date edge cases)', about: 'Same schema, different data, with deliberate date boundary rows.', setup: marketEdgeSql(), tables: MARKET_TABLES },
   { id: 'market-b', title: 'Bytehaven Market (hidden data)', about: 'Same schema, different data.', setup: marketSql(404), tables: MARKET_TABLES },
   { id: 'league', title: 'Bytehaven League', about: 'A sports league: teams, players, games and season statistics.', setup: leagueSql(505), tables: LEAGUE_TABLES },
   { id: 'league-b', title: 'Bytehaven League (hidden data)', about: 'Same schema, different data.', setup: leagueSql(606), tables: LEAGUE_TABLES },

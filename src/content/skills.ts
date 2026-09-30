@@ -63,6 +63,10 @@ export const skills: Skill[] = [
   S('sql.aggregate', 'Aggregation & grouping', 'SQL', ['sql.select'], req(3, 3, 3, 3, 3)),
   S('sql.joins', 'Joining tables', 'SQL', ['sql.aggregate'], req(3, 3, 3, 3, 3)),
   S('sql.advanced', 'CASE, subqueries, CTEs & windows', 'SQL', ['sql.joins'], req(3, 3, 3, 3, 3)),
+  S('sql.text', 'Dates & text functions', 'SQL', ['sql.select'], req(2, 2, 3, 1, 2)),
+  S('sql.debug', 'Debugging queries', 'SQL', ['sql.joins'], req(2, 2, 3, 2, 2)),
+  S('sql.analysis', 'Rates, shares & change over time', 'SQL', ['sql.advanced'], req(2, 2, 3, 2, 2)),
+  S('sql.sets', 'Self-joins & set operations', 'SQL', ['sql.joins'], req(2, 2, 3, 2, 2)),
   S('sql.modify', 'Changing data safely', 'SQL', ['sql.select'], req(2, 2, 2, 2, 2)),
   // ---- Databases
   S('db.design', 'Designing schemas', 'Databases', ['sql.joins'], req(2, 2, 3, 2, 2)),
