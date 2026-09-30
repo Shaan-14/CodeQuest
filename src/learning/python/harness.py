@@ -147,8 +147,10 @@ def _merge_fixtures(base, extra):
     files.update(extra.get("files") or {})
     dbs = list(base.get("databases") or [])
     for d in extra.get("databases") or []:
-        if d not in dbs:
-            dbs.append(d)
+        # a check's "works-b:works" REPLACES the challenge's "works" (same file name): the hidden twin stands in
+        alias = d.partition(":")[2] or d
+        dbs = [x for x in dbs if (x.partition(":")[2] or x) != alias]
+        dbs.append(d)
     return {"files": files, "databases": dbs, "sources": base.get("sources") or extra.get("sources") or {}}
 
 
