@@ -5,3 +5,4 @@ dist
 public/pyodide
 e2e/screenshots
 e2e/.fixtures.json
+public/webr
