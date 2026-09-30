@@ -9,6 +9,8 @@ import { challenges, lessons } from '../index';
 import type { WebFiles } from '../schema';
 import { blank } from './helpers';
 import { webSolutions } from './solutions.testdata';
+import { reference } from '../reference';
+import { S, web as webCheck } from './helpers';
 
 const web = challenges.filter((c) => c.language === 'web');
 let harness: WebHarness;
@@ -59,6 +61,15 @@ describe('web challenges behave correctly in real Chromium', () => {
       it('hints never contain a complete solution', () => {
         for (const hint of c.hints) for (const v of sol?.valid ?? []) for (const part of flat(v)) expect(hint.includes(part)).toBe(false);
       });
+    });
+  }
+});
+
+describe('Field Manual web entries run in real Chromium', () => {
+  for (const e of reference.filter((x) => x.language === 'web')) {
+    it(`${e.id}: the example page runs without errors`, async () => {
+      const r = await harness.grade(e.run!, [webCheck('runs', S.noErrors)]);
+      expect(r.passed, JSON.stringify(r.checks)).toBe(true);
     });
   }
 });

@@ -54,6 +54,7 @@ export function apiCollections(variant: ApiVariant): Record<string, Record<strin
   const courses = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1, title: `${pick(r, ['Intro to', 'Applied', 'Advanced', 'Foundations of'])} ${pick(r, ['Databases', 'Statistics', 'Robotics', 'Networks', 'Ethics', 'Design'])}`, credits: pick(r, [10, 15, 20]), department: pick(r, ['CS', 'Maths', 'Engineering']), seats: Math.floor(r() * 60),
   }));
+  courses[2]!.seats = 1; // a nearly-full course in both data sets, so "the last seat" behaviour can be checked
   return { machines, teams, players, products, employees, weather, races, measurements, courses };
 }
 

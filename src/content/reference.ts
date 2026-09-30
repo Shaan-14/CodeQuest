@@ -25,12 +25,16 @@ export interface ReferenceEntry {
   db?: string;
   /** Extra search words (synonyms a learner might type). */
   keywords: string[];
+  /** Web entries: a tiny page that exercises the example, run in real Chromium by web.test.ts. */
+  run?: import('./schema').WebFiles;
 }
+
+import { webReference } from './reference.web';
 
 const py = (id: string, group: string, title: string, signature: string, summary: string, details: string, example: string, keywords: string[] = []): ReferenceEntry => ({ id, language: 'python', group, title, signature, summary, details, example, keywords });
 const sql = (id: string, group: string, title: string, signature: string, summary: string, details: string, example: string, db: string, keywords: string[] = []): ReferenceEntry => ({ id, language: 'sql', group, title, signature, summary, details, example, db, keywords });
 
-export const reference: ReferenceEntry[] = [
+const core: ReferenceEntry[] = [
   // ------------------------------------------------------------------ Python built-ins
   py('py-len', 'built-ins', 'len', 'len(x)', 'The number of items in a list, string, dict, set or tuple.', 'Returns an int. `len("")` and `len([])` are 0.', 'print(len([4, 5, 6]), len("hello"))', ['length', 'count items', 'size']),
   py('py-sum', 'built-ins', 'sum', 'sum(numbers, start=0)', 'Adds up the numbers in a list (or any iterable).', 'An empty list gives `start` (0). Only for numbers; to join strings use `"".join(...)`.', 'print(sum([1, 2, 3]), sum([]), sum([0.5, 0.25]))', ['total', 'add up']),
@@ -83,6 +87,8 @@ export const reference: ReferenceEntry[] = [
   sql('sql-index-plan', 'performance', 'CREATE INDEX and EXPLAIN QUERY PLAN', 'CREATE INDEX name ON table(column)  ·  EXPLAIN QUERY PLAN SELECT ...', 'Make lookups faster, and see how the database will run a query.', 'Without an index the database SCANs every row; with one it can SEARCH directly. Indexes cost space and slow writes, so add them for columns used often in WHERE/JOIN. `EXPLAIN QUERY PLAN` shows `SCAN` (slow) or `SEARCH ... USING INDEX` (fast).', 'CREATE INDEX idx_orders_customer ON orders(customer_id);\nEXPLAIN QUERY PLAN SELECT * FROM orders WHERE customer_id = 5;', 'market', ['fast', 'slow', 'performance', 'scan', 'search']),
   sql('sql-transactions', 'integrity', 'Transactions', 'BEGIN;  ...statements...  COMMIT;   (or ROLLBACK;)', 'Group changes so they all happen or none do.', 'Use a transaction for multi-step changes such as moving money between accounts: if step two fails, `ROLLBACK` undoes step one. Until `COMMIT`, other users do not see your changes.', 'BEGIN;\nUPDATE products SET stock = stock - 1 WHERE id = 1;\nROLLBACK;\nSELECT stock FROM products WHERE id = 1;', 'market', ['all or nothing', 'rollback', 'commit', 'atomic']),
 ];
+
+export const reference: ReferenceEntry[] = [...core, ...webReference];
 
 const byId = new Map(reference.map((e) => [e.id, e]));
 export const getReference = (id: string): ReferenceEntry | undefined => byId.get(id);

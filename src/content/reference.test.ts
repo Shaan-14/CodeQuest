@@ -27,12 +27,19 @@ describe('Field Manual', () => {
       expect(r.error, `${e.id}: ${r.error}`).toBe('');
     }
   });
+  it('web entries carry a runnable page (executed in Chromium by web/web.test.ts)', () => {
+    for (const e of reference.filter((x) => x.language === 'web')) expect(e.run, e.id).toBeDefined();
+    expect(reference.filter((x) => x.language === 'web').length).toBeGreaterThanOrEqual(25);
+  });
   it('is searchable by what a learner would type, not just the official name', () => {
     expect(searchReference('median').map((e) => e.id)).toContain('py-statistics-median');
     expect(searchReference('most common').map((e) => e.id)).toContain('py-collections-counter');
     expect(searchReference('days between').map((e) => e.id)).toContain('py-datetime-date');
     expect(searchReference('weekday').map((e) => e.id)).toContain('py-datetime-strftime');
     expect(searchReference('running total', 'sql').map((e) => e.id)).toEqual(['sql-window']);
+    expect(searchReference('why is my style ignored', 'web').map((e) => e.id)).toContain('web-css-cascade');
+    expect(searchReference('rate limit', 'web').map((e) => e.id)).toContain('web-api-ingame');
+    expect(searchReference('xss', 'web').map((e) => e.id)).toContain('web-security');
     expect(searchReference('zzzz-nothing')).toEqual([]);
   });
   it('filters by language', () => {

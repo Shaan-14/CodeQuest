@@ -399,3 +399,88 @@ Object.assign(appSolutions, {
     ],
   },
 });
+
+/* ------------------------------------------------------------ lesson 26: independent web trial */
+import { HTML as H26 } from './26-web-trial';
+
+const convJs = 'const value = document.querySelector("#value");\nconst from = document.querySelector("#from");\nconst to = document.querySelector("#to");\nconst result = document.querySelector("#result");\nconst SYMBOL = { C: "°C", F: "°F", K: "K" };\n\nconst toCelsius = (v, unit) => (unit === "C" ? v : unit === "F" ? ((v - 32) * 5) / 9 : v - 273.15);\nconst fromCelsius = (c, unit) => (unit === "C" ? c : unit === "F" ? (c * 9) / 5 + 32 : c + 273.15);\n\nfunction update() {\n  const raw = value.value.trim();\n  const n = Number(raw);\n  if (raw === "" || !Number.isFinite(n)) {\n    result.textContent = "Enter a number";\n    return;\n  }\n  const celsius = toCelsius(n, from.value);\n  if (celsius < -273.15) {\n    result.textContent = "Below absolute zero";\n    return;\n  }\n  let shown = fromCelsius(celsius, to.value).toFixed(1);\n  if (Number(shown) === 0) shown = "0.0";\n  result.textContent = `${shown} ${SYMBOL[to.value]}`;\n}\nfor (const el of [value, from, to]) el.addEventListener("input", update);\nupdate();\n';
+const weatherJs = 'const state = document.querySelector("#state");\nconst list = document.querySelector("#cities");\n\nasync function load() {\n  state.textContent = "Loading weather...";\n  let rows;\n  try {\n    const response = await fetch("/api/weather");\n    if (!response.ok) throw new Error("bad status");\n    rows = await response.json();\n  } catch {\n    state.textContent = "Weather unavailable";\n    return;\n  }\n  const cities = {};\n  for (const r of rows) {\n    const c = (cities[r.city] ||= { temp: 0, n: 0, rain: 0 });\n    c.temp += r.temp_c;\n    c.n++;\n    c.rain += r.rain_mm;\n  }\n  const summary = Object.entries(cities).map(([city, c]) => ({ city, avg: c.temp / c.n, rain: c.rain }));\n  summary.sort((a, b) => b.avg - a.avg);\n  state.textContent = "";\n  for (const s of summary) {\n    const li = document.createElement("li");\n    li.textContent = `${s.city}: ${s.avg.toFixed(1)} °C, ${s.rain.toFixed(1)} mm rain`;\n    list.append(li);\n  }\n}\nload();\n';
+const enrolJs = 'const form = document.querySelector("#enrol");\nconst select = document.querySelector("#course");\nconst state = document.querySelector("#state");\nlet courses = [];\n\nconst seatText = (n) => `${n} seat${n === 1 ? "" : "s"}`;\nfunction render() {\n  select.replaceChildren();\n  for (const c of courses.filter((x) => x.seats > 0)) {\n    select.append(new Option(`${c.title} (${seatText(c.seats)})`, c.id));\n  }\n}\nasync function load() {\n  const response = await fetch("/api/courses");\n  courses = await response.json();\n  render();\n}\nform.addEventListener("submit", async (event) => {\n  event.preventDefault();\n  const student = document.querySelector("#student").value.trim();\n  if (student.length < 2) {\n    state.textContent = "Enter the student name";\n    return;\n  }\n  const course = courses.find((c) => String(c.id) === select.value);\n  if (!course) return;\n  const response = await fetch(`/api/courses/${course.id}`, {\n    method: "PATCH",\n    headers: { "Content-Type": "application/json" },\n    body: JSON.stringify({ seats: course.seats - 1 }),\n  });\n  if (!response.ok) {\n    state.textContent = `Could not enrol (status ${response.status})`;\n    return;\n  }\n  Object.assign(course, await response.json());\n  state.textContent = `Enrolled ${student} in ${course.title}`;\n  render();\n});\nload();\n';
+const filterJs = 'const box = document.querySelector("#q");\nconst count = document.querySelector("#count");\nconst items = [...document.querySelectorAll("#cities li")];\nlet timer;\n\nfunction apply() {\n  const needle = box.value.trim().toLowerCase();\n  let shown = 0;\n  for (const li of items) {\n    const match = li.textContent.toLowerCase().includes(needle);\n    li.hidden = !match;\n    if (match) shown++;\n  }\n  count.textContent = `${shown} of ${items.length} shown`;\n}\nbox.addEventListener("input", () => {\n  clearTimeout(timer);\n  timer = setTimeout(apply, 300);\n});\napply();\n';
+const salesJs = 'function summarize(orders) {\n  const byCustomer = new Map();\n  for (const order of orders) {\n    if (order.status === "cancelled") continue;\n    const entry = byCustomer.get(order.customer) ?? { customer: order.customer, orders: 0, cents: 0 };\n    entry.orders++;\n    for (const line of order.lines) entry.cents += line.price * line.qty * 100;\n    byCustomer.set(order.customer, entry);\n  }\n  return [...byCustomer.values()]\n    .map((e) => ({ customer: e.customer, orders: e.orders, total: Math.round(e.cents) / 100 }))\n    .sort((a, b) => b.total - a.total || (a.customer < b.customer ? -1 : a.customer > b.customer ? 1 : 0));\n}\n';
+
+Object.assign(appSolutions, {
+  'web-26-unit-converter': {
+    valid: [fj(convJs, H26.convert)],
+    wrong: [
+      fj(rep(convJs, '  if (celsius < -273.15) {\n    result.textContent = "Below absolute zero";\n    return;\n  }\n', ''), H26.convert),
+      fj(rep(convJs, '  if (Number(shown) === 0) shown = "0.0";\n', ''), H26.convert),
+      fj(rep(convJs, 'const raw = value.value.trim();', 'const raw = value.value;'), H26.convert),
+      fj(rep(convJs, 'raw === "" || ', ''), H26.convert),
+      fj(rep(convJs, 'v - 273.15', 'v - 273'), H26.convert),
+      fj(rep(convJs, '(c * 9) / 5 + 32', '(c * 5) / 9 + 32'), H26.convert),
+      fj(rep(convJs, 'Number.isFinite(n)', 'true'), H26.convert),
+      fj(rep(convJs, 'toFixed(1)', 'toFixed(2)'), H26.convert),
+      fj(rep(convJs, 'const n = Number(raw);', 'const n = parseFloat(raw);'), H26.convert),
+      fj(rep(convJs, 'for (const el of [value, from, to]) el.addEventListener("input", update);\nupdate();\n', 'for (const el of [value, from, to]) el.addEventListener("input", update);\n'), H26.convert),
+      fj(rep(convJs, 'celsius < -273.15', 'celsius <= -273.15'), H26.convert),
+    ],
+  },
+  'web-26-weather-board': {
+    valid: [fj(weatherJs, H26.weather)],
+    wrong: [
+      fj(rep(weatherJs, '  summary.sort((a, b) => b.avg - a.avg);\n', ''), H26.weather),
+      fj(rep(weatherJs, 'summary.sort((a, b) => b.avg - a.avg)', 'summary.sort((a, b) => a.avg - b.avg)'), H26.weather),
+      fj(rep(weatherJs, 'temp: 0, n: 0, rain: 0', 'temp: 0, n: 1, rain: 0'), H26.weather),
+      fj(rep(weatherJs, 'c.rain += r.rain_mm;', 'c.rain = r.rain_mm;'), H26.weather),
+      fj(rep(weatherJs, '    if (!response.ok) throw new Error("bad status");\n', ''), H26.weather),
+      fj(rep(weatherJs, '  state.textContent = "Loading weather...";\n', ''), H26.weather),
+      fj(rep(weatherJs, '  state.textContent = "";\n  for', '  for'), H26.weather),
+      fj(rep(weatherJs, '.toFixed(1)} mm rain', '.toFixed(0)} mm rain'), H26.weather),
+      fj(rep(weatherJs, 'c.temp += r.temp_c;', 'c.temp = Math.max(c.temp, r.temp_c);'), H26.weather),
+    ],
+  },
+  'web-26-course-enrol': {
+    valid: [fj(enrolJs, H26.enrol)],
+    wrong: [
+      fj(rep(enrolJs, '  event.preventDefault();\n', ''), H26.enrol),
+      fj(rep(enrolJs, 'student.length < 2', 'student.length < 1'), H26.enrol),
+      fj(rep(enrolJs, 'const student = document.querySelector("#student").value.trim();', 'const student = document.querySelector("#student").value;'), H26.enrol),
+      fj(rep(enrolJs, 'seats: course.seats - 1', 'seats: course.seats'), H26.enrol),
+      fj(rep(enrolJs, '  if (!response.ok) {\n    state.textContent = `Could not enrol (status ${response.status})`;\n    return;\n  }\n', ''), H26.enrol),
+      fj(rep(enrolJs, '  Object.assign(course, await response.json());\n', ''), H26.enrol),
+      fj(rep(enrolJs, 'courses.filter((x) => x.seats > 0)', 'courses'), H26.enrol),
+      fj(rep(enrolJs, '`${n} seat${n === 1 ? "" : "s"}`', '`${n} seats`'), H26.enrol),
+      fj(rep(enrolJs, '  render();\n});', '});'), H26.enrol),
+      fj(rep(enrolJs, '    body: JSON.stringify({ seats: course.seats - 1 }),', '    body: JSON.stringify({ seats: 0 }),'), H26.enrol),
+    ],
+  },
+  'web-26-city-filter': {
+    valid: [fj(filterJs, H26.cities)],
+    wrong: [
+      fj(rep(filterJs, '  clearTimeout(timer);\n', ''), H26.cities),
+      fj(rep(filterJs, '  timer = setTimeout(apply, 300);', '  apply();'), H26.cities),
+      fj(rep(filterJs, 'setTimeout(apply, 300)', 'setTimeout(apply, 100)'), H26.cities),
+      fj(rep(filterJs, 'setTimeout(apply, 300)', 'setTimeout(apply, 500)'), H26.cities),
+      fj(rep(filterJs, '.toLowerCase().includes(needle)', '.includes(needle)'), H26.cities),
+      fj(rep(filterJs, 'box.value.trim().toLowerCase()', 'box.value.toLowerCase()'), H26.cities),
+      fj(rep(filterJs, '    li.hidden = !match;\n', '    li.style.display = match ? "" : "none";\n'), H26.cities),
+      fj(rep(filterJs, '  timer = setTimeout(apply, 300);\n});\napply();', '  timer = setTimeout(apply, 300);\n});'), H26.cities),
+    ],
+  },
+  'web-26-sales-summary': {
+    valid: [fj(salesJs), fj('const summarize = (orders) => {\n  const totals = {};\n  const counts = {};\n  orders.filter((o) => o.status !== "cancelled").forEach((o) => {\n    totals[o.customer] = (totals[o.customer] || 0) + o.lines.reduce((s, l) => s + Math.round(l.price * l.qty * 100), 0);\n    counts[o.customer] = (counts[o.customer] || 0) + 1;\n  });\n  return Object.keys(totals)\n    .map((customer) => ({ customer, orders: counts[customer], total: totals[customer] / 100 }))\n    .sort((a, b) => b.total - a.total || a.customer.localeCompare(b.customer, "en", { sensitivity: "variant" }));\n};\n')],
+    wrong: [
+      fj(rep(salesJs, '    if (order.status === "cancelled") continue;\n', '')),
+      fj(rep(salesJs, 'order.status === "cancelled"', 'order.status.toLowerCase() === "cancelled"')),
+      fj(rep(salesJs, 'Math.round(e.cents) / 100', 'e.cents / 100')),
+      fj(rep(salesJs, 'Math.round(e.cents) / 100', 'Math.floor(e.cents) / 100')),
+      fj(rep(salesJs, 'b.total - a.total || ', 'a.total - b.total || ')),
+      fj(rep(salesJs, 'b.total - a.total || (a.customer < b.customer ? -1 : a.customer > b.customer ? 1 : 0)', 'b.total - a.total')),
+      fj(rep(salesJs, 'entry.orders++;', 'entry.orders = 1;')),
+      fj('function summarize(orders) {\n  const by = {};\n  for (const o of orders) {\n    if (o.status === "cancelled" || o.lines.length === 0) continue;\n    by[o.customer] ??= { customer: o.customer, orders: 0, total: 0 };\n    by[o.customer].orders++;\n    for (const l of o.lines) by[o.customer].total += l.price * l.qty;\n  }\n  return Object.values(by).map((e) => ({ ...e, total: Math.round(e.total * 100) / 100 })).sort((a, b) => b.total - a.total || (a.customer < b.customer ? -1 : 1));\n}\n'),
+      fj('function summarize(orders) {\n  orders.sort((a, b) => a.customer < b.customer ? -1 : 1);\n' + salesJs.split('\n').slice(1).join('\n')),
+      fj(rep(salesJs, 'line.price * line.qty * 100', 'line.price * line.qty * 100 + 0.5')),
+    ],
+  },
+});
