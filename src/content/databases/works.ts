@@ -109,3 +109,25 @@ export function worksSql(seed: number): string {
   sql += insert('maintenance_events', ['id', 'machine_id', 'technician_id', 'event_date', 'kind', 'downtime_hours', 'cost'], events);
   return sql;
 }
+
+/**
+ * The hidden twin used by boss problems: seed 202 data PLUS deliberate boundary rows, so that classic near-misses fail:
+ * an empty department, two employees tied for the top rate, an employee exactly at their department's average, a
+ * machine with exactly 100 counted units, and runs whose defect count is unknown.
+ */
+export function worksBossSql(): string {
+  return worksSql(202) + `
+INSERT INTO departments (id, name) VALUES (5, 'Archive'), (6, 'Calibration');
+INSERT INTO employees (id, name, department_id, role, hourly_rate, hired_on, manager_id) VALUES
+  (101, 'Zed Tie', 1, 'operator', 99, '2020-01-01', NULL),
+  (102, 'Abe Tie', 1, 'operator', 99, '2020-01-02', NULL),
+  (103, 'Cal Low', 6, 'operator', 20, '2020-01-03', NULL),
+  (104, 'Cal Mid', 6, 'operator', 25, '2020-01-04', NULL),
+  (105, 'Cal High', 6, 'operator', 30, '2020-01-05', NULL);
+INSERT INTO machines (id, name, machine_type, department_id, purchase_cost, installed_on) VALUES (11, 'Boundary Press', 'Press', 6, 15000, '2020-02-01');
+INSERT INTO production_runs (id, machine_id, operator_id, product_id, run_date, units_made, units_defective, hours) VALUES
+  (901, 11, 103, 1, '2020-03-01', 60, 3, 4),
+  (902, 11, 103, 1, '2020-03-02', 40, 1, 3),
+  (903, 11, 103, 1, '2020-03-03', 500, NULL, 8);
+`;
+}

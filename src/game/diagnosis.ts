@@ -173,3 +173,15 @@ function soloEvidence(records: EvidenceRecord[], skill: string, all: string[]): 
   const others = all.filter((k) => k !== skill);
   return records.some((r) => isIndependentPass(r) && r.skillIds.includes(skill) && !others.every((o) => r.skillIds.includes(o)));
 }
+
+/** Fallback for a failed boss attempt that produced no ordinary diagnosis (e.g. nothing ran): still worth a look, never a big one. */
+export function diagnoseBossFailure(save: SaveData, challenge: Challenge): Diagnosis {
+  const skillIds = diagnosticsOf(challenge).primary;
+  const idx = save.evidence.length - 1;
+  const { strength, count } = strengthOn(save.evidence, skillIds, idx);
+  return {
+    trigger: 'failure', severity: 'moderate', level: LEVEL_OF.moderate, kind: 'concept', skillIds, key: skillIds.slice().sort().join('+'),
+    reasons: ['the boss attempt did not pass, so the skills it tests need another look'], mistakes: [], oneOff: false, strength,
+    previousIndependent: count, failures: 1, hintsUsed: 0, summary: `The boss showed something to work on: ${list(skillIds)}.`,
+  };
+}

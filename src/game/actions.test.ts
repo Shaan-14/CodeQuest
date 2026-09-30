@@ -34,7 +34,7 @@ describe('quest and areas', () => {
   it('keeps future areas locked, even after finishing everything', () => {
     let s = A.acceptQuest(started(), 'wake-the-robot').save;
     for (const l of lessons) s = A.completeLesson(s, l.id).save;
-    for (const id of ['observatory', 'summit']) expect(isAreaUnlocked(area(id), s)).toBe(false);
+    for (const id of ['observatory']) expect(isAreaUnlocked(area(id), s)).toBe(false);
   });
   it('unlocks Library and Shop through lessons', () => {
     let s = A.acceptQuest(started(), 'wake-the-robot').save;

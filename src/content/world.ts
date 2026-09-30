@@ -55,9 +55,9 @@ export const areas: Area[] = [
   },
   {
     id: 'summit', name: 'The Summit', icon: '🏔️', theme: 'summit', pos: { x: 50, y: 10 },
-    tagline: 'Original projects, no map provided',
-    description: 'The final ascent: open-ended projects across every technology you have learned.',
-    lock: { type: 'future', phase: 5, reason: 'The path is not yet cut. Opens after the core curriculum.' },
+    tagline: 'Face the guardians, then the Great Outage',
+    description: 'The Boss Hall: gate guardians, one mastery trial per track, and the final Summit Trial. Every boss is unfamiliar, hint-free and one attempt at a time; a failed attempt leads to diagnosis, training and a new version.',
+    lock: { type: 'lesson', lessonId: 'py-14-independent-trial', reason: 'The trail begins after your first independent trial in the Training Grounds.' },
   },
 ];
 
@@ -71,6 +71,7 @@ export const items: Item[] = [
   { id: 'sharp-monocle', name: 'Sharp Monocle', icon: '🧐', kind: 'quest', price: null, description: 'Earned for solving 25 Daily Challenges. Cannot be bought.' },
   { id: 'golden-hourglass', name: 'Golden Hourglass', icon: '⏳', kind: 'quest', price: null, description: 'Earned for solving 50 Daily Challenges. Cannot be bought.' },
   { id: 'pixel-pin', name: 'Pixel Pin', icon: '📌', kind: 'quest', price: null, description: 'A pin from the Web District for finishing the Web Workshop. Cannot be bought.' },
+  { id: 'summit-flag', name: 'Summit Flag', icon: '🚩', kind: 'quest', price: null, description: 'Planted at the top of the Summit. Cannot be bought.' },
   { id: 'robot-bolt', name: 'Bolt’s Bolt', icon: '🔩', kind: 'quest', price: null, description: 'A shiny bolt Bolt-7 gave you for waking him up.' },
 ];
 
@@ -266,6 +267,10 @@ export const achievementDefs: AchievementDef[] = [
   { id: 'perfect-week', title: 'Perfect Week', icon: '📅', description: 'Solve 7 Daily Challenges within any seven-day window. Missing days costs nothing.' },
   { id: 'cross-skill', title: 'Cross-Skill Master', icon: '🧭', description: 'Solve Daily Challenges in four different skill categories.' },
   { id: 'old-skills-sharp', title: 'Old Skills Still Sharp', icon: '🗡️', description: 'Solve 5 hard review Daily Challenges on skills you learned earlier.' },
+  { id: 'first-boss', title: 'Guardian Down', icon: '🛡️', description: 'Defeat your first boss.' },
+  { id: 'back-stronger', title: 'Back Stronger', icon: '🩹', description: 'Defeat a boss after an earlier attempt and its training.' },
+  { id: 'mastery-trial', title: 'Trial Passed', icon: '🏆', description: 'Pass a mastery trial.' },
+  { id: 'summit-reached', title: 'The Summit', icon: '🏔️', description: 'Complete the campaign.' },
   { id: 'blank-page', title: 'The Blank Page', icon: '📄', description: 'Solve an Independent Trial.' },
   { id: 'first-query', title: 'First Query', icon: '🗄️', description: 'Pass your first SQL challenge.' },
   { id: 'retry-wisdom', title: 'A Different Angle', icon: '🔀', description: 'Pass a different problem on an idea you failed before.' },

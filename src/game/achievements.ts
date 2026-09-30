@@ -48,6 +48,10 @@ const conditions: Record<string, (s: SaveData) => boolean> = {
   'perfect-week': perfectWeek,
   'cross-skill': (s) => new Set(passedDailies(s).map((h) => h.category)).size >= 4,
   'old-skills-sharp': (s) => passedDailies(s).filter((h) => h.focus === 'review' && h.difficulty >= 4).length >= 5,
+  'first-boss': (s) => Object.values(s.bosses).some((b) => !!b.passedAt),
+  'back-stronger': (s) => Object.values(s.bosses).some((b) => !!b.passedAt && b.attempts.some((a) => !a.passed)),
+  'mastery-trial': (s) => ['mastery-python', 'mastery-sql', 'mastery-data-eng', 'mastery-web'].some((id) => !!s.bosses[id]?.passedAt),
+  'summit-reached': (s) => !!s.campaign.completedAt,
   'blank-page': (s) => !!s.learning.challenges['py-14-warehouse-audit']?.passed,
 };
 

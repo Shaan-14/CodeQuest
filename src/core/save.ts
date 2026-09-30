@@ -255,6 +255,8 @@ export interface BossState {
   passedAt?: string;
   /** After a failure the boss stays sealed until this training plan is complete (remediation before a new version). */
   remediationPlanId?: string;
+  /** The weakness diagnosed from the last failed attempt: the boss stays sealed until its training is complete (or it is resolved). */
+  remediationWeaknessId?: string;
 }
 
 export interface CampaignState {
@@ -271,7 +273,7 @@ export function sanitizeBosses(raw: unknown): Record<string, BossState> {
     const b = v as Partial<BossState> | null;
     if (!b || typeof b !== 'object' || !Array.isArray(b.attempts)) continue;
     const attempts = b.attempts.filter((a): a is BossAttempt => !!a && typeof a === 'object' && typeof a.version === 'string' && typeof a.challengeId === 'string' && typeof a.passed === 'boolean' && typeof a.at === 'string').map((a) => ({ ...a, weaknessIds: Array.isArray(a.weaknessIds) ? a.weaknessIds : [] }));
-    out[id] = { attempts, passedAt: typeof b.passedAt === 'string' ? b.passedAt : undefined, remediationPlanId: typeof b.remediationPlanId === 'string' ? b.remediationPlanId : undefined };
+    out[id] = { attempts, passedAt: typeof b.passedAt === 'string' ? b.passedAt : undefined, remediationPlanId: typeof b.remediationPlanId === 'string' ? b.remediationPlanId : undefined, remediationWeaknessId: typeof b.remediationWeaknessId === 'string' ? b.remediationWeaknessId : undefined };
   }
   return out;
 }

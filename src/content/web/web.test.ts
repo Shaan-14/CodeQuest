@@ -11,6 +11,8 @@ import { blank } from './helpers';
 import { webSolutions } from './solutions.testdata';
 import { reference } from '../reference';
 import { dailyChallenges } from '../daily';
+import { bossChallenges } from '../boss';
+import { webBossSolutions } from '../boss/solutions.web.testdata';
 import { webDailySolutions } from '../daily/solutions.web.testdata';
 import { S, web as webCheck } from './helpers';
 
@@ -85,6 +87,30 @@ describe('web Daily Challenges behave correctly in real Chromium', () => {
   for (const c of dailies) {
     describe(c.id, () => {
       const sol = webDailySolutions[c.id];
+      const run = (f: WebFiles) => harness.grade(f, c.checks);
+      it('the starter files do not already pass', async () => {
+        expect((await run(c.starterFiles ?? blank)).passed).toBe(false);
+      });
+      sol?.valid.forEach((f, i) => it(`valid solution #${i + 1} passes`, async () => {
+        const r = await run(f);
+        expect(r.passed, JSON.stringify(r.checks.filter((k) => !k.passed), null, 1)).toBe(true);
+      }));
+      sol?.wrong.forEach((f, i) => it(`wrong attempt #${i + 1} fails`, async () => {
+        expect((await run(f)).passed).toBe(false);
+      }));
+    });
+  }
+});
+
+describe('web Boss challenges behave correctly in real Chromium', () => {
+  const web = bossChallenges.filter((c) => c.language === 'web');
+  it('has solutions for every web boss problem and none for unknown ones', () => {
+    for (const c of web) expect(webBossSolutions[c.id], c.id).toBeDefined();
+    for (const id of Object.keys(webBossSolutions)) expect(web.some((c) => c.id === id), id).toBe(true);
+  });
+  for (const c of web) {
+    describe(c.id, () => {
+      const sol = webBossSolutions[c.id];
       const run = (f: WebFiles) => harness.grade(f, c.checks);
       it('the starter files do not already pass', async () => {
         expect((await run(c.starterFiles ?? blank)).passed).toBe(false);
