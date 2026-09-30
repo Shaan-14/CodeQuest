@@ -91,7 +91,7 @@ export function App() {
       <Hud onMap={toMap} onPanel={setPanel} onDaily={() => { setPanel(null); setRoute({ name: 'daily' }); }} />
       {required && route.name !== 'lesson' && route.name !== 'training-run' && route.name !== 'boss' && !(route.name === 'area' && route.id === 'training-yard') && (
         <div class="banner required-banner" role="alert" data-testid="required-banner">
-          🎯 Training needed: <strong>{weaknessNames(required)}</strong>. The curriculum is paused until you finish it.
+          <span>🎯 Training needed: <strong>{weaknessNames(required)}</strong>. The curriculum is paused until you finish it.</span>
           <button class="btn small gold" onClick={goTraining} data-testid="banner-go-training">Go to the Training Grounds</button>
         </div>
       )}

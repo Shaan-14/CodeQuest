@@ -18,7 +18,7 @@ export const areas: Area[] = [
     lock: { type: 'questAccepted', questId: 'wake-the-robot', reason: 'Speak to Mentor Juno at the Academy first.' },
   },
   {
-    id: 'training-yard', name: 'Training Grounds', icon: '🏋️', theme: 'yard', pos: { x: 10, y: 56 },
+    id: 'training-yard', name: 'Training Grounds', icon: '🏋️', theme: 'yard', pos: { x: 15, y: 56 },
     tagline: 'A detour, never a step back',
     description: 'A separate place for targeted training. When a struggle shows up in your record, this is where you work on it, prove it on one fresh problem, and then walk straight back to exactly where you left off.',
     lock: { type: 'none' },

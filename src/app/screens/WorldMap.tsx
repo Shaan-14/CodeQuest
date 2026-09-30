@@ -24,7 +24,7 @@ export function WorldMap({ current, onOpen }: { current: string; onOpen: (areaId
           return (
             <button key={a.id} class={`pin theme-${a.theme} ${open ? 'open' : 'locked'} ${areaIsFuture(a) ? 'future' : ''} ${a.id === 'training-yard' && required ? 'required' : ''}`} style={{ left: `${a.pos.x}%`, top: `${a.pos.y}%` }} onClick={() => onOpen(a.id)} data-testid={`area-${a.id}`} aria-label={`${a.name}${open ? '' : ' (locked)'}`}>
               <span class="pin-icon">{open ? a.icon : '🔒'}</span>
-              <span class="pin-label">{a.name}{a.id === 'training-yard' && required ? ' — training needed' : ''}</span>
+              <span class="pin-label">{a.name}{a.id === 'training-yard' && required ? ' (needed)' : ''}</span>
             </button>
           );
         })}
