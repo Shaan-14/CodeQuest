@@ -117,3 +117,17 @@ const dailyById = new Map(dailyChallenges.map((c) => [c.id, c]));
 /** A lesson/practice challenge OR a Daily Challenge (evidence and the daily screen need both). */
 export const getAnyChallenge = (id: string): Challenge | undefined => challengeById.get(id) ?? dailyById.get(id);
 export const getSkill = (id: string): Skill | undefined => skillById.get(id);
+
+/** The lesson whose steps use this challenge OR another variant of its objective (undefined for dailies/bosses). */
+const ownerCache = new Map<string, Lesson | undefined>();
+export function lessonOfChallenge(challengeId: string): Lesson | undefined {
+  if (ownerCache.has(challengeId)) return ownerCache.get(challengeId);
+  const c = challenges.find((x) => x.id === challengeId);
+  let found: Lesson | undefined;
+  if (c) {
+    const o = objectiveOf(c);
+    found = lessons.find((l) => l.steps.some((st) => st.kind === 'challenge' && (() => { const sc = challenges.find((x) => x.id === st.challengeId); return !!sc && objectiveOf(sc) === o; })()));
+  }
+  ownerCache.set(challengeId, found);
+  return found;
+}

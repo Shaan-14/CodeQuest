@@ -4,15 +4,19 @@
  * Keeping this free of UI and storage makes the rules (XP, unlocks, evidence) unit-testable.
  */
 import { getChallenge, getLesson } from '../content';
-import { objectiveOf } from '../content/helpers';
 import { items, quests } from '../content/world';
 import { areas } from '../content/world';
 import { MAX_FOCUS, newSave, type ChallengeProgress, type SaveData } from '../core/save';
-import { supportFor, type EvidenceRecord } from '../learning/mastery';
 import { newlyEarned } from './achievements';
 import type { GameEvent } from './events';
 import { levelFromXp, rewardFor } from './progression';
 import { isAreaUnlocked } from './world';
+import { buildEvidence, failuresSinceLastPass } from './evidence';
+import { applyDiagnosis } from './weakness';
+import { resolveOnPass } from './weakness';
+import type { EvidenceSource, FailureDetail } from '../learning/mastery';
+
+export { failuresSinceLastPass };
 
 export interface Result {
   save: SaveData;
@@ -54,7 +58,7 @@ export function gain(s: SaveData, events: GameEvent[], xp: number, coins: number
   if (after > before) events.push({ type: 'levelUp', level: after });
 }
 
-function progressFor(s: SaveData, challengeId: string): ChallengeProgress {
+export function progressFor(s: SaveData, challengeId: string): ChallengeProgress {
   return (s.learning.challenges[challengeId] ??= { attempts: 0, runs: 0, hintsUsed: 0, passed: false, xpAwarded: 0, coinsAwarded: 0, timeMs: 0 });
 }
 
@@ -121,18 +125,6 @@ export function saveDraftCode(save: SaveData, challengeId: string, code: string,
   return { save: s, events };
 }
 
-/** Failed submissions on an objective (any variant) since its most recent pass. Retries never erase history. */
-export function failuresSinceLastPass(s: SaveData, objectiveId: string): number {
-  let n = 0;
-  for (let i = s.evidence.length - 1; i >= 0; i--) {
-    const r = s.evidence[i]!;
-    if (r.objectiveId !== objectiveId) continue;
-    if (r.passed) break;
-    n++;
-  }
-  return n;
-}
-
 /** The player opened a reference-manual entry while working on a challenge (research behaviour). */
 export function recordLookup(save: SaveData, challengeId: string): Result {
   const { s, events } = draft(save);
@@ -146,7 +138,12 @@ export function recordLookup(save: SaveData, challengeId: string): Result {
  * XP/coins; a later, less-assisted pass pays only the difference, so replaying with fewer hints
  * is rewarded but grinding the same solve is not.
  */
-export function submitChallenge(save: SaveData, challengeId: string, passed: boolean, timeMs: number, code: string): Result {
+export interface SubmitOptions {
+  detail?: FailureDetail;
+  source?: EvidenceSource;
+}
+
+export function submitChallenge(save: SaveData, challengeId: string, passed: boolean, timeMs: number, code: string, opts: SubmitOptions = {}): Result {
   const { s, events } = draft(save);
   const c = getChallenge(challengeId);
   if (!c) return { save: s, events };
@@ -155,26 +152,7 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   p.timeMs += timeMs;
   p.code = code;
 
-  const objectiveId = objectiveOf(c);
-  const record: EvidenceRecord = {
-    at: now(),
-    challengeId,
-    objectiveId,
-    context: c.context ?? '',
-    lookups: p.lookups ?? 0,
-    priorFailures: failuresSinceLastPass(s, objectiveId),
-    project: !!c.project,
-    skillIds: c.skillIds,
-    concepts: c.concepts,
-    mode: c.mode,
-    difficulty: c.difficulty,
-    passed,
-    support: supportFor(c.mode, p.hintsUsed, c.transfer),
-    hintsUsed: p.hintsUsed,
-    attemptNumber: p.attempts,
-    timeMs: p.timeMs,
-    executed: true,
-  };
+  const record = buildEvidence(s, c, { passed, at: now(), timeMs: p.timeMs, hintsUsed: p.hintsUsed, lookups: p.lookups ?? 0, attemptNumber: p.attempts, source: opts.source, detail: opts.detail });
   s.evidence.push(record);
 
   if (passed) {
@@ -192,6 +170,9 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
     s.stats.focus -= lost;
     if (lost) events.push({ type: 'focusLost', amount: lost });
   }
+  // Phase 4: resolve superseded weaknesses, then diagnose this attempt (records what to train; never blocks or rolls back).
+  resolveOnPass(s, events, record);
+  applyDiagnosis(s, events, c, record);
   settle(s, events);
   return { save: s, events };
 }

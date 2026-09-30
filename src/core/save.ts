@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export interface PlayerProfile {
   name: string;
@@ -127,6 +127,155 @@ export function sanitizeDaily(raw: unknown): DailyState {
   };
 }
 
+
+/* ------------------------------------------------------------------ Phase 4: adaptive training */
+
+export type WeaknessKind = 'concept' | 'application' | 'combination' | 'hint-reliance' | 'rust' | 'prerequisite' | 'boss-prep' | 'review';
+export type Severity = 'minor' | 'moderate' | 'serious' | 'major';
+export type PlanLevel = 'refresher' | 'targeted' | 'extended' | 'deep';
+export type WeaknessSource = 'lesson' | 'practice' | 'daily' | 'boss' | 'training' | 'quiet' | 'upcoming';
+
+/** Where the player stands in the CURRICULUM when training starts. Training never changes this; it only remembers it. */
+export interface ReturnPoint {
+  kind: 'lesson' | 'area' | 'boss' | 'daily' | 'map';
+  lessonId?: string;
+  /** Step of the lesson the player was on (informational: lesson progress itself is never touched by training). */
+  stepIndex?: number;
+  challengeId?: string;
+  areaId?: string;
+  bossId?: string;
+}
+
+/** Something the evidence says the player should work on. Kept forever: resolved weaknesses are history, not garbage. */
+export interface Weakness {
+  id: string;
+  /** Skill id, or a composite key such as `py.loops+py.dicts` for a combination. Merges repeated detections. */
+  key: string;
+  skillIds: string[];
+  compositeId?: string;
+  kind: WeaknessKind;
+  severity: Severity;
+  status: 'open' | 'training' | 'resolved';
+  source: WeaknessSource;
+  /** The submission that exposed it. */
+  exposedBy: { challengeId: string; objectiveId: string; context: string; lessonId?: string; at: string };
+  detectedAt: string;
+  /** Failed attempts (on the exposing objective) that fed this detection. */
+  failures: number;
+  hintsUsed: number;
+  hintLevels: number[];
+  /** Mistake categories (authored mistake ids, or error kinds) seen so far. */
+  mistakes: string[];
+  /** Plain-language reasons the diagnosis gave (what the player is shown). */
+  reasons: string[];
+  /** Independent passes on these skills BEFORE this weakness was detected (previous mastery is preserved, never erased). */
+  previousIndependent: number;
+  /** Contexts (real-world settings) in which it caused trouble. */
+  struggledIn: string[];
+  planIds: string[];
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+export type TrainingStepKind = 'review' | 'example' | 'guided' | 'practice' | 'combined' | 'independent';
+
+export interface TrainingStep {
+  id: string;
+  kind: TrainingStepKind;
+  skillId: string;
+  /** Fresh problem for practice-type steps. Absent on review/example steps. */
+  challengeId?: string;
+  done: boolean;
+  passed?: boolean;
+  attempts: number;
+}
+
+export interface TrainingPlan {
+  id: string;
+  weaknessId: string;
+  level: PlanLevel;
+  /** True only for major weaknesses: the exposing lesson waits until the plan is complete. Otherwise training is a choice. */
+  required: boolean;
+  createdAt: string;
+  returnTo: ReturnPoint;
+  steps: TrainingStep[];
+  status: 'active' | 'complete' | 'abandoned';
+  completedAt?: string;
+  /** How many times a failed independent step made the plan grow. */
+  escalations: number;
+  /** Independent passes on the plan's skills BEFORE training and hint-free passes after it (for the history view). */
+  before: { independentPasses: number; failures: number };
+  after?: { independentPasses: number };
+}
+
+export interface TrainingState {
+  weaknesses: Weakness[];
+  /** Every plan ever made (active, complete, abandoned): the training history. */
+  plans: TrainingPlan[];
+  activePlanId: string | null;
+  nextId: number;
+}
+
+export const emptyTraining = (): TrainingState => ({ weaknesses: [], plans: [], activePlanId: null, nextId: 1 });
+export const TRAINING_LIMIT = 400;
+
+/** Repairs an untrusted training block: malformed entries are dropped, never fatal. */
+export function sanitizeTraining(raw: unknown): TrainingState {
+  if (typeof raw !== 'object' || raw === null) return emptyTraining();
+  const r = raw as Record<string, unknown>;
+  const str = (v: unknown) => typeof v === 'string';
+  const weaknesses = (Array.isArray(r.weaknesses) ? r.weaknesses : []).filter(
+    (w): w is Weakness => !!w && typeof w === 'object' && str(w.id) && str(w.key) && Array.isArray(w.skillIds) && ['open', 'training', 'resolved'].includes(w.status) && typeof w.exposedBy === 'object' && w.exposedBy !== null,
+  ).map((w) => ({ ...w, hintLevels: Array.isArray(w.hintLevels) ? w.hintLevels : [], mistakes: Array.isArray(w.mistakes) ? w.mistakes : [], reasons: Array.isArray(w.reasons) ? w.reasons : [], struggledIn: Array.isArray(w.struggledIn) ? w.struggledIn : [], planIds: Array.isArray(w.planIds) ? w.planIds : [] }));
+  const plans = (Array.isArray(r.plans) ? r.plans : []).filter(
+    (p): p is TrainingPlan => !!p && typeof p === 'object' && str(p.id) && str(p.weaknessId) && Array.isArray(p.steps) && ['active', 'complete', 'abandoned'].includes(p.status) && typeof p.returnTo === 'object' && p.returnTo !== null,
+  );
+  const active = plans.find((p) => p.id === r.activePlanId && p.status === 'active');
+  return {
+    weaknesses: weaknesses.slice(-TRAINING_LIMIT),
+    plans: plans.slice(-TRAINING_LIMIT),
+    activePlanId: active ? active.id : null,
+    nextId: typeof r.nextId === 'number' && Number.isFinite(r.nextId) && r.nextId >= 1 ? Math.floor(r.nextId) : weaknesses.length + plans.length + 1,
+  };
+}
+
+/* ------------------------------------------------------------------ Phase 4: bosses and the campaign */
+
+export interface BossAttempt {
+  version: string;
+  challengeId: string;
+  at: string;
+  passed: boolean;
+  /** Weakness ids diagnosed from a failed attempt. */
+  weaknessIds: string[];
+}
+
+export interface BossState {
+  attempts: BossAttempt[];
+  passedAt?: string;
+  /** After a failure the boss stays sealed until this training plan is complete (remediation before a new version). */
+  remediationPlanId?: string;
+}
+
+export interface CampaignState {
+  /** Set once, when the final capstone is passed. The player has completed CodeQuest. */
+  completedAt?: string;
+}
+
+export const emptyBosses = (): Record<string, BossState> => ({});
+
+export function sanitizeBosses(raw: unknown): Record<string, BossState> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+  const out: Record<string, BossState> = {};
+  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+    const b = v as Partial<BossState> | null;
+    if (!b || typeof b !== 'object' || !Array.isArray(b.attempts)) continue;
+    const attempts = b.attempts.filter((a): a is BossAttempt => !!a && typeof a === 'object' && typeof a.version === 'string' && typeof a.challengeId === 'string' && typeof a.passed === 'boolean' && typeof a.at === 'string').map((a) => ({ ...a, weaknessIds: Array.isArray(a.weaknessIds) ? a.weaknessIds : [] }));
+    out[id] = { attempts, passedAt: typeof b.passedAt === 'string' ? b.passedAt : undefined, remediationPlanId: typeof b.remediationPlanId === 'string' ? b.remediationPlanId : undefined };
+  }
+  return out;
+}
+
 export interface SaveData {
   version: number;
   player: PlayerProfile | null;
@@ -144,6 +293,12 @@ export interface SaveData {
   evidence: EvidenceRecord[];
   /** Phase 3: the 12-hour Daily Challenge (current offer, history, clock guard). */
   daily: DailyState;
+  /** Phase 4: detected weaknesses and training plans (adaptive training). Curriculum progress never lives here. */
+  training: TrainingState;
+  /** Phase 4: boss attempts by boss id. */
+  bosses: Record<string, BossState>;
+  /** Phase 4: the campaign ending. */
+  campaign: CampaignState;
 }
 
 export const MAX_FOCUS = 100;
@@ -161,6 +316,9 @@ export function newSave(): SaveData {
     flags: {},
     evidence: [],
     daily: emptyDaily(),
+    training: emptyTraining(),
+    bosses: emptyBosses(),
+    campaign: {},
   };
 }
 
@@ -184,6 +342,9 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   },
   // v3 -> v4 (Phase 3): the Daily Challenge block. Old saves simply start with no daily on offer.
   3: (old) => ({ ...old, daily: emptyDaily() }),
+  // v4 -> v5 (Phase 4): training state, boss attempts and the campaign flag. Nothing existing is touched: old evidence
+  // keeps working (the new evidence fields are optional) and old players start with no weaknesses and no plans.
+  4: (old) => ({ ...old, training: emptyTraining(), bosses: emptyBosses(), campaign: {} }),
 };
 
 export function migrate(raw: unknown): SaveData | null {
@@ -199,6 +360,9 @@ export function migrate(raw: unknown): SaveData | null {
   }
   if (!isSaveData(data)) return null;
   data.daily = sanitizeDaily(data.daily);
+  data.training = sanitizeTraining(data.training);
+  data.bosses = sanitizeBosses(data.bosses);
+  data.campaign = typeof data.campaign === 'object' && data.campaign !== null ? { completedAt: typeof (data.campaign as CampaignState).completedAt === 'string' ? (data.campaign as CampaignState).completedAt : undefined } : {};
   return data;
 }
 

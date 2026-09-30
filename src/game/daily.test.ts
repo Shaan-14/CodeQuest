@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { challenges, getChallenge, lessons } from '../content';
-import { newSave, loadSave, migrate, sanitizeDaily, writeSave, SAVE_KEY, type SaveData } from '../core/save';
+import { newSave, loadSave, migrate, sanitizeDaily, writeSave, SAVE_KEY, SAVE_VERSION, type SaveData } from '../core/save';
 import { summarizeSkill, type EvidenceRecord } from '../learning/mastery';
 import { getSkill } from '../content';
 import * as A from './actions';
@@ -336,7 +336,7 @@ describe('Daily Challenge: save, load and migration', () => {
     const v3 = { ...structuredClone(started()), version: 3 } as Record<string, unknown>;
     delete v3.daily;
     const m = migrate(v3)!;
-    expect(m.version).toBe(4);
+    expect(m.version).toBe(SAVE_VERSION);
     expect(m.daily).toEqual({ current: null, history: [], lastSeenAt: null });
     expect(m.learning).toEqual((v3 as unknown as SaveData).learning);
     expect(m.player?.name).toBe('Ada');

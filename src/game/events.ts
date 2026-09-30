@@ -12,4 +12,13 @@ export type GameEvent =
   | { type: 'focusLost'; amount: number }
   | { type: 'focusGained'; amount: number }
   | { type: 'dailyPassed' }
-  | { type: 'dailyFailed' };
+  | { type: 'dailyFailed' }
+  | { type: 'weaknessFound'; id: string }
+  | { type: 'weaknessDeepened'; id: string }
+  | { type: 'weaknessResolved'; id: string }
+  | { type: 'trainingStarted'; planId: string }
+  | { type: 'trainingStep'; planId: string }
+  | { type: 'trainingComplete'; planId: string }
+  | { type: 'bossPassed'; id: string }
+  | { type: 'bossFailed'; id: string }
+  | { type: 'campaignComplete' };

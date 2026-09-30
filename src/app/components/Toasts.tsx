@@ -26,6 +26,15 @@ function describe(e: GameEvent): { icon: string; title: string; body?: string; k
     case 'focusLost': return { icon: '💤', title: `-${e.amount} Focus`, kind: 'focus' };
     case 'focusGained': return { icon: '🍵', title: `+${e.amount} Focus`, kind: 'focus' };
     case 'dailyPassed': return { icon: '🌅', title: 'Daily Challenge solved!', body: 'Solved without hints, in one attempt.', kind: 'daily' };
+    case 'weaknessFound': return { icon: '🎯', title: 'Something to work on', body: 'Open the Training Grounds to see what and why.', kind: 'training' };
+    case 'weaknessDeepened': return { icon: '🎯', title: 'Training focus updated', body: 'The evidence points to a deeper gap.', kind: 'training' };
+    case 'weaknessResolved': return { icon: '🌱', title: 'Improvement shown', body: 'You solved a fresh problem on your own.', kind: 'training' };
+    case 'trainingStarted': return { icon: '🏋️', title: 'Training started', body: 'Your place in the story is saved.', kind: 'training' };
+    case 'trainingStep': return { icon: '✅', title: 'Training step done', kind: 'training' };
+    case 'trainingComplete': return { icon: '💪', title: 'Training complete', body: 'Time to return to where you were.', kind: 'training' };
+    case 'bossPassed': return { icon: '👑', title: 'Boss defeated!', kind: 'boss' };
+    case 'bossFailed': return { icon: '🩹', title: 'Boss not yet beaten', body: 'Diagnosis and training are waiting at the Training Grounds.', kind: 'boss' };
+    case 'campaignComplete': return { icon: '🏔️', title: 'You reached the Summit!', body: 'CodeQuest complete.', kind: 'boss' };
     case 'dailyFailed': return { icon: '🌙', title: 'Daily Challenge attempted', body: 'No penalty. A fresh one arrives soon.', kind: 'daily' };
   }
 }

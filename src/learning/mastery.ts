@@ -49,6 +49,29 @@ export interface EvidenceRecord {
   timeMs: number;
   /** True if the result came from actually executing the player's code against checks. */
   executed: boolean;
+  /** Phase 4: what went wrong on a failed submission (which checks, what kind of error). Absent on passes and old saves. */
+  failure?: FailureDetail;
+  /** Phase 4: indexes of the hints revealed (0 = conceptual, 1 = specific, 2 = strong), so the hint's KIND is on record. */
+  hintLevels?: number[];
+  /** Phase 4: where the attempt happened. Absent on old saves (= 'lesson'). */
+  source?: EvidenceSource;
+  /** Phase 4: set when the attempt was a step of a training plan. */
+  training?: { planId: string; stepId: string; kind: string };
+  /** Phase 4: set for boss attempts. */
+  boss?: { bossId: string; version: string };
+}
+
+export type EvidenceSource = 'lesson' | 'practice' | 'daily' | 'training' | 'boss';
+
+/** Why a submission failed, in categories the diagnosis engine can reason about. Never contains code or answers. */
+export interface FailureDetail {
+  errorKind: 'none' | 'syntax' | 'runtime' | 'timeout' | 'wrong-output' | 'constraint' | 'cannot-run';
+  /** Names of failed checks (hidden checks are named generically by the grader UI, but the name is kept here for diagnosis only). */
+  failedChecks: string[];
+  visibleFailed: number;
+  hiddenFailed: number;
+  totalChecks: number;
+  constraintsFailed: number;
 }
 
 export function supportFor(mode: LearningMode, hintsUsed: number, transfer = false): SupportLevel {

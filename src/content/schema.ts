@@ -233,6 +233,29 @@ export interface DailyMeta {
   requires: string[];
 }
 
+/**
+ * Structured metadata that lets the diagnosis engine (game/diagnosis.ts) find the SMALLEST meaningful weakness
+ * behind a failure, instead of blaming "the whole lesson". Everything is optional: when absent, the first entry of
+ * `skillIds` is primary and the rest are supporting (see content/diagnostics.ts).
+ */
+export interface ChallengeDiagnostics {
+  /** Skills this challenge is mainly about. */
+  primary?: string[];
+  /** Skills that are needed but not the point (e.g. a loop inside a dictionary problem). */
+  supporting?: string[];
+  /** Skills that must already be solid (prerequisite concepts). */
+  prerequisites?: string[];
+  /** Composite competency ids (content/composites.ts) this challenge exercises, beyond those implied by skillIds. */
+  composites?: string[];
+  /**
+   * Which skills a FAILED check points at. Keys are case-insensitive substrings of the check's name (or `constraint`
+   * for a failed structural constraint); values are skill ids. A failure matching no key falls back to `primary`.
+   */
+  checkSkills?: Record<string, string[]>;
+  /** Named common mistakes: `when` is a substring of a failed check's name; used to describe the mistake to the player. */
+  mistakes?: { id: string; when: string; label: string; skills?: string[] }[];
+}
+
 export interface Challenge {
   id: string;
   /**
@@ -281,6 +304,10 @@ export interface Challenge {
   context?: string;
   /** Present only on challenges authored for the Daily Challenge. */
   daily?: DailyMeta;
+  /** Optional diagnostic metadata (see ChallengeDiagnostics). */
+  diagnostics?: ChallengeDiagnostics;
+  /** Present only on Boss challenges (content/bosses.ts): which boss version this is. */
+  boss?: { bossId: string; version: string };
 }
 
 export interface TeachStep {
