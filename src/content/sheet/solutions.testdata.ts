@@ -134,4 +134,59 @@ export const sheetSolutions: Record<string, { valid: SheetSolution[]; wrong: She
     valid: [{ cells: { ...rows('D', 2, 5, (r) => `=ROUNDUP(B${r}/3,0)`), ...rows('E', 2, 5, (r) => `=IF(WEEKDAY(DATE(A${r},B${r},C${r}),2)>5,"Weekend","Weekday")`) } }, { cells: { ...rows('D', 2, 5, (r) => `=INT((MONTH(DATE(A${r},B${r},C${r}))+2)/3)`), ...rows('E', 2, 5, (r) => `=IF(OR(WEEKDAY(DATE(A${r},B${r},C${r}),2)=6,WEEKDAY(DATE(A${r},B${r},C${r}),2)=7),"Weekend","Weekday")`) } }],
     wrong: [{ cells: { ...rows('D', 2, 5, (r) => `=B${r}/3`), ...rows('E', 2, 5, (r) => `=IF(WEEKDAY(DATE(A${r},B${r},C${r}),2)>5,"Weekend","Weekday")`) } }, { cells: { ...rows('D', 2, 5, (r) => `=ROUNDUP(B${r}/3,0)`), ...rows('E', 2, 5, (r) => `=IF(WEEKDAY(DATE(A${r},B${r},C${r}),2)>6,"Weekend","Weekday")`) } }, { cells: { ...rows('D', 2, 5, (r) => `=ROUNDUP(B${r}/3,0)`), ...rows('E', 2, 5, (r) => `=IF(WEEKDAY(DATE(A${r},B${r},C${r}),1)>5,"Weekend","Weekday")`) } }, { cells: { D2: 1, E2: 'Weekday', D3: 3, E3: 'Weekend', D4: 4, E4: 'Weekday', D5: 1, E5: 'Weekday' } }],
   },
+
+  'xl-07-pivot-region': {
+    valid: [{ pivot: { source: 'Sheet1!A1:D13', rows: ['Region'], values: [{ field: 'Revenue', agg: 'sum' }] } }, { pivot: { source: 'A1:D13', rows: ['Region'], values: [{ field: 'Revenue', agg: 'sum' }] } }],
+    wrong: [{ pivot: { source: 'Sheet1!A1:D13', rows: ['Region'], values: [{ field: 'Revenue', agg: 'count' }] } }, { pivot: { source: 'Sheet1!A1:D13', rows: ['Region'], values: [{ field: 'Units', agg: 'sum' }] } }, { pivot: { source: 'Sheet1!A1:D10', rows: ['Region'], values: [{ field: 'Revenue', agg: 'sum' }] } }, { pivot: { source: 'Sheet1!A1:D13', rows: ['Product'], values: [{ field: 'Revenue', agg: 'sum' }] } }],
+  },
+  'xl-07-pivot-filter': {
+    valid: [{ pivot: { source: 'Sheet1!A1:D13', rows: ['Product'], values: [{ field: 'Units', agg: 'sum' }], filters: [{ field: 'Region', equals: 'East' }] } }],
+    wrong: [{ pivot: { source: 'Sheet1!A1:D13', rows: ['Product'], values: [{ field: 'Units', agg: 'sum' }] } }, { pivot: { source: 'Sheet1!A1:D13', rows: ['Product'], values: [{ field: 'Revenue', agg: 'sum' }], filters: [{ field: 'Region', equals: 'East' }] } }, { pivot: { source: 'Sheet1!A1:D13', rows: ['Product'], values: [{ field: 'Units', agg: 'sum' }], filters: [{ field: 'Region', equals: 'West' }] } }, { pivot: { source: 'Sheet1!A1:D9', rows: ['Product'], values: [{ field: 'Units', agg: 'sum' }], filters: [{ field: 'Region', equals: 'East' }] } }],
+  },
+  'xl-07-pivot-filter-b': {
+    valid: [{ pivot: { source: 'Sheet1!A1:D11', rows: ['Machine'], values: [{ field: 'Scrap', agg: 'sum' }], filters: [{ field: 'Plant', equals: 'Lyon' }] } }],
+    wrong: [{ pivot: { source: 'Sheet1!A1:D11', rows: ['Machine'], values: [{ field: 'Scrap', agg: 'sum' }] } }, { pivot: { source: 'Sheet1!A1:D11', rows: ['Machine'], values: [{ field: 'Hours', agg: 'sum' }], filters: [{ field: 'Plant', equals: 'Lyon' }] } }, { pivot: { source: 'Sheet1!A1:D11', rows: ['Machine'], values: [{ field: 'Scrap', agg: 'sum' }], filters: [{ field: 'Plant', equals: 'Turin' }] } }, { pivot: { source: 'Sheet1!A1:D8', rows: ['Machine'], values: [{ field: 'Scrap', agg: 'sum' }], filters: [{ field: 'Plant', equals: 'Lyon' }] } }],
+  },
+  'xl-07-chart-trend': {
+    valid: [{ chart: { type: 'line', categories: 'A2:A7', series: ['B2:B7'] } }, { chart: { type: 'line', categories: 'Sheet1!$A$2:$A$7', series: ['Sheet1!$B$2:$B$7'] } }],
+    wrong: [{ chart: { type: 'pie', categories: 'A2:A7', series: ['B2:B7'] } }, { chart: { type: 'column', categories: 'A2:A7', series: ['B2:B7'] } }, { chart: { type: 'line', categories: 'A2:A7', series: ['B1:B7'] } }, { chart: { type: 'line', categories: 'B2:B7', series: ['B2:B7'] } }, { chart: { type: 'line', categories: 'A2:A6', series: ['B2:B6'] } }],
+  },
+  'xl-07-chart-trend-b': {
+    valid: [{ chart: { type: 'line', categories: 'A2:A6', series: ['B2:B6'] } }],
+    wrong: [{ chart: { type: 'pie', categories: 'A2:A6', series: ['B2:B6'] } }, { chart: { type: 'bar', categories: 'A2:A6', series: ['B2:B6'] } }, { chart: { type: 'line', categories: 'A2:A5', series: ['B2:B5'] } }, { chart: { type: 'scatter', categories: 'A2:A6', series: ['B2:B6'] } }],
+  },
+
+  'xl-08-break-even': {
+    valid: [{ cells: { B6: '=ROUNDUP(B3/(B1-B2),0)', B7: '=B4*(B1-B2)-B3' } }, { cells: { B6: '=ROUNDUP(B3/(B1-B2),0)', B7: '=B4*B1-B4*B2-B3' } }],
+    wrong: [{ cells: { B6: '=ROUND(B3/(B1-B2),0)', B7: '=B4*(B1-B2)-B3' } }, { cells: { B6: '=B3/(B1-B2)', B7: '=B4*(B1-B2)-B3' } }, { cells: { B6: 800, B7: 1000 } }, { cells: { B6: '=ROUNDUP(4000/(B1-B2),0)', B7: '=B4*(B1-B2)-4000' } }, { cells: { B6: '=ROUNDUP(B3/B1,0)', B7: '=B4*B1-B3' } }],
+  },
+  'xl-08-projection': {
+    valid: [{ cells: { B6: '=B1*(1+$B$2)+$B$3', B7: '=B6*(1+$B$2)+$B$3', B8: '=B7*(1+$B$2)+$B$3', B9: '=B8*(1+$B$2)+$B$3', B10: '=B9*(1+$B$2)+$B$3' } }, { cells: { B6: '=B1+B1*B2+B3', B7: '=B6+B6*$B$2+$B$3', B8: '=B7+B7*$B$2+$B$3', B9: '=B8+B8*$B$2+$B$3', B10: '=B9+B9*$B$2+$B$3' } }],
+    wrong: [{ cells: { B6: '=B1*1.05+1200', B7: '=B6*1.05+1200', B8: '=B7*1.05+1200', B9: '=B8*1.05+1200', B10: '=B9*1.05+1200' } }, { cells: { B6: '=(B1+B3)*(1+$B$2)', B7: '=(B6+$B$3)*(1+$B$2)', B8: '=(B7+$B$3)*(1+$B$2)', B9: '=(B8+$B$3)*(1+$B$2)', B10: '=(B9+$B$3)*(1+$B$2)' } }, { cells: { B6: 11700, B7: 13485, B8: 15359.25, B9: 17327.2125, B10: 19393.573125 } }, { cells: { B6: '=B1*(1+$B$2)+$B$3', B7: '=B6*(1+$B$2)+$B$3', B8: '=B7*(1+$B$2)+$B$3', B9: '=B8*(1+$B$2)+$B$3', B10: '=B9*(1+$B$2)' } }],
+  },
+  'xl-08-projection-b': {
+    valid: [{ cells: { B6: '=MAX(0,B1-B2+B3)', B7: '=MAX(0,B6-$B$2+$B$3)', B8: '=MAX(0,B7-$B$2+$B$3)', B9: '=MAX(0,B8-$B$2+$B$3)', B10: '=MAX(0,B9-$B$2+$B$3)' } }, { cells: { B6: '=IF(B1-B2+B3<0,0,B1-B2+B3)', B7: '=IF(B6-$B$2+$B$3<0,0,B6-$B$2+$B$3)', B8: '=IF(B7-$B$2+$B$3<0,0,B7-$B$2+$B$3)', B9: '=IF(B8-$B$2+$B$3<0,0,B8-$B$2+$B$3)', B10: '=IF(B9-$B$2+$B$3<0,0,B9-$B$2+$B$3)' } }],
+    wrong: [{ cells: { B6: '=B1-B2+B3', B7: '=B6-$B$2+$B$3', B8: '=B7-$B$2+$B$3', B9: '=B8-$B$2+$B$3', B10: '=B9-$B$2+$B$3' } }, { cells: { B6: '=MAX(0,B1-25+10)', B7: '=MAX(0,B6-25+10)', B8: '=MAX(0,B7-25+10)', B9: '=MAX(0,B8-25+10)', B10: '=MAX(0,B9-25+10)' } }, { cells: { B6: '=MAX(0,B1-B2)', B7: '=MAX(0,B6-$B$2)', B8: '=MAX(0,B7-$B$2)', B9: '=MAX(0,B8-$B$2)', B10: '=MAX(0,B9-$B$2)' } }, { cells: { B6: '=MAX(0,$B$1-$B$2+$B$3)', B7: '=MAX(0,B6-$B$2+$B$3)', B8: '=MAX(0,$B$1-2*$B$2+2*$B$3)', B9: '=MAX(0,B8-$B$2+$B$3)', B10: '=MAX(0,B9-$B$2+$B$3)' } }],
+  },
+  'xl-08-order-book': {
+    valid: [{ cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Prices!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>=$G$4,$G$5,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } }, { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(IF(C${r}>=$G$4,C${r}*INDEX(Prices!$B$2:$B$5,MATCH(B${r},Prices!$A$2:$A$5,0))*(1-$G$5),C${r}*INDEX(Prices!$B$2:$B$5,MATCH(B${r},Prices!$A$2:$A$5,0))),0)`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=SUMPRODUCT(--(C2:C6>=G4))' } }].slice(0, 1),
+    wrong: [
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=VLOOKUP(B${r},Prices!$A$2:$B$5,2,FALSE)*C${r}*(1-IF(C${r}>=$G$4,$G$5,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Prices!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>10,$G$5,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">=10")' } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Prices!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>=$G$4,0.1,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Prices!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>=$G$4,$G$5,0))`), 'Sheet1!G1': 164.2, 'Sheet1!G2': 2 } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Prices!A2:B5,2,TRUE),0)*C${r}*(1-IF(C${r}>=$G$4,$G$5,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Prices!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>=$G$4,$G$5,0))`), 'Sheet1!G1': '=SUM(C2:C6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } },
+    ],
+  },
+  'xl-08-fleet': {
+    valid: [{ cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Rates!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>=$G$4,$G$5,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } }, { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(INDEX(Rates!$B$2:$B$5,MATCH(B${r},Rates!$A$2:$A$5,0))*C${r}*IF(C${r}>=$G$4,1-$G$5,1),0)`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIFS(C2:C6,">="&G4)' } }],
+    wrong: [
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=VLOOKUP(B${r},Rates!$A$2:$B$5,2,FALSE)*C${r}*(1-IF(C${r}>=$G$4,$G$5,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Rates!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>7,$G$5,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">7")' } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Rates!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>=$G$4,0.15,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Rates!$A$2:$B$5,2,FALSE),0)*C${r}*(1-IF(C${r}>=$G$4,$G$5,0))`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': 2 } },
+      { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Rates!$A$2:$B$5,2,FALSE),0)*C${r}*(1-$G$5)`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } },
+    ],
+  },
 };
