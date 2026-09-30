@@ -12,8 +12,10 @@ import { areas, items, quests, achievementDefs } from './world';
 import { solutions as solutionsPhase1 } from './python/solutions.testdata';
 import { solutionsPhase2Python } from './python/solutions.phase2.testdata';
 import { solutionsSql } from './sql/solutions.testdata';
+import { solutionsPhase3Python } from './python/solutions.phase3.testdata';
+import { solutionsPhase3Sql } from './sql/solutions.phase3.testdata';
 
-const solutions: Record<string, { valid: string[]; wrong: string[] }> = { ...solutionsPhase1, ...solutionsPhase2Python, ...solutionsSql };
+const solutions: Record<string, { valid: string[]; wrong: string[] }> = { ...solutionsPhase1, ...solutionsPhase2Python, ...solutionsSql, ...solutionsPhase3Python, ...solutionsPhase3Sql };
 import { createPythonEngine, type PythonEngine } from '../learning/python/pythonEngine';
 
 let engine: PythonEngine;
