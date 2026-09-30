@@ -8,19 +8,21 @@ interface Props {
 }
 
 /** "What should I do next?", with the reason drawn from the player's own evidence. Nothing hidden. */
+const KIND_LABEL: Record<string, string> = { retry: 'Fresh problem', 'less-support': 'Without hints', review: 'Review', revisit: 'Revisit', 'new-context': 'New setting', harder: 'Harder', 'next-lesson': 'Next' };
+
 export function Recommendations({ onPractice, onOpenLesson, max = 3 }: Props) {
   const { save } = useGame();
-  const recs = recommendPractice(save, max);
+  const recs = recommendPractice(save, max, Date.now());
   if (!recs.length) return null;
   return (
     <section class="panel" data-testid="recommendations">
       <h2>🧭 Mentor’s suggestions</h2>
-      <p class="muted small">Suggestions come from your own record: what you failed, what needed hints, what you have not touched for a while.</p>
+      <p class="muted small">Suggestions come from your own record: what you failed, what needed hints, what you have not practised for a week, and where you have only worked in one setting.</p>
       <div class="rec-list">
         {recs.map((r) => (
           <div class={`rec ${r.kind}`} key={`${r.kind}-${r.objectiveId ?? r.lessonId}`} data-testid={`rec-${r.kind}`}>
             <div>
-              <strong>{r.title}</strong>
+              <span class="chip none">{KIND_LABEL[r.kind] ?? r.kind}</span> <strong>{r.title}</strong>
               <div class="rec-why">{r.reason}</div>
             </div>
             <button class="btn small" onClick={() => (r.kind === 'next-lesson' ? onOpenLesson(r.lessonId!) : onPractice(r.challengeId!))}>

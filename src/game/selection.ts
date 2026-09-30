@@ -12,6 +12,7 @@ import type { Challenge, Lesson } from '../content/schema';
 import type { SaveData } from '../core/save';
 import { detectPatterns, summarizeSkill } from '../learning/mastery';
 import { nextLesson } from './lessons';
+import { reviewsDue } from './retention';
 
 export interface ObjectiveStatus {
   objectiveId: string;
@@ -94,7 +95,7 @@ export function availableObjectives(save: SaveData): string[] {
     .map((o) => o.id);
 }
 
-export type RecommendationKind = 'retry' | 'less-support' | 'revisit' | 'harder' | 'next-lesson';
+export type RecommendationKind = 'retry' | 'less-support' | 'review' | 'revisit' | 'new-context' | 'harder' | 'next-lesson';
 
 export interface Recommendation {
   kind: RecommendationKind;
@@ -113,14 +114,43 @@ const recordsSince = (save: SaveData, skillId: string) => {
 };
 
 /**
- * Up to `max` explainable suggestions, in priority order:
- *  1. unresolved failure   -> a DIFFERENT problem, same objective and difficulty
- *  2. guided/hinted success -> the same idea with less support
- *  3. an old, shaky concept -> back again in a new context
- *  4. easy wins            -> a harder objective in the same skill
- *  5. otherwise            -> the next lesson
+ * The best problem to review a skill with: not yet passed first; at least as hard as before for a skill the player
+ * has shown independently (`strong`), otherwise gentler first; and in a different setting from the last thing done
+ * when there is a choice. Deterministic: ties fall back to the challenge id.
  */
-export function recommendPractice(save: SaveData, max = 3): Recommendation[] {
+function reviewChallenge(save: SaveData, skillId: string, strong: boolean, avail: Set<string>): Challenge | undefined {
+  const lastContext = [...save.evidence].reverse().find((r) => r.skillIds.includes(skillId))?.context;
+  const pool = challenges.filter((c) => c.skillIds.includes(skillId) && c.mode !== 'learning' && avail.has(objectiveOf(c)));
+  const maxIndependent = save.evidence.filter((r) => r.passed && r.skillIds.includes(skillId) && (r.support === 'independent' || r.support === 'transfer')).reduce((m, r) => Math.max(m, r.difficulty), 0);
+  return [...pool].sort((a, b) => {
+    const passedA = save.learning.challenges[a.id]?.passed ? 1 : 0;
+    const passedB = save.learning.challenges[b.id]?.passed ? 1 : 0;
+    if (passedA !== passedB) return passedA - passedB;
+    const freshA = a.context !== lastContext ? 0 : 1;
+    const freshB = b.context !== lastContext ? 0 : 1;
+    if (freshA !== freshB) return freshA - freshB;
+    if (strong) {
+      const okA = a.difficulty >= maxIndependent ? 0 : 1;
+      const okB = b.difficulty >= maxIndependent ? 0 : 1;
+      if (okA !== okB) return okA - okB;
+      if (a.difficulty !== b.difficulty) return a.difficulty - b.difficulty;
+    } else if (a.difficulty !== b.difficulty) return a.difficulty - b.difficulty;
+    return a.id.localeCompare(b.id);
+  })[0];
+}
+
+/**
+ * Up to `max` explainable suggestions, in priority order:
+ *  1. unresolved failure    -> a DIFFERENT problem, same objective and difficulty
+ *  2. guided/hinted success -> the same idea with less support
+ *  3. gone quiet for a week -> a review problem (harder if the skill was shown independently): forgetting is real
+ *  4. an old, shaky concept -> back again in a new context
+ *  5. solved in one setting -> the same skill in an unfamiliar setting (transfer)
+ *  6. easy wins             -> a harder objective in the same skill
+ *  7. otherwise             -> the next lesson
+ * `nowMs` is a parameter so the result is a pure function of (save, time).
+ */
+export function recommendPractice(save: SaveData, max = 3, nowMs: number = Date.now()): Recommendation[] {
   const recs: Recommendation[] = [];
   const seen = new Set<string>();
   const add = (r: Recommendation) => {
@@ -161,7 +191,13 @@ export function recommendPractice(save: SaveData, max = 3): Recommendation[] {
     }
   }
 
-  // 3. Shaky, cold skills come back in a new context
+  // 3. Skills that have gone quiet for a week or more (time-based forgetting)
+  for (const due of reviewsDue(save, nowMs, (id) => challenges.find((c) => c.id === id)?.skillIds)) {
+    const cand = reviewChallenge(save, due.skill.id, due.status === 'demonstrated', avail);
+    if (cand) add({ kind: 'review', objectiveId: objectiveOf(cand), challengeId: cand.id, title: `Review ${due.skill.title}`, reason: due.reason });
+  }
+
+  // 4. Shaky, cold skills come back in a new context
   for (const skill of skills) {
     const sum = summarizeSkill(save.evidence, skill);
     if ((sum.status === 'guided' || sum.status === 'developing') && recordsSince(save, skill.id) >= 8) {
@@ -170,7 +206,16 @@ export function recommendPractice(save: SaveData, max = 3): Recommendation[] {
     }
   }
 
-  // 4. Solving everything easily -> harder work in the same skill
+  // 5. Independent success in only one setting -> the same skill somewhere unfamiliar
+  for (const skill of skills) {
+    const sum = summarizeSkill(save.evidence, skill);
+    if (sum.status === 'demonstrated' || sum.independentPasses < 1 || sum.distinctIndependentContexts !== 1) continue;
+    const seen = save.evidence.find((r) => r.passed && r.skillIds.includes(skill.id) && (r.support === 'independent' || r.support === 'transfer'))?.context;
+    const cand = challenges.find((c) => c.skillIds.includes(skill.id) && c.mode !== 'learning' && c.context !== seen && avail.has(objectiveOf(c)) && !save.learning.challenges[c.id]?.passed);
+    if (cand) add({ kind: 'new-context', objectiveId: objectiveOf(cand), challengeId: cand.id, title: `New setting: ${skill.title}`, reason: `Every ${skill.title} problem you solved on your own was in the same setting (${seen ?? 'one context'}). Solving one in an unfamiliar setting is what shows the skill transfers.` });
+  }
+
+  // 6. Solving everything easily -> harder work in the same skill
   for (const skill of skills) {
     if (!detectPatterns(save.evidence, skill.id).some((p) => p.kind === 'solving-easily')) continue;
     const sum = summarizeSkill(save.evidence, skill);
@@ -178,7 +223,7 @@ export function recommendPractice(save: SaveData, max = 3): Recommendation[] {
     if (cand) add({ kind: 'harder', objectiveId: objectiveOf(cand), challengeId: cand.id, title: `A harder one: ${getObjective(objectiveOf(cand))?.title ?? cand.title}`, reason: `You have been solving ${skill.title} problems on the first try with no hints. This one is difficulty ${cand.difficulty}: a step up from the ${sum.maxIndependentDifficulty} you have handled independently.` });
   }
 
-  // 5. Next lesson
+  // 7. Next lesson
   const next = nextLesson(save);
   if (next) add({ kind: 'next-lesson', lessonId: next.id, title: `Continue: ${next.title}`, reason: 'The next lesson in your quest.' });
   return recs;

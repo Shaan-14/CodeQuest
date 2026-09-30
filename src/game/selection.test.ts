@@ -156,3 +156,47 @@ describe('recommendations', () => {
     expect(recs[0]!.kind).toBe('next-lesson');
   });
 });
+
+describe('retention recommendations (forgetting and transfer)', () => {
+  const [a, b] = variantsOf('py-obj-divmod');
+  const DAY = 24 * 3600 * 1000;
+  const NOW = Date.UTC(2025, 5, 20, 12);
+  /** A save that passed `a` independently, with all of its evidence dated `daysAgo` days before NOW. */
+  const practisedDaysAgo = (daysAgo: number) => {
+    const s = pass(reach(started(), 'py-05-numbers'), a!.id);
+    return { ...s, evidence: s.evidence.map((r) => ({ ...r, at: new Date(NOW - daysAgo * DAY).toISOString() })) };
+  };
+  it('does not nag about a skill practised recently', () => {
+    expect(recommendPractice(practisedDaysAgo(2), 5, NOW).some((r) => r.kind === 'review')).toBe(false);
+  });
+  it('suggests a review of a skill that has gone quiet for a week, with the number of days in the reason', () => {
+    const recs = recommendPractice(practisedDaysAgo(12), 6, NOW);
+    const rec = recs.find((r) => r.kind === 'review');
+    expect(rec).toBeDefined();
+    expect(rec!.reason).toMatch(/12 days/);
+    expect(getChallenge(rec!.challengeId!)!.skillIds.some((id) => a!.skillIds.includes(id))).toBe(true);
+  });
+  it('the review problem is one the player has not passed and, when there is a choice, in a different setting', () => {
+    const rec = recommendPractice(practisedDaysAgo(12), 6, NOW).find((r) => r.kind === 'review')!;
+    expect(rec.challengeId).not.toBe(a!.id);
+    expect(getChallenge(rec.challengeId!)!.mode).not.toBe('learning');
+  });
+  it('is deterministic for a given save and time', () => {
+    const s = practisedDaysAgo(12);
+    expect(recommendPractice(s, 6, NOW)).toEqual(recommendPractice(s, 6, NOW));
+  });
+  it('a review is never a hint, an answer or a reward: it only names a problem to try', () => {
+    for (const r of recommendPractice(practisedDaysAgo(30), 6, NOW)) {
+      expect(Object.keys(r).sort()).toEqual(expect.arrayContaining(['kind', 'reason', 'title']));
+      expect(r.reason.toLowerCase()).not.toContain('answer:');
+    }
+  });
+  it('suggests a new setting when every independent solve was in one context', () => {
+    const rec = recommendPractice(practisedDaysAgo(1), 8, NOW).find((r) => r.kind === 'new-context');
+    if (rec) {
+      expect(getChallenge(rec.challengeId!)!.context).not.toBe(a!.context);
+      expect(rec.reason).toContain(a!.context);
+    }
+    expect(b).toBeDefined();
+  });
+});

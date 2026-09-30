@@ -80,3 +80,32 @@ export function skillReviews(save: SaveData, nowMs: number, challengeSkills: (id
     };
   });
 }
+
+/** After this many quiet days a learned skill is "due for review": the reminder is about time, not about a score. */
+export const REVIEW_AFTER_DAYS = 7;
+
+export interface ReviewDue {
+  skill: Skill;
+  daysSince: number;
+  status: SkillStatus;
+  /** Plain-language reason, built only from the player's own record. */
+  reason: string;
+}
+
+/**
+ * Learned skills that have gone quiet for a week or more, longest-quiet first. Only skills the player has actually
+ * worked on qualify (evidence exists); a skill never touched is a lesson to take, not a review to do.
+ */
+export function reviewsDue(save: SaveData, nowMs: number, challengeSkills: (id: string) => string[] | undefined): ReviewDue[] {
+  return skillReviews(save, nowMs, challengeSkills)
+    .filter((r) => r.learned && r.lastPracticedAt !== null && r.daysSince >= REVIEW_AFTER_DAYS && r.status !== 'none')
+    .map((r): ReviewDue => ({
+      skill: r.skill,
+      daysSince: r.daysSince,
+      status: r.status,
+      reason: r.status === 'demonstrated'
+        ? `You showed ${r.skill.title} independently, but not for ${r.daysSince} days. A problem at least as hard as before shows whether it has held.`
+        : `You last practised ${r.skill.title} ${r.daysSince} days ago and it is still ${r.status === 'guided' ? 'guided-only' : r.status === 'developing' ? 'developing' : 'attempted'}. Skills fade without use: a short problem now is cheaper than relearning later.`,
+    }))
+    .sort((a, b) => b.daysSince - a.daysSince || a.skill.id.localeCompare(b.skill.id));
+}

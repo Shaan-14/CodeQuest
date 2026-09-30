@@ -1,6 +1,8 @@
 import { skills } from '../../content';
 import { detectPatterns, summarizeSkill, unmetRequirements, type SkillStatus } from '../../learning/mastery';
 import { useGame } from '../../game/store';
+import { challenges } from '../../content';
+import { reviewsDue } from '../../game/retention';
 
 const STATUS_LABEL: Record<SkillStatus, string> = {
   none: 'Not started',
@@ -14,6 +16,7 @@ const STATUS_LABEL: Record<SkillStatus, string> = {
 export function SkillsView() {
   const { save } = useGame();
   const categories = [...new Set(skills.map((s) => s.category))];
+  const due = new Map(reviewsDue(save, Date.now(), (id) => challenges.find((c) => c.id === id)?.skillIds).map((d) => [d.skill.id, d]));
   return (
     <div class="skills" data-testid="skills-view">
       <p class="callout">
@@ -46,6 +49,7 @@ export function SkillsView() {
                     {sum.recoveredPasses > 0 && <span>Solved after failing <b>{sum.recoveredPasses}</b></span>}
                     {sum.projectPasses > 0 && <span>Projects <b>{sum.projectPasses}</b></span>}
                   </div>
+                  {due.has(skill.id) && <div class="note note-review" data-testid={`review-${skill.id}`}>⏳ {due.get(skill.id)!.reason}</div>}
                   {missing.length > 0 && sum.status !== 'none' && <div class="muted small">Still needed for “Demonstrated”: {missing.join('; ')}.</div>}
                   {patterns.map((p) => (
                     <div class={`note note-${p.kind}`} key={p.kind}>🧭 {p.detail}</div>
