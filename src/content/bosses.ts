@@ -12,16 +12,34 @@ import { bossChallenges } from './boss';
  */
 export type BossKind = 'mini' | 'mastery' | 'summit';
 
+/**
+ * A way to face a boss with a particular technology (Phase 5). The Summit is open-ended: the same finale is offered in every technology the player has
+ * mastered, and passing it by ANY route ends the campaign. Versions are listed per route, so a retry is always a new problem in the route chosen.
+ */
+export interface BossRoute {
+  id: string;
+  title: string;
+  blurb: string;
+  /** Version keys of this route, in the order they are offered. */
+  versions: string[];
+  /** Mastery bosses that must be defeated for this route to be open (the technology must have been mastered). */
+  needs: string[];
+}
+
 export interface BossDef {
   id: string;
   kind: BossKind;
   title: string;
   icon: string;
-  track: 'python' | 'sql' | 'data-eng' | 'web' | 'summit';
+  track: 'python' | 'sql' | 'data-eng' | 'web' | 'analytics' | 'sheets' | 'r' | 'summit';
   /** Lessons that must be completed before this boss can be faced. */
   requiresLessons: string[];
   /** Bosses that must already be defeated. */
   requiresBosses: string[];
+  /** Bosses of which at least `count` must be defeated (breadth without a fixed path). */
+  requiresAnyOf?: { count: number; bosses: string[] };
+  /** Different technologies in which this boss can be faced; absent = one route. */
+  routes?: BossRoute[];
   /** Story text: before the fight, after a win, after a loss (never blames the player; always names the way forward). */
   intro: string;
   victory: string;
@@ -87,6 +105,14 @@ export const bosses: BossDef[] = [
     victory: 'The Master Builder tests every corner and finds none. The Web District is yours.',
     defeat: 'The Master Builder shows the one case the page missed. Train it, and a new spec will be waiting.',
     versions: ['a', 'b'], reward: { xp: 400, coins: 100 },
+  },
+  {
+    id: 'mastery-analytics', kind: 'mastery', title: 'The Oracle of the Observatory', icon: '🔭', track: 'analytics',
+    requiresLessons: ['de-10-analytics'], requiresBosses: [],
+    intro: 'The Oracle holds a database you have not seen and a question that needs both halves of your training. “Ask the data in SQL, judge it with statistics, and tell me only what it supports.”',
+    victory: 'The Oracle nods slowly. “You counted the right things, and you did not claim more than they showed.”',
+    defeat: 'The Oracle lowers the chart. “A number was right for the wrong group. Find which, train it, and I will bring you a different dataset.”',
+    versions: ['a', 'b'], reward: { xp: 450, coins: 120 },
   },
   {
     id: 'summit', kind: 'summit', title: 'The Summit Trial', icon: '🏔️', track: 'summit',

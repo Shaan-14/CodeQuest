@@ -11,7 +11,7 @@
  * A failure costs Focus (a mini-boss level 4, a mastery boss or the Summit level 5: see game/focus.ts) and the boss cannot
  * be attempted below 100 Focus; training earns it back. There is no lockout timer and no Rest.
  */
-import { bossChallengeFor, bosses, getBoss, type BossDef } from '../content/bosses';
+import { bossChallengeFor, bosses, getBoss, type BossDef, type BossRoute } from '../content/bosses';
 import type { Challenge } from '../content/schema';
 import { getSkill } from '../content';
 import type { BossState, SaveData, Weakness } from '../core/save';
@@ -39,7 +39,26 @@ export function bossLockReason(save: SaveData, boss: BossDef): string {
   if (lessons.length) return 'Finish the trial lesson that comes before it (and any training it asks for).';
   const need = boss.requiresBosses.filter((id) => !isBossPassed(save, id));
   if (need.length) return `Defeat ${need.map((id) => getBoss(id)?.title ?? id).join(', ')} first.`;
+  if (boss.requiresAnyOf) {
+    const have = boss.requiresAnyOf.bosses.filter((id) => isBossPassed(save, id)).length;
+    if (have < boss.requiresAnyOf.count) return `Defeat any ${boss.requiresAnyOf.count} of the mastery guardians (${have} so far). Choose the technologies you want to be tested in.`;
+  }
+  if (boss.routes && !openRoutes(save, boss).length) return `Open a route by defeating the guardian of a technology: ${boss.routes.map((r) => `${r.title} needs ${r.needs.map((id) => getBoss(id)?.title ?? id).join(' and ')}`).join('; ')}.`;
   return '';
+}
+
+/** Routes of a boss the player has earned (every guardian the route needs is defeated). A boss without routes has none. */
+export const openRoutes = (save: SaveData, boss: BossDef): BossRoute[] => (boss.routes ?? []).filter((r) => r.needs.every((id) => isBossPassed(save, id)));
+
+/** The route a version belongs to. */
+export const routeOfVersion = (boss: BossDef, version: string): BossRoute | undefined => boss.routes?.find((r) => r.versions.includes(version));
+
+/** The route to offer by default: the one last attempted (if still open), otherwise the first open route. */
+export function defaultRoute(save: SaveData, boss: BossDef): BossRoute | undefined {
+  const open = openRoutes(save, boss);
+  const last = bossState(save, boss.id).attempts.at(-1);
+  const lastRoute = last ? routeOfVersion(boss, last.version) : undefined;
+  return open.find((r) => r.id === lastRoute?.id) ?? open[0];
 }
 
 /** The weakness that seals the boss, while its training is still owed. */
@@ -59,16 +78,18 @@ export function bossStatus(save: SaveData, boss: BossDef): BossStatus {
 }
 
 /** The version to offer next: one never attempted if any, otherwise the one attempted longest ago (content grows, so this is rare). */
-export function nextVersion(save: SaveData, boss: BossDef): string {
+export function nextVersion(save: SaveData, boss: BossDef, routeId?: string): string {
   const tried = bossState(save, boss.id).attempts;
-  const fresh = boss.versions.find((v) => !tried.some((a) => a.version === v));
+  const route = boss.routes ? (boss.routes.find((r) => r.id === routeId && openRoutes(save, boss).some((o) => o.id === r.id)) ?? defaultRoute(save, boss)) : undefined;
+  const versions = route?.versions ?? boss.versions;
+  const fresh = versions.find((v) => !tried.some((a) => a.version === v));
   if (fresh) return fresh;
-  return [...boss.versions].sort((a, b) => lastIndex(tried, a) - lastIndex(tried, b))[0]!;
+  return [...versions].sort((a, b) => lastIndex(tried, a) - lastIndex(tried, b))[0]!;
 }
 const lastIndex = (tried: BossState['attempts'], v: string) => tried.map((a) => a.version).lastIndexOf(v);
 
-export function currentBossChallenge(save: SaveData, boss: BossDef): Challenge | undefined {
-  return bossChallengeFor(boss.id, nextVersion(save, boss));
+export function currentBossChallenge(save: SaveData, boss: BossDef, routeId?: string): Challenge | undefined {
+  return bossChallengeFor(boss.id, nextVersion(save, boss, routeId));
 }
 
 /** True when this boss has an attempted version that a fresh retry will replace. */
@@ -85,11 +106,11 @@ export const bossSkillTitles = (boss: BossDef): string[] => {
  * The single graded submission of the current version. Returns no change when the boss is locked, sealed or already
  * beaten. `weaknessId` of a failure is stored on the boss so the UI can offer the training.
  */
-export function submitBoss(save: SaveData, bossId: string, passed: boolean, timeMs: number, detail?: FailureDetail): Result {
+export function submitBoss(save: SaveData, bossId: string, passed: boolean, timeMs: number, detail?: FailureDetail, routeId?: string): Result {
   const { s, events } = draft(save);
   const boss = getBoss(bossId);
   if (!boss || bossStatus(s, boss) !== 'ready' || !focusReady(s)) return { save: s, events };
-  const version = nextVersion(s, boss);
+  const version = nextVersion(s, boss, routeId);
   const c = bossChallengeFor(boss.id, version);
   if (!c) return { save: s, events };
 

@@ -10,7 +10,10 @@ import { bosses, bossChallengeFor } from '../bosses';
 import { challenges, getLesson, skills } from '../index';
 import { databasesUsedBy } from '../helpers';
 import { bossChallenges as all } from './index';
-import { bossSolutions } from './solutions.testdata';
+import { bossSolutions as baseSolutions } from './solutions.testdata';
+import { bossAnalyticsSolutions } from './solutions.analytics.testdata';
+
+const bossSolutions: Record<string, { valid: string[]; wrong: string[] }> = { ...baseSolutions, ...bossAnalyticsSolutions };
 
 const bossChallenges = all.filter((c) => c.language === 'python' || c.language === 'sql');
 let engine: PythonEngine;
