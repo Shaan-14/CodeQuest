@@ -1252,4 +1252,1410 @@ def works_report(db_path, out_path):
 `,
     ],
   },
+  'py-29-clean-name': {
+    valid: [
+      py`def clean_name(raw):
+    return ' '.join('-'.join(p.capitalize() for p in w.split('-')) for w in raw.split())
+`,
+      py`def clean_name(raw):
+    words = raw.strip().lower().split()
+    out = []
+    for w in words:
+        parts = w.split('-')
+        out.append('-'.join(p[:1].upper() + p[1:] for p in parts))
+    return ' '.join(out)
+`,
+    ],
+    wrong: [
+      // title() capitalises after apostrophes
+      py`def clean_name(raw):
+    return ' '.join(raw.split()).title()
+`,
+      // hyphenated parts are not capitalised separately
+      py`def clean_name(raw):
+    return ' '.join(w.capitalize() for w in raw.split())
+`,
+      // only the first letter of the whole text
+      py`def clean_name(raw):
+    return raw.strip().capitalize()
+`,
+      // inner runs of spaces are kept
+      py`def clean_name(raw):
+    return ' '.join('-'.join(p.capitalize() for p in w.split('-')) for w in raw.strip().split(' '))
+`,
+      // the rest of each word is not lower-cased
+      py`def clean_name(raw):
+    return ' '.join('-'.join(p[:1].upper() + p[1:] for p in w.split('-')) for w in raw.split())
+`,
+    ],
+  },
+  'py-29-slugify': {
+    valid: [
+      py`def slugify(title):
+    out, chunk = [], ''
+    for ch in title.lower():
+        if ch in 'abcdefghijklmnopqrstuvwxyz0123456789':
+            chunk += ch
+        elif chunk:
+            out.append(chunk)
+            chunk = ''
+    if chunk:
+        out.append(chunk)
+    return '-'.join(out)
+`,
+      py`import re
+
+def slugify(title):
+    return re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
+`,
+    ],
+    wrong: [
+      // accented letters count as letters
+      py`def slugify(title):
+    out, chunk = [], ''
+    for ch in title.lower():
+        if ch.isalnum():
+            chunk += ch
+        elif chunk:
+            out.append(chunk)
+            chunk = ''
+    if chunk:
+        out.append(chunk)
+    return '-'.join(out)
+`,
+      // dashes at the ends
+      py`import re
+
+def slugify(title):
+    return re.sub(r'[^a-z0-9]+', '-', title.lower())
+`,
+      // each separator character becomes its own dash
+      py`def slugify(title):
+    return ''.join(ch if ch in 'abcdefghijklmnopqrstuvwxyz0123456789' else '-' for ch in title.lower()).strip('-')
+`,
+      // no lower-casing
+      py`import re
+
+def slugify(title):
+    return re.sub(r'[^A-Za-z0-9]+', '-', title).strip('-')
+`,
+      // spaces only
+      py`def slugify(title):
+    return '-'.join(title.lower().split())
+`,
+    ],
+  },
+  'py-29-tidy-code': {
+    valid: [
+      py`def tidy_code(text):
+    out, chunk = [], ''
+    for ch in text.upper():
+        if ch in ' -/_':
+            if chunk:
+                out.append(chunk)
+                chunk = ''
+        elif ch.isascii() and ch.isalnum():
+            chunk += ch
+    if chunk:
+        out.append(chunk)
+    return '-'.join(out)
+`,
+      py`import re
+
+def tidy_code(text):
+    parts = re.split(r'[ \-/_]+', text.upper())
+    parts = [re.sub(r'[^A-Z0-9]', '', p) for p in parts]
+    return '-'.join(p for p in parts if p)
+`,
+    ],
+    wrong: [
+      // other punctuation separates
+      py`import re
+
+def tidy_code(text):
+    return re.sub(r'[^A-Z0-9]+', '-', text.upper()).strip('-')
+`,
+      // accents accepted
+      py`def tidy_code(text):
+    out, chunk = [], ''
+    for ch in text.upper():
+        if ch in ' -/_':
+            if chunk:
+                out.append(chunk)
+                chunk = ''
+        elif ch.isalnum():
+            chunk += ch
+    if chunk:
+        out.append(chunk)
+    return '-'.join(out)
+`,
+      // not upper-cased
+      py`def tidy_code(text):
+    out, chunk = [], ''
+    for ch in text:
+        if ch in ' -/_':
+            if chunk:
+                out.append(chunk)
+                chunk = ''
+        elif ch.isascii() and ch.isalnum():
+            chunk += ch
+    if chunk:
+        out.append(chunk)
+    return '-'.join(out)
+`,
+      // empty chunks produce doubled dashes
+      py`def tidy_code(text):
+    parts = []
+    chunk = ''
+    for ch in text.upper():
+        if ch in ' -/_':
+            parts.append(chunk)
+            chunk = ''
+        elif ch.isascii() and ch.isalnum():
+            chunk += ch
+    parts.append(chunk)
+    return '-'.join(parts)
+`,
+      // slash is not a separator
+      py`def tidy_code(text):
+    out, chunk = [], ''
+    for ch in text.upper():
+        if ch in ' -_':
+            if chunk:
+                out.append(chunk)
+                chunk = ''
+        elif ch.isascii() and ch.isalnum():
+            chunk += ch
+    if chunk:
+        out.append(chunk)
+    return '-'.join(out)
+`,
+    ],
+  },
+  'py-30-total-stock': {
+    valid: [
+      py`def total_stock(warehouse):
+    total = 0
+    for aisle in warehouse.get('aisles', []):
+        for b in aisle.get('bins', []):
+            total += b.get('qty', 0)
+    return total
+`,
+      py`def total_stock(warehouse):
+    return sum(b.get('qty', 0) for a in warehouse.get('aisles', []) for b in a.get('bins', []))
+`,
+    ],
+    wrong: [
+      // crashes when a key is missing
+      py`def total_stock(warehouse):
+    total = 0
+    for aisle in warehouse['aisles']:
+        for b in aisle['bins']:
+            total += b['qty']
+    return total
+`,
+      // only the first aisle
+      py`def total_stock(warehouse):
+    total = 0
+    for b in warehouse.get('aisles', [{}])[0].get('bins', []):
+        total += b.get('qty', 0)
+    return total
+`,
+      // only counts bins, not quantities
+      py`def total_stock(warehouse):
+    return sum(1 for a in warehouse.get('aisles', []) for b in a.get('bins', []))
+`,
+      // stops at a bin without qty
+      py`def total_stock(warehouse):
+    total = 0
+    for aisle in warehouse.get('aisles', []):
+        for b in aisle.get('bins', []):
+            if 'qty' not in b:
+                return total
+            total += b['qty']
+    return total
+`,
+    ],
+  },
+  'py-30-order-lines': {
+    valid: [
+      py`import json
+
+def order_lines(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
+    out = []
+    for o in data:
+        for line in o.get('lines', []):
+            out.append((o.get('id'), line.get('sku'), line.get('qty')))
+    return out
+`,
+    ],
+    wrong: [
+      // no guard for invalid JSON
+      py`import json
+
+def order_lines(text):
+    out = []
+    for o in json.loads(text):
+        for line in o.get('lines', []):
+            out.append((o.get('id'), line.get('sku'), line.get('qty')))
+    return out
+`,
+      // crashes on an order without lines
+      py`import json
+
+def order_lines(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [(o['id'], l['sku'], l['qty']) for o in data for l in o['lines']]
+`,
+      // lists instead of tuples
+      py`import json
+
+def order_lines(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [[o.get('id'), l.get('sku'), l.get('qty')] for o in data for l in o.get('lines', [])]
+`,
+      // a dict is iterated as if it were a list
+      py`import json
+
+def order_lines(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    out = []
+    for o in data:
+        for line in o.get('lines', []):
+            out.append((o.get('id'), line.get('sku'), line.get('qty')))
+    return out
+`,
+      // drops lines without a qty
+      py`import json
+
+def order_lines(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [(o.get('id'), l.get('sku'), l['qty']) for o in data for l in o.get('lines', []) if 'qty' in l]
+`,
+    ],
+  },
+  'py-30-roster-scores': {
+    valid: [
+      py`import json
+
+def roster_scores(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
+    out = []
+    for c in data:
+        for s in c.get('students', []):
+            out.append((c.get('class'), s.get('name'), s.get('score')))
+    return out
+`,
+    ],
+    wrong: [
+      py`import json
+
+def roster_scores(text):
+    out = []
+    for c in json.loads(text):
+        for s in c.get('students', []):
+            out.append((c.get('class'), s.get('name'), s.get('score')))
+    return out
+`,
+      py`import json
+
+def roster_scores(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [(c['class'], s['name'], s['score']) for c in data for s in c['students']]
+`,
+      py`import json
+
+def roster_scores(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [(s.get('name'), s.get('score')) for c in data for s in c.get('students', [])]
+`,
+      py`import json
+
+def roster_scores(text):
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [(c.get('class'), s.get('name'), s.get('score')) for c in data for s in c.get('students', [])][:1]
+`,
+    ],
+  },
+  'py-31-top-n': {
+    valid: [
+      py`def top_n(scores, n):
+    return sorted(scores, key=lambda p: (-p[1], p[0]))[:max(n, 0)]
+`,
+      py`def top_n(scores, n):
+    if n <= 0:
+        return []
+    ordered = sorted(scores, key=lambda p: p[0])
+    ordered.sort(key=lambda p: p[1], reverse=True)
+    return ordered[:n]
+`,
+    ],
+    wrong: [
+      // ties are not in name order
+      py`def top_n(scores, n):
+    return sorted(scores, key=lambda p: p[1], reverse=True)[:max(n, 0)]
+`,
+      // ascending scores
+      py`def top_n(scores, n):
+    return sorted(scores, key=lambda p: (p[1], p[0]))[:max(n, 0)]
+`,
+      // negative n slices from the end
+      py`def top_n(scores, n):
+    return sorted(scores, key=lambda p: (-p[1], p[0]))[:n]
+`,
+      // sorts the caller's list
+      py`def top_n(scores, n):
+    scores.sort(key=lambda p: (-p[1], p[0]))
+    return scores[:max(n, 0)]
+`,
+      // names A-Z first, then scores (wrong priority)
+      py`def top_n(scores, n):
+    return sorted(scores, key=lambda p: (p[0], -p[1]))[:max(n, 0)]
+`,
+    ],
+  },
+  'py-31-first-at-least': {
+    valid: [
+      py`def first_at_least(values, target):
+    lo, hi = 0, len(values)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if values[mid] < target:
+            lo = mid + 1
+        else:
+            hi = mid
+    return lo if lo < len(values) else -1
+`,
+      py`from bisect import bisect_left
+
+def first_at_least(values, target):
+    i = bisect_left(values, target)
+    return i if i < len(values) else -1
+`,
+    ],
+    wrong: [
+      // correct but linear
+      py`def first_at_least(values, target):
+    for i, v in enumerate(values):
+        if v >= target:
+            return i
+    return -1
+`,
+      // stops at any equal value, not the first
+      py`def first_at_least(values, target):
+    lo, hi = 0, len(values) - 1
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        if values[mid] == target:
+            return mid
+        if values[mid] < target:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return lo if lo < len(values) else -1
+`,
+      // returns len instead of -1
+      py`from bisect import bisect_left
+
+def first_at_least(values, target):
+    return bisect_left(values, target)
+`,
+      // bisect_right: skips values equal to the target
+      py`from bisect import bisect_right
+
+def first_at_least(values, target):
+    i = bisect_right(values, target)
+    return i if i < len(values) else -1
+`,
+      // slicing copies the list on every step
+      py`def first_at_least(values, target):
+    offset = 0
+    while values:
+        mid = len(values) // 2
+        if values[mid] < target:
+            offset += mid + 1
+            values = values[mid + 1:]
+        elif mid == 0 or values[mid - 1] < target:
+            return offset + mid
+        else:
+            values = values[:mid]
+    return -1
+`,
+    ],
+  },
+  'py-31-count-before': {
+    valid: [
+      py`from bisect import bisect_left
+
+def count_before(times, t):
+    return bisect_left(times, t)
+`,
+      py`def count_before(times, t):
+    lo, hi = 0, len(times)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if times[mid] < t:
+            lo = mid + 1
+        else:
+            hi = mid
+    return lo
+`,
+    ],
+    wrong: [
+      py`def count_before(times, t):
+    return sum(1 for x in times if x < t)
+`,
+      // counts equal times too
+      py`from bisect import bisect_right
+
+def count_before(times, t):
+    return bisect_right(times, t)
+`,
+      // off by one at the end
+      py`def count_before(times, t):
+    lo, hi = 0, len(times) - 1
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if times[mid] < t:
+            lo = mid + 1
+        else:
+            hi = mid
+    return lo
+`,
+      // len(list slice) is linear
+      py`def count_before(times, t):
+    return len([x for x in times if x < t])
+`,
+    ],
+  },
+  'py-32-parse-port': {
+    valid: [
+      py`def parse_port(text):
+    t = text.strip()
+    if not t or any(c not in '0123456789' for c in t):
+        raise ValueError('invalid port')
+    n = int(t)
+    if not 1 <= n <= 65535:
+        raise ValueError('invalid port')
+    return n
+`,
+      py`def parse_port(text):
+    t = text.strip()
+    if not (t.isascii() and t.isdigit()):
+        raise ValueError('invalid port')
+    n = int(t)
+    if n < 1 or n > 65535:
+        raise ValueError('invalid port')
+    return n
+`,
+    ],
+    wrong: [
+      // int() alone accepts "+80" and "8_0"
+      py`def parse_port(text):
+    try:
+        n = int(text)
+    except ValueError:
+        raise ValueError('invalid port')
+    if not 1 <= n <= 65535:
+        raise ValueError('invalid port')
+    return n
+`,
+      // range off by one
+      py`def parse_port(text):
+    t = text.strip()
+    if not t or any(c not in '0123456789' for c in t):
+        raise ValueError('invalid port')
+    n = int(t)
+    if not 1 <= n < 65535:
+        raise ValueError('invalid port')
+    return n
+`,
+      // a different message
+      py`def parse_port(text):
+    t = text.strip()
+    if not t or any(c not in '0123456789' for c in t):
+        raise ValueError('not a port')
+    n = int(t)
+    if not 1 <= n <= 65535:
+        raise ValueError('not a port')
+    return n
+`,
+      // returns None instead of raising
+      py`def parse_port(text):
+    t = text.strip()
+    if not t or any(c not in '0123456789' for c in t):
+        return None
+    n = int(t)
+    return n if 1 <= n <= 65535 else None
+`,
+      // port 0 allowed
+      py`def parse_port(text):
+    t = text.strip()
+    if not t or any(c not in '0123456789' for c in t):
+        raise ValueError('invalid port')
+    n = int(t)
+    if not 0 <= n <= 65535:
+        raise ValueError('invalid port')
+    return n
+`,
+      // does not strip spaces
+      py`def parse_port(text):
+    if not text or any(c not in '0123456789' for c in text):
+        raise ValueError('invalid port')
+    n = int(text)
+    if not 1 <= n <= 65535:
+        raise ValueError('invalid port')
+    return n
+`,
+    ],
+  },
+  'py-32-withdraw': {
+    valid: [
+      py`class InsufficientFunds(Exception):
+    def __init__(self, shortfall):
+        super().__init__('short by %s' % shortfall)
+        self.shortfall = shortfall
+
+
+def withdraw(balance, amount):
+    if amount <= 0:
+        raise ValueError('amount must be positive')
+    if amount > balance:
+        raise InsufficientFunds(amount - balance)
+    return balance - amount
+`,
+    ],
+    wrong: [
+      py`class InsufficientFunds(ValueError):
+    def __init__(self, shortfall):
+        super().__init__('short by %s' % shortfall)
+        self.shortfall = shortfall
+
+
+def withdraw(balance, amount):
+    if amount <= 0:
+        raise ValueError('amount must be positive')
+    if amount > balance:
+        raise InsufficientFunds(amount - balance)
+    return balance - amount
+`,
+      py`class InsufficientFunds(Exception):
+    def __init__(self, shortfall):
+        super().__init__('short by %s' % shortfall)
+        self.shortfall = shortfall
+
+
+def withdraw(balance, amount):
+    if amount <= 0:
+        raise ValueError('amount must be positive')
+    if amount >= balance:
+        raise InsufficientFunds(amount - balance)
+    return balance - amount
+`,
+      py`class InsufficientFunds(Exception):
+    def __init__(self, shortfall):
+        super().__init__('short by %s' % shortfall)
+        self.shortfall = shortfall
+
+
+def withdraw(balance, amount):
+    if amount <= 0 or amount > balance:
+        raise InsufficientFunds(amount - balance)
+    return balance - amount
+`,
+      py`class InsufficientFunds(Exception):
+    def __init__(self, shortfall):
+        super().__init__('short by %s' % shortfall)
+        self.shortfall = shortfall
+
+
+def withdraw(balance, amount):
+    if amount <= 0:
+        raise ValueError('amount must be positive')
+    if amount > balance:
+        raise InsufficientFunds(balance - amount)
+    return balance - amount
+`,
+      py`class InsufficientFunds(Exception):
+    def __init__(self, shortfall):
+        super().__init__('short by %s' % shortfall)
+        self.shortfall = shortfall
+
+
+def withdraw(balance, amount):
+    if amount < 0:
+        raise ValueError('amount must be positive')
+    if amount > balance:
+        raise InsufficientFunds(amount - balance)
+    return balance - amount
+`,
+      py`class InsufficientFunds(Exception):
+    pass
+
+
+def withdraw(balance, amount):
+    if amount <= 0:
+        raise ValueError('amount must be positive')
+    if amount > balance:
+        return 'error'
+    return balance - amount
+`,
+    ],
+  },
+  'py-32-reserve': {
+    valid: [
+      py`class OutOfStock(Exception):
+    def __init__(self, missing):
+        super().__init__('short by %s' % missing)
+        self.missing = missing
+
+
+def reserve(stock, qty):
+    if qty <= 0:
+        raise ValueError('amount must be positive')
+    if qty > stock:
+        raise OutOfStock(qty - stock)
+    return stock - qty
+`,
+    ],
+    wrong: [
+      py`class OutOfStock(ValueError):
+    def __init__(self, missing):
+        super().__init__('short by %s' % missing)
+        self.missing = missing
+
+
+def reserve(stock, qty):
+    if qty <= 0:
+        raise ValueError('amount must be positive')
+    if qty > stock:
+        raise OutOfStock(qty - stock)
+    return stock - qty
+`,
+      py`class OutOfStock(Exception):
+    def __init__(self, missing):
+        super().__init__('short by %s' % missing)
+        self.missing = missing
+
+
+def reserve(stock, qty):
+    if qty <= 0:
+        raise ValueError('amount must be positive')
+    if qty >= stock:
+        raise OutOfStock(qty - stock)
+    return stock - qty
+`,
+      py`class OutOfStock(Exception):
+    def __init__(self, missing):
+        super().__init__('short by %s' % missing)
+        self.missing = missing
+
+
+def reserve(stock, qty):
+    if qty <= 0 or qty > stock:
+        raise OutOfStock(qty - stock)
+    return stock - qty
+`,
+      py`class OutOfStock(Exception):
+    def __init__(self, missing):
+        super().__init__('short by %s' % missing)
+        self.missing = missing
+
+
+def reserve(stock, qty):
+    if qty <= 0:
+        raise ValueError('amount must be positive')
+    if qty > stock:
+        raise OutOfStock(stock - qty)
+    return stock - qty
+`,
+      py`class OutOfStock(Exception):
+    def __init__(self, missing):
+        super().__init__('short by %s' % missing)
+        self.missing = missing
+
+
+def reserve(stock, qty):
+    if qty < 0:
+        raise ValueError('amount must be positive')
+    if qty > stock:
+        raise OutOfStock(qty - stock)
+    return stock - qty
+`,
+      py`class OutOfStock(Exception):
+    pass
+
+
+def reserve(stock, qty):
+    if qty <= 0:
+        raise ValueError('amount must be positive')
+    if qty > stock:
+        return 'error'
+    return stock - qty
+`,
+    ],
+  },
+  'py-33-parse-kv': {
+    valid: [
+      py`def parse_settings(line):
+    out = {}
+    for part in line.split(';'):
+        if '=' not in part:
+            continue
+        k, v = part.split('=', 1)
+        k, v = k.strip(), v.strip()
+        if k:
+            out[k] = v
+    return out
+`,
+      py`def parse_settings(line):
+    out = {}
+    for part in line.split(';'):
+        k, sep, v = part.partition('=')
+        if sep and k.strip():
+            out[k.strip()] = v.strip()
+    return out
+`,
+    ],
+    wrong: [
+      py`def parse_settings(line):
+    out = {}
+    for part in line.split(';'):
+        bits = part.split('=')
+        if len(bits) == 2 and bits[0].strip():
+            out[bits[0].strip()] = bits[1].strip()
+    return out
+`,
+      py`def parse_settings(line):
+    out = {}
+    for part in line.split(';'):
+        if '=' in part:
+            k, v = part.split('=', 1)
+            if k:
+                out[k] = v
+    return out
+`,
+      py`def parse_settings(line):
+    out = {}
+    for part in line.split(';'):
+        if '=' in part:
+            k, v = part.split('=', 1)
+            out[k.strip()] = v.strip()
+    return out
+`,
+      py`def parse_settings(line):
+    out = {}
+    for part in line.split(';'):
+        if '=' in part:
+            k, v = part.split('=', 1)
+            if k.strip():
+                out.setdefault(k.strip(), v.strip())
+    return out
+`,
+      py`def parse_settings(line):
+    out = {}
+    for part in line.split(';'):
+        k, v = part.split('=', 1)
+        if k.strip():
+            out[k.strip()] = v.strip()
+    return out
+`,
+    ],
+  },
+  'py-33-parse-log': {
+    valid: [
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(DEBUG|INFO|WARN|ERROR)\] ([A-Za-z0-9_-]+): (.+?)(?: \(code=(\d+)\))?$')
+
+def parse_log_line(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    message = m.group(4).strip()
+    if not message:
+        return None
+    return {'time': m.group(1), 'level': m.group(2), 'source': m.group(3), 'message': message, 'code': int(m.group(5)) if m.group(5) else None}
+`,
+      py`from datetime import datetime
+
+def parse_log_line(line):
+    line = line.strip()
+    if len(line) < 25 or line[19] != ' ' or line[20] != '[':
+        return None
+    stamp = line[:19]
+    try:
+        datetime.strptime(stamp, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    close = line.find(']', 20)
+    level = line[21:close]
+    if level not in ('DEBUG', 'INFO', 'WARN', 'ERROR') or line[close + 1:close + 2] != ' ':
+        return None
+    rest = line[close + 2:]
+    source, sep, message = rest.partition(': ')
+    if not sep or not source or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' for c in source):
+        return None
+    code = None
+    if message.endswith(')') and ' (code=' in message:
+        head, _, tail = message.rpartition(' (code=')
+        digits = tail[:-1]
+        if digits.isascii() and digits.isdigit():
+            code = int(digits)
+            message = head
+    message = message.strip()
+    if not message:
+        return None
+    return {'time': stamp, 'level': level, 'source': source, 'message': message, 'code': code}
+`,
+    ],
+    wrong: [
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(DEBUG|INFO|WARN|ERROR)\] ([A-Za-z0-9_-]+): (.+?)(?: \(code=(\d+)\))?$')
+
+def parse_log_line(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    message = m.group(4).strip()
+    if not message:
+        return None
+    return {'time': m.group(1), 'level': m.group(2), 'source': m.group(3), 'message': message, 'code': int(m.group(5)) if m.group(5) else None}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[([A-Z]+)\] ([A-Za-z0-9_-]+): (.+?)(?: \(code=(\d+)\))?$')
+
+def parse_log_line(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    message = m.group(4).strip()
+    if not message:
+        return None
+    return {'time': m.group(1), 'level': m.group(2), 'source': m.group(3), 'message': message, 'code': int(m.group(5)) if m.group(5) else None}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(DEBUG|INFO|WARN|ERROR)\] ([A-Za-z0-9_-]+): (.+?)()$')
+
+def parse_log_line(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    message = m.group(4).strip()
+    if not message:
+        return None
+    return {'time': m.group(1), 'level': m.group(2), 'source': m.group(3), 'message': message, 'code': None}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(DEBUG|INFO|WARN|ERROR)\] ([A-Za-z0-9_-]+): (.+?)(?: \(code=(\d+)\))?$')
+
+def parse_log_line(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    message = m.group(4).strip()
+    if not message:
+        return None
+    return {'time': m.group(1), 'level': m.group(2), 'source': m.group(3), 'message': message, 'code': m.group(5)}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(DEBUG|INFO|WARN|ERROR)\] ([A-Za-z0-9_-]+): (.+?)(?: \(code=(\d+)\))?$')
+
+def parse_log_line(line):
+    m = _PAT.match(line)
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    message = m.group(4).strip()
+    if not message:
+        return None
+    return {'time': m.group(1), 'level': m.group(2), 'source': m.group(3), 'message': message, 'code': int(m.group(5)) if m.group(5) else None}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(DEBUG|INFO|WARN|ERROR)\] (.+?): (.+?)(?: \(code=(\d+)\))?$')
+
+def parse_log_line(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    message = m.group(4).strip()
+    if not message:
+        return None
+    return {'time': m.group(1), 'level': m.group(2), 'source': m.group(3), 'message': message, 'code': int(m.group(5)) if m.group(5) else None}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(DEBUG|INFO|WARN|ERROR)\] ([A-Za-z0-9_-]+): (.+?)(?: \(code=(\d+)\))?$')
+
+def parse_log_line(line):
+    m = _PAT.match(line.strip())
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    message = m.group(4).strip()
+    if not message:
+        return None
+    return {'time': m.group(1), 'level': m.group(2), 'source': m.group(3), 'message': message, 'code': int(m.group(5)) if m.group(5) else None}
+`,
+    ],
+  },
+  'py-33-parse-txn': {
+    valid: [
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^TXN (\d{4}-\d{2}-\d{2}) \| (.+?) \| ([+-]?\d+(?:\.\d+)?) ([A-Z]{3})$')
+
+def parse_transaction(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d')
+    except ValueError:
+        return None
+    payee = m.group(2).strip()
+    if not payee:
+        return None
+    return {'date': m.group(1), 'payee': payee, 'amount': float(m.group(3)), 'currency': m.group(4)}
+`,
+      py`from datetime import datetime
+
+def parse_transaction(line):
+    parts = line.strip().split(' | ')
+    if len(parts) != 3:
+        return None
+    head, payee, tail = parts
+    if not head.startswith('TXN ') or len(head) != 14:
+        return None
+    date = head[4:]
+    try:
+        datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        return None
+    payee = payee.strip()
+    if not payee:
+        return None
+    amount_text, sep, currency = tail.partition(' ')
+    if not sep or len(currency) != 3 or not (currency.isascii() and currency.isupper() and currency.isalpha()):
+        return None
+    body = amount_text[1:] if amount_text[:1] in ('+', '-') else amount_text
+    whole, dot, frac = body.partition('.')
+    if not (whole.isascii() and whole.isdigit()) or (dot and not (frac.isascii() and frac.isdigit())):
+        return None
+    return {'date': date, 'payee': payee, 'amount': float(amount_text), 'currency': currency}
+`,
+    ],
+    wrong: [
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^TXN (\d{4}-\d{2}-\d{2}) \| (.+?) \| ([+-]?\d+(?:\.\d+)?) ([A-Z]{3})$')
+
+def parse_transaction(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    payee = m.group(2).strip()
+    if not payee:
+        return None
+    return {'date': m.group(1), 'payee': payee, 'amount': float(m.group(3)), 'currency': m.group(4)}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^TXN (\d{4}-\d{2}-\d{2}) \| (.+?) \| ([+-]?\d+(?:\.\d+)?) ([A-Z]{3})$')
+
+def parse_transaction(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d')
+    except ValueError:
+        return None
+    payee = m.group(2)
+    return {'date': m.group(1), 'payee': payee, 'amount': float(m.group(3)), 'currency': m.group(4)}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^TXN (\d{4}-\d{2}-\d{2}) \| (.+?) \| ([+-]?\d+(?:\.\d+)?) ([A-Za-z]{3})$')
+
+def parse_transaction(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d')
+    except ValueError:
+        return None
+    payee = m.group(2).strip()
+    if not payee:
+        return None
+    return {'date': m.group(1), 'payee': payee, 'amount': float(m.group(3)), 'currency': m.group(4)}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^TXN (\d{4}-\d{2}-\d{2}) \| (.+?) \| ([+-]?\d+(?:\.\d+)?) ([A-Z]{3})$')
+
+def parse_transaction(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d')
+    except ValueError:
+        return None
+    payee = m.group(2).strip()
+    if not payee:
+        return None
+    return {'date': m.group(1), 'payee': payee, 'amount': m.group(3), 'currency': m.group(4)}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^TXN (\d{4}-\d{2}-\d{2}) \| (.+?) \| (-?\d+(?:\.\d+)?) ([A-Z]{3})$')
+
+def parse_transaction(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d')
+    except ValueError:
+        return None
+    payee = m.group(2).strip()
+    if not payee:
+        return None
+    return {'date': m.group(1), 'payee': payee, 'amount': float(m.group(3)), 'currency': m.group(4)}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^TXN (\d{4}-\d{2}-\d{2}) \| (.+?) \| ([+-]?\d+\.\d+) ([A-Z]{3})$')
+
+def parse_transaction(line):
+    m = _PAT.match(line.strip())
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d')
+    except ValueError:
+        return None
+    payee = m.group(2).strip()
+    if not payee:
+        return None
+    return {'date': m.group(1), 'payee': payee, 'amount': float(m.group(3)), 'currency': m.group(4)}
+`,
+      py`import re
+from datetime import datetime
+
+_PAT = re.compile(r'^TXN (\d{4}-\d{2}-\d{2}) \| (.+?) \| ([+-]?\d+(?:\.\d+)?) ([A-Z]{3})$')
+
+def parse_transaction(line):
+    m = _PAT.match(line)
+    if not m:
+        return None
+    try:
+        datetime.strptime(m.group(1), '%Y-%m-%d')
+    except ValueError:
+        return None
+    payee = m.group(2).strip()
+    if not payee:
+        return None
+    return {'date': m.group(1), 'payee': payee, 'amount': float(m.group(3)), 'currency': m.group(4)}
+`,
+    ],
+  },
+  'py-34-top-words': {
+    valid: [
+      py`import re
+from collections import Counter
+
+def top_words(text, n):
+    words = re.findall(r'[a-z]+', text.lower())
+    return sorted(Counter(words).items(), key=lambda p: (-p[1], p[0]))[:max(n, 0)]
+`,
+      py`def top_words(text, n):
+    words = []
+    cur = ''
+    for ch in text.lower():
+        if ch in 'abcdefghijklmnopqrstuvwxyz':
+            cur += ch
+        elif cur:
+            words.append(cur)
+            cur = ''
+    if cur:
+        words.append(cur)
+    counts = {}
+    for w in words:
+        counts[w] = counts.get(w, 0) + 1
+    pairs = sorted(counts.items(), key=lambda p: (-p[1], p[0]))
+    return pairs[:n] if n > 0 else []
+`,
+    ],
+    wrong: [
+      py`import re
+from collections import Counter
+
+def top_words(text, n):
+    words = re.findall(r'[a-z]+', text.lower())
+    return Counter(words).most_common(max(n, 0))
+`,
+      py`import re
+from collections import Counter
+
+def top_words(text, n):
+    words = re.findall(r"[a-z0-9']+", text.lower())
+    return sorted(Counter(words).items(), key=lambda p: (-p[1], p[0]))[:max(n, 0)]
+`,
+      py`import re
+from collections import Counter
+
+def top_words(text, n):
+    words = re.findall(r'[a-z]+', text)
+    return sorted(Counter(words).items(), key=lambda p: (-p[1], p[0]))[:max(n, 0)]
+`,
+      py`import re
+from collections import Counter
+
+def top_words(text, n):
+    words = re.findall(r'[a-z]+', text.lower())
+    return sorted(Counter(words).items(), key=lambda p: (-p[1], p[0]))[:n]
+`,
+      py`import re
+from collections import Counter
+
+def top_words(text, n):
+    words = text.lower().split()
+    return sorted(Counter(words).items(), key=lambda p: (-p[1], p[0]))[:max(n, 0)]
+`,
+      py`import re
+from collections import Counter
+
+def top_words(text, n):
+    words = re.findall(r'[a-z]+', text.lower())
+    return sorted(Counter(words).items(), key=lambda p: p[1], reverse=True)[:max(n, 0)]
+`,
+    ],
+  },
+  'py-34-run-lengths': {
+    valid: [
+      py`from itertools import groupby
+
+def run_lengths(values):
+    return [(k, len(list(g))) for k, g in groupby(values)]
+`,
+      py`def run_lengths(values):
+    out = []
+    for x in values:
+        if out and out[-1][0] == x:
+            out[-1] = (x, out[-1][1] + 1)
+        else:
+            out.append((x, 1))
+    return out
+`,
+    ],
+    wrong: [
+      py`def run_lengths(values):
+    counts = {}
+    for x in values:
+        counts[x] = counts.get(x, 0) + 1
+    return list(counts.items())
+`,
+      py`from itertools import groupby
+
+def run_lengths(values):
+    return [(k, len(list(g))) for k, g in groupby(sorted(values, key=str))]
+`,
+      py`def run_lengths(values):
+    out = []
+    if not values:
+        return out
+    cur, n = values[0], 0
+    for x in values:
+        if x == cur:
+            n += 1
+        else:
+            out.append((cur, n))
+            cur, n = x, 1
+    return out
+`,
+      py`from itertools import groupby
+
+def run_lengths(values):
+    return [[k, len(list(g))] for k, g in groupby(values)]
+`,
+      py`def run_lengths(values):
+    out = []
+    cur, n = values[0], 0
+    for x in values:
+        if x == cur:
+            n += 1
+        else:
+            out.append((cur, n))
+            cur, n = x, 1
+    out.append((cur, n))
+    return out
+`,
+    ],
+  },
+  'py-34-compress-log': {
+    valid: [
+      py`from itertools import groupby
+
+def compress_log(lines):
+    out = []
+    for line, g in groupby(lines):
+        n = len(list(g))
+        out.append(line if n == 1 else '%s (x%d)' % (line, n))
+    return out
+`,
+      py`def compress_log(lines):
+    out = []
+    i = 0
+    while i < len(lines):
+        j = i
+        while j < len(lines) and lines[j] == lines[i]:
+            j += 1
+        out.append(lines[i] if j - i == 1 else lines[i] + ' (x' + str(j - i) + ')')
+        i = j
+    return out
+`,
+    ],
+    wrong: [
+      py`from itertools import groupby
+
+def compress_log(lines):
+    out = []
+    for line, g in groupby(lines):
+        n = len(list(g))
+        out.append('%s (x%d)' % (line, n))
+    return out
+`,
+      py`def compress_log(lines):
+    counts = {}
+    for l in lines:
+        counts[l] = counts.get(l, 0) + 1
+    return [l if n == 1 else '%s (x%d)' % (l, n) for l, n in counts.items()]
+`,
+      py`from itertools import groupby
+
+def compress_log(lines):
+    out = []
+    for line, g in groupby(lines):
+        n = len(list(g))
+        out.append(line if n == 1 else '%s x%d' % (line, n))
+    return out
+`,
+      py`def compress_log(lines):
+    out = []
+    prev, n = None, 0
+    for line in lines:
+        if line == prev:
+            n += 1
+        else:
+            if prev is not None:
+                out.append(prev if n == 1 else '%s (x%d)' % (prev, n))
+            prev, n = line, 1
+    return out
+`,
+      py`def compress_log(lines):
+    out = []
+    prev, n = None, 0
+    for line in lines + [None]:
+        if line == prev:
+            n += 1
+        else:
+            if prev:
+                out.append(prev if n == 1 else '%s (x%d)' % (prev, n))
+            prev, n = line, 1
+    return out
+`,
+    ],
+  },
 };

@@ -34,7 +34,9 @@ export const npcs: Npc[] = [
     lines: [
       { until: 'de-01-pipelines', text: 'Data never arrives clean, and it arrives again tomorrow. A pipeline is judged on its worst night: bad rows, repeated files, half-finished runs.' },
       { after: 'de-01-pipelines', until: 'de-02-python-sql', text: 'Good. Now the trick is dividing the work: let SQL fetch and aggregate close to the data; let Python do what SQL is awkward at.' },
-      { after: 'de-02-python-sql', text: 'The trial gives you no scaffolding, like a real ticket. Read the requirement twice, list the ways the input can be wrong, and test those cases yourself first.' },
+      { after: 'de-02-python-sql', until: 'de-06-logging', text: 'Trust nothing that arrives from outside. Check every field, report every problem at once, and measure how dirty a file is before you decide what to do about it.' },
+      { after: 'de-06-logging', until: 'de-09-reporting', text: 'A job nobody can see into cannot be trusted. Log the decisions, set aside the bad rows instead of losing them, remember how far you got, and only load what is new.' },
+      { after: 'de-09-reporting', text: 'The trial gives you no scaffolding, like a real ticket. Read the requirement twice, list the ways the input can be wrong, and test those cases yourself first. When you are ready for the Foreman, the Summit is waiting.' },
     ],
   },
   {

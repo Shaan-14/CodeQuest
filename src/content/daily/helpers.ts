@@ -34,4 +34,4 @@ export function refCalls(fn: string, reference: string, cases: string[], note = 
 }
 
 /** Script checks for programs that read files: run the program (fixtures are in the workspace) then assert on the outcome. */
-export const script = (name: string, code: string): Check => ({ kind: 'script', name, code, visible: false });
+export const script = (name: string, code: string, visible = false): Check => ({ kind: 'script', name, code, visible });

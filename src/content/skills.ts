@@ -26,6 +26,7 @@ export const skills: Skill[] = [
   S('py.numbers', 'Numbers & arithmetic', 'Python', ['py.variables'], req(3, 3, 2, 3, 2)),
   S('py.input', 'Input & type conversion', 'Python', ['py.numbers', 'py.strings'], req(3, 3, 2, 2, 2)),
   S('py.modules', 'Modules & the standard library', 'Python', ['py.functions'], req(2, 2, 3, 2, 2)),
+  S('py.text', 'Text processing & parsing', 'Python', ['py.strings', 'py.lists'], req(2, 2, 3, 2, 2)),
   // ---- Programming (concepts that transfer to every language)
   S('py.logic', 'Booleans & comparisons', 'Programming', ['py.numbers'], req(2, 2, 2, 2, 2)),
   S('py.conditionals', 'Decisions (if / elif / else)', 'Programming', ['py.logic', 'py.input'], req(3, 3, 2, 3, 2)),
@@ -35,6 +36,8 @@ export const skills: Skill[] = [
   S('py.lists', 'Lists', 'Data Structures', ['py.loops'], req(3, 3, 2, 3, 3)),
   S('py.dicts', 'Dictionaries, tuples & sets', 'Data Structures', ['py.lists'], req(3, 3, 3, 3, 3)),
   S('py.records', 'Records: filter, sort, summarise', 'Data Structures', ['py.dicts'], req(3, 3, 3, 3, 3)),
+  S('py.nested', 'Nested data & JSON structures', 'Data Structures', ['py.records'], req(2, 2, 3, 1, 2)),
+  S('py.algorithms', 'Searching, sorting & efficiency', 'Data Structures', ['py.records'], req(2, 2, 3, 1, 2)),
   // ---- Debugging
   S('py.debugging', 'Reading errors & debugging', 'Debugging', ['py.output'], req(2, 2, 2, 2, 2)),
   S('py.defensive', 'Defensive code: exceptions & edge cases', 'Debugging', ['py.functions'], req(2, 2, 3, 2, 2)),

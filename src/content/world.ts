@@ -153,6 +153,9 @@ export const quests: Quest[] = [
     objectives: [
       { id: 'p1', text: 'Build reliable pipelines', lessonId: 'de-01-pipelines' },
       { id: 'p2', text: 'Combine Python and SQL', lessonId: 'de-02-python-sql' },
+      { id: 'p4', text: 'Validate records and measure data quality', lessonId: 'de-05-quality' },
+      { id: 'p5', text: 'Log runs and fail safely', lessonId: 'de-07-failing-safely' },
+      { id: 'p6', text: 'Load incrementally and report', lessonId: 'de-09-reporting' },
       { id: 'p3', text: 'Face the overnight-feed trial', lessonId: 'de-03-independent' },
     ],
     reward: { xp: 300, coins: 100 },

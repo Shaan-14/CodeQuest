@@ -57,6 +57,12 @@ import { bundle as w02 } from './web/02-links-lists';
 import { bundle as w03 } from './web/03-tables';
 import { bundle as w04 } from './web/04-semantics';
 import { bundle as w05 } from './web/05-forms';
+import { bundle as p29 } from './python/29-text-processing';
+import { bundle as p30 } from './python/30-nested-data';
+import { bundle as p31 } from './python/31-searching-sorting';
+import { bundle as p32 } from './python/32-exceptions';
+import { bundle as p33 } from './python/33-parsing';
+import { bundle as p34 } from './python/34-read-the-docs';
 import { bundle as d04 } from './dataeng/04-validation';
 import { bundle as d05 } from './dataeng/05-quality';
 import { bundle as d06 } from './dataeng/06-logging';
@@ -85,7 +91,7 @@ import { bundle as w24 } from './web/24-fetch-write';
 import { bundle as w25 } from './web/25-web-projects';
 import { bundle as w26 } from './web/26-web-trial';
 
-const base: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, p27, p28, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, d01, d02, d04, d05, d06, d07, d08, d09, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w12, w13, w14, w15, w16, w17, w18, w19, w20, w21, w22, w23, w24, w25, w26];
+const base: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, p29, l17, p30, p31, l18, l19, p32, l20, l21, p33, l22, p34, l23, l24, l25, l26, p27, p28, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, d01, d02, d04, d05, d06, d07, d08, d09, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w12, w13, w14, w15, w16, w17, w18, w19, w20, w21, w22, w23, w24, w25, w26];
 
 /** Phase 3 variants are authored separately (data) and attached to the lesson that teaches their objective. */
 export const bundles: LessonBundle[] = base.map((b) => (phase3Variants[b.lesson.id] ? { ...b, challenges: [...b.challenges, ...phase3Variants[b.lesson.id]!] } : b));
