@@ -109,8 +109,10 @@ import { bundle as g05 } from './git/05-collaboration';
 import { bundle as g06 } from './git/06-workflow';
 import { bundle as x01 } from './sheet/01-formulas';
 import { bundle as x02 } from './sheet/02-functions';
+import { bundle as x03 } from './sheet/03-logic';
+import { bundle as x04 } from './sheet/04-lookups';
 
-const base: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, p29, l17, p30, p31, l18, l19, p32, l20, l21, p33, l22, p34, l23, l24, l25, l26, p27, p28, s01, s02, s03, s04, s05, s06, s07, s08, s16, s09, s10, s17, s18, s11, s19, s12, s13, s20, s14, s15, d01, d02, d04, d05, d06, d07, d08, d09, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w29, w12, w13, w14, w15, w16, w17, w27, w28, w18, w19, w30, w20, w21, w22, w31, w23, w24, w25, w26, g01, g02, g03, g04, g05, g06, x01, x02];
+const base: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, p29, l17, p30, p31, l18, l19, p32, l20, l21, p33, l22, p34, l23, l24, l25, l26, p27, p28, s01, s02, s03, s04, s05, s06, s07, s08, s16, s09, s10, s17, s18, s11, s19, s12, s13, s20, s14, s15, d01, d02, d04, d05, d06, d07, d08, d09, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w29, w12, w13, w14, w15, w16, w17, w27, w28, w18, w19, w30, w20, w21, w22, w31, w23, w24, w25, w26, g01, g02, g03, g04, g05, g06, x01, x02, x03, x04];
 
 /** Phase 3 variants are authored separately (data) and attached to the lesson that teaches their objective. */
 export const bundles: LessonBundle[] = base.map((b) => (phase3Variants[b.lesson.id] ? { ...b, challenges: [...b.challenges, ...phase3Variants[b.lesson.id]!] } : b));
