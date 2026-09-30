@@ -2,6 +2,17 @@
 import type { SaveData } from '../core/save';
 import { levelFromXp } from './progression';
 
+const passedDailies = (s: SaveData) => s.daily.history.filter((h) => h.outcome === 'passed');
+const dailyMilestone = (n: number) => (s: SaveData) => passedDailies(s).length >= n;
+
+/** Seven solved dailies inside any seven-day window. Missing days never hurts: no consecutive-day rule. */
+function perfectWeek(s: SaveData): boolean {
+  const times = passedDailies(s).map((h) => Date.parse(h.resolvedAt ?? h.issuedAt)).sort((a, b) => a - b);
+  const WEEK = 7 * 24 * 3600 * 1000;
+  for (let i = 0; i + 6 < times.length; i++) if (times[i + 6]! - times[i]! <= WEEK) return true;
+  return false;
+}
+
 const conditions: Record<string, (s: SaveData) => boolean> = {
   'first-run': (s) => !!s.flags['ran-code'],
   'first-pass': (s) => s.evidence.some((r) => r.passed),
@@ -24,6 +35,15 @@ const conditions: Record<string, (s: SaveData) => boolean> = {
   'vault-open': (s) => s.quests['ledger-vault']?.status === 'complete',
   'district-cleared': (s) => s.quests['database-district']?.status === 'complete',
   'pipeline-running': (s) => s.quests['pipeline-works']?.status === 'complete',
+  'first-daily': dailyMilestone(1),
+  'daily-5': dailyMilestone(5),
+  'daily-10': dailyMilestone(10),
+  'daily-25': dailyMilestone(25),
+  'daily-50': dailyMilestone(50),
+  'daily-100': dailyMilestone(100),
+  'perfect-week': perfectWeek,
+  'cross-skill': (s) => new Set(passedDailies(s).map((h) => h.category)).size >= 4,
+  'old-skills-sharp': (s) => passedDailies(s).filter((h) => h.focus === 'review' && h.difficulty >= 4).length >= 5,
   'blank-page': (s) => !!s.learning.challenges['py-14-warehouse-audit']?.passed,
 };
 

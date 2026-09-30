@@ -198,6 +198,14 @@ export interface Constraint {
 
 /* ------------------------------------------------------------------ challenges & lessons */
 
+/** Extra metadata for challenges authored specifically for the Daily Challenge (see content/daily). */
+export interface DailyMeta {
+  /** Which kind of day this suits: reinforcing current learning, reviewing an older skill, or either. */
+  focus: 'current' | 'review' | 'either';
+  /** Lessons that must be complete first, so a daily never needs a concept the player was not taught. */
+  requires: string[];
+}
+
 export interface Challenge {
   id: string;
   /**
@@ -240,6 +248,8 @@ export interface Challenge {
   transfer?: boolean;
   /** Generic real-world context, e.g. 'engineering', 'finance'. For content-variety auditing. */
   context?: string;
+  /** Present only on challenges authored for the Daily Challenge. */
+  daily?: DailyMeta;
 }
 
 export interface TeachStep {

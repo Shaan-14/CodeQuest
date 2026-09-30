@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface PlayerProfile {
   name: string;
@@ -54,6 +54,79 @@ export interface ChallengeProgress {
   code?: string;
 }
 
+/** What a Daily Challenge pays when (and only when) it is solved. Rewards never touch mastery. */
+export interface DailyReward {
+  coins: number;
+  xp: number;
+  focus: number;
+}
+
+/** The challenge currently on offer. Persisted, so reload / closing the browser cannot re-roll it. */
+export interface DailyCurrent {
+  challengeId: string;
+  /** 'current' reinforces what the player is learning now; 'review' revisits an older skill. */
+  focus: 'current' | 'review';
+  skillId: string;
+  category: string;
+  difficulty: number;
+  issuedAt: string;
+  /** issuedAt + 12h. After this the challenge disappears and a new one is issued. */
+  expiresAt: string;
+  status: 'open' | 'passed' | 'failed';
+  /** Graded submissions: 0 or 1. ONE attempt only, no retries. */
+  attempts: number;
+  resolvedAt?: string;
+  /** Plain-language reason the selection system chose this (shown to the player). */
+  reason: string;
+  reward: DailyReward;
+}
+
+/** One finished (or missed) daily. Kept for retention memory and achievements; never deleted by a reset of the timer. */
+export interface DailyRecord {
+  challengeId: string;
+  focus: 'current' | 'review';
+  skillIds: string[];
+  category: string;
+  difficulty: number;
+  issuedAt: string;
+  resolvedAt?: string;
+  /** 'missed' = the period ended with no submission. Missing a daily has no penalty. */
+  outcome: 'passed' | 'failed' | 'missed';
+  coins: number;
+  xp: number;
+}
+
+export interface DailyState {
+  current: DailyCurrent | null;
+  history: DailyRecord[];
+  /** Latest clock reading the game has seen. The effective time never goes backwards (clock-rollback guard). */
+  lastSeenAt: string | null;
+}
+
+export const emptyDaily = (): DailyState => ({ current: null, history: [], lastSeenAt: null });
+export const DAILY_HISTORY_LIMIT = 500;
+
+/** Repairs a daily block from an untrusted save: anything malformed is dropped rather than failing the whole save. */
+export function sanitizeDaily(raw: unknown): DailyState {
+  if (typeof raw !== 'object' || raw === null) return emptyDaily();
+  const r = raw as Record<string, unknown>;
+  const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+  const iso = (v: unknown) => typeof v === 'string' && !Number.isNaN(Date.parse(v));
+  const cur = r.current as Record<string, unknown> | null;
+  const okCur =
+    !!cur && typeof cur === 'object' && typeof cur.challengeId === 'string' && iso(cur.issuedAt) && iso(cur.expiresAt) &&
+    (cur.status === 'open' || cur.status === 'passed' || cur.status === 'failed') && (cur.focus === 'current' || cur.focus === 'review') &&
+    num(cur.difficulty) && num(cur.attempts) && typeof cur.skillId === 'string' && typeof cur.reward === 'object' && cur.reward !== null;
+  const history = (Array.isArray(r.history) ? r.history : []).filter(
+    (h): h is DailyRecord => !!h && typeof h === 'object' && typeof h.challengeId === 'string' && iso(h.issuedAt) && ['passed', 'failed', 'missed'].includes(h.outcome) && Array.isArray(h.skillIds) && num(h.difficulty),
+  );
+  return {
+    current: okCur ? (cur as unknown as DailyCurrent) : null,
+    history: history.slice(-DAILY_HISTORY_LIMIT),
+    lastSeenAt: iso(r.lastSeenAt) ? (r.lastSeenAt as string) : null,
+  };
+}
+
 export interface SaveData {
   version: number;
   player: PlayerProfile | null;
@@ -69,6 +142,8 @@ export interface SaveData {
   /** One-off story/tutorial flags, e.g. 'mentor-intro'. */
   flags: Record<string, boolean>;
   evidence: EvidenceRecord[];
+  /** Phase 3: the 12-hour Daily Challenge (current offer, history, clock guard). */
+  daily: DailyState;
 }
 
 export const MAX_FOCUS = 100;
@@ -85,6 +160,7 @@ export function newSave(): SaveData {
     learning: { lessons: {}, challenges: {} },
     flags: {},
     evidence: [],
+    daily: emptyDaily(),
   };
 }
 
@@ -106,6 +182,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
     });
     return { ...old, evidence };
   },
+  // v3 -> v4 (Phase 3): the Daily Challenge block. Old saves simply start with no daily on offer.
+  3: (old) => ({ ...old, daily: emptyDaily() }),
 };
 
 export function migrate(raw: unknown): SaveData | null {
@@ -119,7 +197,9 @@ export function migrate(raw: unknown): SaveData | null {
     data = step(data);
     data.version = version + 1;
   }
-  return isSaveData(data) ? data : null;
+  if (!isSaveData(data)) return null;
+  data.daily = sanitizeDaily(data.daily);
+  return data;
 }
 
 function isSaveData(d: Record<string, unknown>): d is SaveData & Record<string, unknown> {

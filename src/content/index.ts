@@ -51,6 +51,9 @@ import { bundle as d03 } from './dataeng/03-independent-de';
 
 export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, d01, d02, d03];
 
+import { dailyChallenges } from './daily';
+export { dailyChallenges };
+
 export const lessons: Lesson[] = bundles.map((b) => b.lesson);
 export const challenges: Challenge[] = bundles.flatMap((b) => b.challenges);
 export { skills };
@@ -77,4 +80,7 @@ const skillById = new Map(skills.map((s) => [s.id, s]));
 
 export const getLesson = (id: string): Lesson | undefined => lessonById.get(id);
 export const getChallenge = (id: string): Challenge | undefined => challengeById.get(id);
+const dailyById = new Map(dailyChallenges.map((c) => [c.id, c]));
+/** A lesson/practice challenge OR a Daily Challenge (evidence and the daily screen need both). */
+export const getAnyChallenge = (id: string): Challenge | undefined => challengeById.get(id) ?? dailyById.get(id);
 export const getSkill = (id: string): Skill | undefined => skillById.get(id);

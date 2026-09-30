@@ -24,6 +24,9 @@ function describe(e: GameEvent): { icon: string; title: string; body?: string; k
       return i ? { icon: i.icon, title: i.name, body: 'Added to your pack', kind: 'item' } : null;
     }
     case 'focusLost': return { icon: '💤', title: `-${e.amount} Focus`, kind: 'focus' };
+    case 'focusGained': return { icon: '🍵', title: `+${e.amount} Focus`, kind: 'focus' };
+    case 'dailyPassed': return { icon: '🌅', title: 'Daily Challenge solved!', body: 'Solved without hints, in one attempt.', kind: 'daily' };
+    case 'dailyFailed': return { icon: '🌙', title: 'Daily Challenge attempted', body: 'No penalty. A fresh one arrives soon.', kind: 'daily' };
   }
 }
 

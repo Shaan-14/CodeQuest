@@ -9,4 +9,7 @@ export type GameEvent =
   | { type: 'questComplete'; id: string }
   | { type: 'lessonComplete'; id: string }
   | { type: 'item'; id: string }
-  | { type: 'focusLost'; amount: number };
+  | { type: 'focusLost'; amount: number }
+  | { type: 'focusGained'; amount: number }
+  | { type: 'dailyPassed' }
+  | { type: 'dailyFailed' };

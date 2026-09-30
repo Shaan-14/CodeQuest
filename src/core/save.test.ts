@@ -32,11 +32,11 @@ describe('save v2 -> v3 migration (Phase 2)', () => {
     expect(r.evidence[0]).toMatchObject({ objectiveId: 'py-05-crates', priorFailures: 0, lookups: 0, project: false });
     expect(r.evidence[1]).toMatchObject({ objectiveId: 'py-05-crates', priorFailures: 1 });
   });
-  it('persists as v3 after the next write', () => {
+  it('persists as the current version after the next write', () => {
     const s = memoryStore();
     s.setItem(SAVE_KEY, JSON.stringify(v2()));
     writeSave(s, loadSave(s).save);
-    expect(JSON.parse(s.map.get(SAVE_KEY)!).version).toBe(3);
+    expect(JSON.parse(s.map.get(SAVE_KEY)!).version).toBe(SAVE_VERSION);
   });
   it('still migrates a Phase 0 (v1) save through both steps', () => {
     expect(migrate({ version: 1, launches: 2 })!.version).toBe(SAVE_VERSION);

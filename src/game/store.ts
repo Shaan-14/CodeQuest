@@ -36,7 +36,7 @@ class GameStore {
   }
 
   /** Apply a pure action result: persist, queue toasts, notify the UI. */
-  apply(result: Result): void {
+  apply(result: Result, opts: { silent?: boolean } = {}): void {
     this.save = result.save;
     try {
       writeSave(this.storage, this.save);
@@ -44,7 +44,7 @@ class GameStore {
       /* storage full or blocked: keep playing in memory */
     }
     for (const event of result.events) this.toasts = [...this.toasts, { id: this.nextToast++, event }];
-    this.emit();
+    if (!opts.silent) this.emit();
   }
 
   dismissToast(id: number): void {

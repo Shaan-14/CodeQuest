@@ -4,6 +4,7 @@ import { quests } from '../../content/world';
 import { MAX_FOCUS } from '../../core/save';
 import { acceptQuest, rest, setFlag } from '../../game/actions';
 import { useGame, getStore } from '../../game/store';
+import { DailyCard } from '../components/DailyCard';
 import { QuestOffers } from '../components/NpcCards';
 
 function Juno() {
@@ -23,7 +24,7 @@ function Juno() {
   );
 }
 
-export function Academy({ onGo }: { onGo: (route: 'grounds' | 'map') => void }) {
+export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') => void; onDaily: () => void }) {
   const game = useGame();
   const { save } = game;
   const name = save.player?.name ?? 'Adventurer';
@@ -67,6 +68,7 @@ export function Academy({ onGo }: { onGo: (route: 'grounds' | 'map') => void }) 
                 <p data-testid="mentor-advice">{mentorAdvice(save)}</p>
               </div>
             </div>
+            <DailyCard onStart={onDaily} compact />
             <QuestOffers giver="Mentor Juno" exclude={[quest.id]} />
             <div class="grid-2">
               <section class="panel">

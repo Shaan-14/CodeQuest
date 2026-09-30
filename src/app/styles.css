@@ -280,3 +280,10 @@ pre.console-error { background: #0a0c1a; padding: .5rem; border-radius: 6px; whi
 @media (max-width: 640px) {
   .schema-table ul, .method ol { columns: 1; }
 }
+
+/* ---- Phase 3: Daily Challenge ---- */
+.daily-card { border-color: var(--gold); }
+.daily-card.passed { box-shadow: inset 0 0 0 2px #2f7a58; }
+.daily-title { margin: .2rem 0; font-size: 1.1rem; }
+.daily-history { list-style: none; padding: 0; margin: .4rem 0 0; display: grid; gap: .35rem; }
+.mode-badge.independent { background: #5a2f7a; }

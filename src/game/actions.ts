@@ -23,12 +23,12 @@ export const FOCUS_LOSS_PER_FAILED_SUBMIT = 10;
 const now = () => new Date().toISOString();
 
 /** Copy so callers' saves are never mutated. */
-function draft(save: SaveData): { s: SaveData; events: GameEvent[] } {
+export function draft(save: SaveData): { s: SaveData; events: GameEvent[] } {
   return { s: structuredClone(save), events: [] };
 }
 
 /** Recompute derived unlocks/achievements. Call at the end of any action that could change them. */
-function settle(s: SaveData, events: GameEvent[]): void {
+export function settle(s: SaveData, events: GameEvent[]): void {
   for (const area of areas) {
     if (isAreaUnlocked(area, s) && !s.unlockedAreas.includes(area.id)) {
       s.unlockedAreas.push(area.id);
@@ -44,7 +44,7 @@ function settle(s: SaveData, events: GameEvent[]): void {
   }
 }
 
-function gain(s: SaveData, events: GameEvent[], xp: number, coins: number, note?: string): void {
+export function gain(s: SaveData, events: GameEvent[], xp: number, coins: number, note?: string): void {
   const before = levelFromXp(s.stats.xp);
   s.stats.xp += xp;
   s.stats.coins += coins;
@@ -122,7 +122,7 @@ export function saveDraftCode(save: SaveData, challengeId: string, code: string,
 }
 
 /** Failed submissions on an objective (any variant) since its most recent pass. Retries never erase history. */
-function failuresSinceLastPass(s: SaveData, objectiveId: string): number {
+export function failuresSinceLastPass(s: SaveData, objectiveId: string): number {
   let n = 0;
   for (let i = s.evidence.length - 1; i >= 0; i--) {
     const r = s.evidence[i]!;
