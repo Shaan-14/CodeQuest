@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { getAnyChallenge, getLesson } from '../../content';
+import { getAnyChallenge } from '../../content';
 import { moduleFor } from '../../content/training/modules';
 import type { DemoStep } from '../../content/schema';
 import { exampleDemoFor, noteFor } from '../../content/trainingNotes';
@@ -12,17 +12,10 @@ import { DemoStepView } from '../components/DemoStep';
 import { RichText } from '../components/RichText';
 import { weaknessNames } from '../components/DiagnosisCard';
 import { FocusMeter } from '../components/FocusGate';
-import { getBoss } from '../../content/bosses';
+import { describeReturn } from './describeReturn';
 
 const KIND_LABEL: Record<string, string> = { review: 'A different way to see it', example: 'A different example', predict: 'Predict', guided: 'Guided practice', practice: 'Practice', combined: 'Fresh problem (final step)', independent: 'Fresh problem (final step)' };
 const LEVEL_LABEL: Record<string, string> = { refresher: 'Quick refresher', targeted: 'Targeted training', extended: 'Extended training', deep: 'Deep training path' };
-
-export function describeReturn(r: ReturnPoint): string {
-  if (r.kind === 'lesson' && r.lessonId) return `Back to “${getLesson(r.lessonId)?.title ?? r.lessonId}”, exactly where you left off`;
-  if (r.kind === 'boss') return r.bossId && getBoss(r.bossId) ? `Back to ${getBoss(r.bossId)!.title} in the Boss Hall` : 'Back to the boss gate';
-  if (r.kind === 'daily') return 'Back to the Daily Challenge';
-  return 'Back to the map';
-}
 
 /**
  * One training plan. Training is a detour: the header always says where you will return to, and nothing here changes

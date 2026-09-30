@@ -160,7 +160,15 @@ const objectiveById = new Map(objectives.map((o) => [o.id, o]));
 export const getObjective = (id: string): Objective | undefined => objectiveById.get(id);
 
 /** All authored variants of an objective, in authoring order. */
-export const variantsOf = (objectiveId: string): Challenge[] => challenges.filter((c) => objectiveOf(c) === objectiveId);
+let variantIndex: Map<string, Challenge[]> | null = null;
+/** Every variant of an objective, in authoring order (indexed once: content is static and this is called in loops over hundreds of objectives). */
+export const variantsOf = (objectiveId: string): Challenge[] => {
+  if (!variantIndex) {
+    variantIndex = new Map();
+    for (const c of challenges) { const k = objectiveOf(c); const list = variantIndex.get(k); if (list) list.push(c); else variantIndex.set(k, [c]); }
+  }
+  return variantIndex.get(objectiveId) ?? [];
+};
 
 const lessonById = new Map(lessons.map((l) => [l.id, l]));
 const challengeById = new Map(challenges.map((c) => [c.id, c]));

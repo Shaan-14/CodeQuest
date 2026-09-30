@@ -75,18 +75,37 @@ export function pickVariant(save: SaveData, objectiveId: string, current?: strin
 /** True if a different problem on the same objective exists (so "try a different problem" is offered). */
 export const hasAlternate = (objectiveId: string, currentId: string): boolean => variantsOf(objectiveId).some((c) => c.id !== currentId);
 
-/** Has the player unlocked (completed the prerequisites of) the lesson that owns this challenge? */
-function lessonOf(challengeId: string): Lesson | undefined {
-  return lessons.find((l) => l.steps.some((s) => s.kind === 'challenge' && objectiveOf(challengeOf(s.challengeId)!) === objectiveOf(challengeOf(challengeId)!)));
+/**
+ * The lesson that owns an objective (the first, in teaching order, with a challenge step on it). Content is static, so the map is built once:
+ * scanning every lesson and step per call made entering a world with a late-game save block the main thread for ~500 ms.
+ */
+let lessonByObjective: Map<string, Lesson> | null = null;
+function ownerOfObjective(objectiveId: string): Lesson | undefined {
+  if (!lessonByObjective) {
+    const byChallenge = new Map(challenges.map((c) => [c.id, c]));
+    lessonByObjective = new Map();
+    for (const l of lessons) for (const st of l.steps) if (st.kind === 'challenge') {
+      const c = byChallenge.get(st.challengeId);
+      if (c && !lessonByObjective.has(objectiveOf(c))) lessonByObjective.set(objectiveOf(c), l);
+    }
+  }
+  return lessonByObjective.get(objectiveId);
 }
-const challengeOf = (id: string) => challenges.find((c) => c.id === id);
 
-/** Objectives whose lesson the player has reached (so practice never spoils or skips ahead). */
+/** Objectives whose lesson the player has reached (so practice never spoils or skips ahead). One answer per save object (saves are immutable once applied). */
+const availableCache = new WeakMap<SaveData, string[]>();
 export function availableObjectives(save: SaveData): string[] {
+  const hit = availableCache.get(save);
+  if (hit) return hit;
+  const out = computeAvailableObjectives(save);
+  availableCache.set(save, out);
+  return out;
+}
+function computeAvailableObjectives(save: SaveData): string[] {
   return objectives
     .filter((o) => {
       const vs = variantsOf(o.id);
-      const lesson = vs.map((c) => lessonOf(c.id)).find(Boolean);
+      const lesson = ownerOfObjective(o.id);
       if (!lesson) return false;
       const done = save.learning.lessons[lesson.id]?.completed;
       const started = (save.learning.lessons[lesson.id]?.stepIndex ?? 0) > 0 || vs.some((c) => (save.learning.challenges[c.id]?.attempts ?? 0) > 0);
@@ -232,7 +251,7 @@ export function recommendPractice(save: SaveData, max = 3, nowMs: number = Date.
 
 /** The lesson that teaches an objective (the one whose step uses one of its variants). */
 export function lessonOfObjective(objectiveId: string): Lesson | undefined {
-  return variantsOf(objectiveId).map((c) => lessonOf(c.id)).find(Boolean);
+  return ownerOfObjective(objectiveId);
 }
 
 export const skillTitle = (id: string): string => getSkill(id)?.title ?? id;

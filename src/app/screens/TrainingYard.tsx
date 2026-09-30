@@ -5,7 +5,7 @@ import { activePlan, planFor, requiredTraining, startTraining } from '../../game
 import { FocusMeter } from '../components/FocusGate';
 import { TrainingHub } from '../components/TrainingHub';
 import { weaknessNames } from '../components/DiagnosisCard';
-import { describeReturn } from './TrainingRun';
+import { describeReturn } from './describeReturn';
 
 /**
  * THE TRAINING GROUNDS: a place of its own on the map, apart from every lesson area. When training is required this

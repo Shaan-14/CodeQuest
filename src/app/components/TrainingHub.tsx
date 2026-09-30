@@ -4,7 +4,7 @@ import { skillHistory } from '../../game/skillHistory';
 import { activePlan, startTraining } from '../../game/training';
 import { recordNeed, trainingNeeds, type TrainingNeed } from '../../game/trainingNeeds';
 import { getStore, useGame } from '../../game/store';
-import { describeReturn } from '../screens/TrainingRun';
+import { describeReturn } from '../screens/describeReturn';
 
 const CATEGORY_LABEL: Record<number, string> = { 1: 'Weakness', 2: 'Combination', 3: 'Getting rusty', 4: 'Before what is next', 5: 'Worth proving' };
 

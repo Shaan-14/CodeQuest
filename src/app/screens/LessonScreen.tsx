@@ -6,7 +6,7 @@ import { advanceStep, completeLesson } from '../../game/actions';
 import { requiredTraining } from '../../game/training';
 import { lessonAccess } from '../../game/graph';
 import { PrerequisitePanel } from '../components/PrerequisitePanel';
-import { describeReturn } from './TrainingRun';
+import { describeReturn } from './describeReturn';
 import { DiagnosisCard } from '../components/DiagnosisCard';
 import { getStore, useGame } from '../../game/store';
 import { ChallengeStepView } from '../components/ChallengeStep';

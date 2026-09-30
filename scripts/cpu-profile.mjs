@@ -1,0 +1,24 @@
+/** Samples the main thread while entering a world with the late-game save and prints the top self-time functions. Usage: node scripts/cpu-profile.mjs [world]  (needs /tmp/cq-heavy-save.json from scripts/heavy-save.ts) */
+import { chromium } from 'playwright-core';
+import { spawn } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+const root = process.env.PW_ROOT ?? '/opt/pw-browsers';
+const dir = readdirSync(root).find((d) => d.startsWith('chromium-'));
+const srv = spawn('npx', ['vite', 'preview', '--port', '4395', '--strictPort'], { stdio: 'ignore' });
+await new Promise((r) => setTimeout(r, 2500));
+const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH ?? `${root}/${dir}/chrome-linux/chrome`, args: ['--no-sandbox'] });
+const ctx = await b.newContext({ reducedMotion: 'reduce' });
+const p = await ctx.newPage();
+await p.addInitScript((s) => { localStorage.setItem('codequest.save', s); }, readFileSync('/tmp/cq-heavy-save.json', 'utf8'));
+await p.goto('http://localhost:4395'); await p.getByTestId('world-chooser').waitFor();
+const cdp = await ctx.newCDPSession(p);
+await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start');
+await p.getByTestId('enter-' + (process.argv[2] ?? 'python')).click();
+await p.locator('[data-testid^=area-screen-], [data-testid=grounds]').first().waitFor();
+const { profile } = await cdp.send('Profiler.stop');
+const self = new Map(); const byId = new Map(profile.nodes.map((n) => [n.id, n]));
+const dt = profile.timeDeltas; profile.samples.forEach((id, i) => { const n = byId.get(id); const k = `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}`; self.set(k, (self.get(k) ?? 0) + (dt[i] ?? 0)); });
+const total = [...self.values()].reduce((a, v) => a + v, 0);
+console.log('total ms', Math.round(total / 1000));
+for (const [k, v] of [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14)) console.log(String(Math.round(v / 1000)).padStart(5), 'ms', k);
+await b.close(); srv.kill();
