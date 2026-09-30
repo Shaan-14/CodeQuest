@@ -1,4 +1,5 @@
 import { lessons, getSkill } from './index';
+import { proNotes } from './training/notes.pro';
 
 /**
  * The short "refresher card" shown in a training plan's review step. Authored notes (below) win; otherwise the
@@ -14,7 +15,7 @@ export interface TrainingNote {
   pitfalls: string[];
 }
 
-export const authoredNotes: TrainingNote[] = [];
+export const authoredNotes: TrainingNote[] = [...proNotes];
 
 export function noteFor(skillId: string): TrainingNote {
   const a = authoredNotes.find((n) => n.skillId === skillId);

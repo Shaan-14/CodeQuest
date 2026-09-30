@@ -13,6 +13,7 @@ import type { SaveData } from '../core/save';
 import { detectPatterns, summarizeSkill } from '../learning/mastery';
 import { nextLesson } from './lessons';
 import { reviewsDue } from './retention';
+import { lessonAccess } from './graph';
 
 export interface ObjectiveStatus {
   objectiveId: string;
@@ -89,7 +90,7 @@ export function availableObjectives(save: SaveData): string[] {
       if (!lesson) return false;
       const done = save.learning.lessons[lesson.id]?.completed;
       const started = (save.learning.lessons[lesson.id]?.stepIndex ?? 0) > 0 || vs.some((c) => (save.learning.challenges[c.id]?.attempts ?? 0) > 0);
-      const unlocked = lesson.prerequisites.every((p) => save.learning.lessons[p]?.completed);
+      const unlocked = lessonAccess(save, lesson).open; // prerequisite lessons AND any cross-world skill requirements
       return done || (unlocked && started);
     })
     .map((o) => o.id);
