@@ -227,3 +227,85 @@ Object.assign(appSolutions, {
     ],
   },
 });
+
+/* ------------------------------------------------------------ lesson 23: fetch */
+import { HTML as H23 } from './23-fetch';
+
+const machinesJs = 'async function load() {\n  const response = await fetch("/api/machines");\n  const machines = await response.json();\n  for (const m of machines) {\n    const li = document.createElement("li");\n    li.textContent = `${m.name}: ${m.status}`;\n    document.querySelector("#machines").append(li);\n  }\n}\nload();\n';
+const boardApp = 'const state = document.querySelector("#state");\nconst total = document.querySelector("#total");\nconst board = document.querySelector("#board");\n\nasync function load() {\n  state.textContent = "Loading...";\n  const response = await fetch("/api/machines?status=down&sort=-downtime_hours");\n  if (!response.ok) {\n    state.textContent = `Could not load machines (status ${response.status})`;\n    return;\n  }\n  const machines = await response.json();\n  state.textContent = "";\n  for (const m of machines) {\n    const li = document.createElement("li");\n    li.textContent = `${m.name}: ${m.downtime_hours} h`;\n    board.append(li);\n  }\n  total.textContent = `${machines.length} down`;\n}\nload();\n';
+const standingsApp = 'const state = document.querySelector("#state");\nconst table = document.querySelector("#table");\n\nasync function load() {\n  state.textContent = "Loading standings...";\n  const response = await fetch("/api/teams");\n  if (!response.ok) {\n    state.textContent = `Standings unavailable (HTTP ${response.status})`;\n    return;\n  }\n  const teams = await response.json();\n  teams.sort((a, b) => b.wins - a.wins || a.losses - b.losses || a.name.localeCompare(b.name));\n  state.textContent = "";\n  teams.forEach((t, i) => {\n    const row = document.createElement("tr");\n    for (const value of [i + 1, t.name, `${t.wins}-${t.losses}`]) {\n      const cell = document.createElement("td");\n      cell.textContent = value;\n      row.append(cell);\n    }\n    table.append(row);\n  });\n}\nload();\n';
+const searchApp = 'const box = document.querySelector("#q");\nconst state = document.querySelector("#state");\nconst results = document.querySelector("#results");\n\nasync function search() {\n  const term = box.value.trim();\n  results.replaceChildren();\n  if (term === "") {\n    state.textContent = "Type something to search";\n    return;\n  }\n  state.textContent = "Searching...";\n  const response = await fetch(`/api/products?q=${encodeURIComponent(term)}&limit=5`);\n  if (!response.ok) {\n    state.textContent = `Search failed (status ${response.status})`;\n    return;\n  }\n  const products = await response.json();\n  const total = Number(response.headers.get("X-Total-Count"));\n  state.textContent = total === 0 ? `No products match "${term}"` : `Showing ${products.length} of ${total} matches`;\n  for (const p of products) {\n    const card = document.createElement("article");\n    card.className = "card";\n    const name = document.createElement("h3");\n    name.textContent = p.name;\n    const price = document.createElement("p");\n    price.className = "price";\n    price.textContent = "£" + p.price.toFixed(2);\n    card.append(name, price);\n    results.append(card);\n  }\n}\ndocument.querySelector("#go").addEventListener("click", search);\n';
+const detailApp = 'const state = document.querySelector("#state");\nconst detail = document.querySelector("#detail");\n\nasync function show(id) {\n  state.textContent = "Loading...";\n  const response = await fetch(`/api/machines/${id}`);\n  if (!response.ok) {\n    detail.replaceChildren();\n    state.textContent = response.status === 404 ? "Machine not found" : `Could not load machine (status ${response.status})`;\n    return;\n  }\n  const m = await response.json();\n  state.textContent = "";\n  const name = document.createElement("h3");\n  name.textContent = m.name;\n  const status = document.createElement("p");\n  status.className = "status";\n  status.textContent = `Status: ${m.status}`;\n  const downtime = document.createElement("p");\n  downtime.className = "downtime";\n  downtime.textContent = `Downtime: ${m.downtime_hours} h`;\n  detail.replaceChildren(name, status, downtime);\n}\nfor (const button of document.querySelectorAll(".show")) {\n  button.addEventListener("click", () => show(button.dataset.id));\n}\n';
+const playerApp = 'const state = document.querySelector("#state");\nconst card = document.querySelector("#card");\n\nasync function find() {\n  const text = document.querySelector("#num").value.trim();\n  const number = Number(text);\n  if (text === "" || !Number.isInteger(number) || number < 1) {\n    state.textContent = "Enter a player number";\n    return;\n  }\n  state.textContent = "Loading...";\n  const response = await fetch(`/api/players/${number}`);\n  if (!response.ok) {\n    card.replaceChildren();\n    state.textContent = response.status === 404 ? "No player with that number" : `Lookup failed (status ${response.status})`;\n    return;\n  }\n  const p = await response.json();\n  state.textContent = "";\n  const name = document.createElement("h3");\n  name.textContent = p.name;\n  const team = document.createElement("p");\n  team.className = "team";\n  team.textContent = p.team;\n  const avg = document.createElement("p");\n  avg.className = "avg";\n  avg.textContent = "Batting: " + p.batting_avg.toFixed(3).replace(/^0/, "");\n  card.replaceChildren(h3(name), team, avg);\n}\ndocument.querySelector("#find").addEventListener("click", find);\n'.replace('h3(name)', 'name');
+
+Object.assign(appSolutions, {
+  'web-23-load-machines': {
+    valid: [fj(machinesJs, H23.machines)],
+    wrong: [fj(rep(machinesJs, '    li.textContent = `${m.name}: ${m.status}`;', '    li.textContent = m.name;'), H23.machines), fj(rep(machinesJs, '/api/machines', '/api/teams'), H23.machines), fj('const names = ["Press A1: running"];\nfor (const n of names) {\n  const li = document.createElement("li");\n  li.textContent = n;\n  document.querySelector("#machines").append(li);\n}\n', H23.machines), fj(rep(machinesJs, 'await response.json()', 'response.json()'), H23.machines)],
+  },
+  'web-23-machine-board': {
+    valid: [fj(boardApp, H23.board), fj('const state = document.querySelector("#state");\nconst total = document.querySelector("#total");\nconst board = document.querySelector("#board");\nstate.textContent = "Loading...";\nfetch("/api/machines")\n  .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))\n  .then((all) => {\n    const down = all.filter((m) => m.status === "down").sort((a, b) => b.downtime_hours - a.downtime_hours);\n    state.textContent = "";\n    board.innerHTML = "";\n    down.forEach((m) => board.insertAdjacentHTML("beforeend", `<li>${m.name}: ${m.downtime_hours} h</li>`));\n    total.textContent = down.length + " down";\n  })\n  .catch((status) => {\n    state.textContent = `Could not load machines (status ${status})`;\n  });\n', H23.board)],
+    wrong: [
+      fj(rep(boardApp, '  state.textContent = "Loading...";\n', ''), H23.board),
+      fj(rep(boardApp, '  if (!response.ok) {\n    state.textContent = `Could not load machines (status ${response.status})`;\n    return;\n  }\n', ''), H23.board),
+      fj(rep(boardApp, '?status=down&sort=-downtime_hours', '?status=down'), H23.board),
+      fj(rep(boardApp, '?status=down&sort=-downtime_hours', '?sort=-downtime_hours'), H23.board),
+      fj(rep(boardApp, '  state.textContent = "";\n', ''), H23.board),
+      fj(rep(boardApp, '`${machines.length} down`', '`${machines.length}`'), H23.board),
+      fj(rep(boardApp, 'status ${response.status}', 'status 500'), H23.board),
+      fj(rep(boardApp, 'sort=-downtime_hours', 'sort=downtime_hours'), H23.board),
+    ],
+  },
+  'web-23-team-standings': {
+    valid: [fj(standingsApp, H23.standings)],
+    wrong: [
+      fj(rep(standingsApp, 'b.wins - a.wins || a.losses - b.losses || a.name.localeCompare(b.name)', 'b.wins - a.wins'), H23.standings),
+      fj(rep(standingsApp, 'b.wins - a.wins || a.losses - b.losses || a.name.localeCompare(b.name)', 'b.wins - a.wins || b.losses - a.losses'), H23.standings),
+      fj(rep(standingsApp, '[i + 1, t.name', '[i, t.name'), H23.standings),
+      fj(rep(standingsApp, '`${t.wins}-${t.losses}`', '`${t.wins}/${t.losses}`'), H23.standings),
+      fj(rep(standingsApp, '  state.textContent = "Loading standings...";\n', ''), H23.standings),
+      fj(rep(standingsApp, '  if (!response.ok) {\n    state.textContent = `Standings unavailable (HTTP ${response.status})`;\n    return;\n  }\n', ''), H23.standings),
+      fj(rep(standingsApp, '  state.textContent = "";\n  teams.forEach', '  teams.forEach'), H23.standings),
+    ],
+  },
+  'web-23-product-search': {
+    valid: [fj(searchApp, H23.search)],
+    wrong: [
+      fj(rep(searchApp, 'encodeURIComponent(term)', 'term'), H23.search),
+      fj(rep(searchApp, 'const term = box.value.trim();', 'const term = box.value;'), H23.search),
+      fj(rep(searchApp, '&limit=5', ''), H23.search),
+      fj(rep(searchApp, '  results.replaceChildren();\n  if (term', '  if (term'), H23.search),
+      fj(rep(searchApp, 'Number(response.headers.get("X-Total-Count"))', 'products.length'), H23.search),
+      fj(rep(searchApp, 'p.price.toFixed(2)', 'p.price'), H23.search),
+      fj(rep(searchApp, '  if (term === "") {\n    state.textContent = "Type something to search";\n    return;\n  }\n', ''), H23.search),
+      fj(rep(searchApp, '  state.textContent = "Searching...";\n', ''), H23.search),
+      fj(rep(searchApp, '  if (!response.ok) {\n    state.textContent = `Search failed (status ${response.status})`;\n    return;\n  }\n', ''), H23.search),
+      fj(rep(searchApp, 'total === 0 ? `No products match "${term}"` : ', ''), H23.search),
+    ],
+  },
+  'web-23-machine-detail': {
+    valid: [fj(detailApp, H23.detail)],
+    wrong: [
+      fj(rep(detailApp, 'response.status === 404 ? "Machine not found" : `Could not load machine (status ${response.status})`', '"Machine not found"'), H23.detail),
+      fj(rep(detailApp, 'response.status === 404 ? "Machine not found" : `Could not load machine (status ${response.status})`', '`Could not load machine (status ${response.status})`'), H23.detail),
+      fj(rep(detailApp, '  detail.replaceChildren(name, status, downtime);', '  detail.append(name, status, downtime);'), H23.detail),
+      fj(rep(detailApp, '    detail.replaceChildren();\n', ''), H23.detail),
+      fj(rep(detailApp, '  state.textContent = "Loading...";\n', ''), H23.detail),
+      fj(rep(detailApp, '  state.textContent = "";\n  const name', '  const name'), H23.detail),
+      fj(rep(detailApp, 'show(button.dataset.id)', 'show(1)'), H23.detail),
+      fj(rep(detailApp, '  if (!response.ok) {', '  if (response.status === 404) {'), H23.detail),
+    ],
+  },
+  'web-23-player-card': {
+    valid: [fj(playerApp, H23.player)],
+    wrong: [
+      fj(rep(playerApp, 'text === "" || !Number.isInteger(number) || number < 1', 'false'), H23.player),
+      fj(rep(playerApp, ' || number < 1', ''), H23.player),
+      fj(rep(playerApp, '!Number.isInteger(number) || ', ''), H23.player),
+      fj(rep(playerApp, '.replace(/^0/, "")', ''), H23.player),
+      fj(rep(playerApp, 'toFixed(3)', 'toFixed(2)'), H23.player),
+      fj(rep(playerApp, 'response.status === 404 ? "No player with that number" : `Lookup failed (status ${response.status})`', '"No player with that number"'), H23.player),
+      fj(rep(playerApp, '  card.replaceChildren(name, team, avg);', '  card.append(name, team, avg);'), H23.player),
+    ],
+  },
+});

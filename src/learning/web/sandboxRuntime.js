@@ -347,6 +347,8 @@
       session: window.sessionStorage,
       api: {
         calls: state.server ? state.server.log : [],
+        /** Read the CURRENT server data directly (parsed JSON) without going through fetch or leaving a log entry: for check expectations. */
+        get: function (url) { var r = state.server.handle('GET', url, {}); state.server.log.pop(); return r.body ? JSON.parse(r.body) : null; },
         failNext: function (n, status) { state.failNext = { count: n === undefined ? 1 : n, status: status || 500 }; },
       },
     };

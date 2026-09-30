@@ -28,6 +28,9 @@ export function apiCollections(variant: ApiVariant): Record<string, Record<strin
     status: pick(r, ['running', 'running', 'idle', 'down']), downtime_hours: round(r() * 40, 1), department: pick(r, ['Assembly', 'Machining', 'Packing']),
   }));
   const teams = ['Owls', 'Bears', 'Cats', 'Wolves', 'Hawks', 'Foxes'].map((name, i) => ({ id: i + 1, name, city: pick(r, CITIES), wins: Math.floor(r() * 20), losses: Math.floor(r() * 20) }));
+  // Deliberate ties (in both data sets) so a ranking must break them properly: fewer losses first, then name A-Z.
+  if (variant === 'a') teams[3]!.losses = 5;
+  else teams[4]!.wins = 4, (teams[4]!.losses = 4);
   const players = Array.from({ length: 12 }, (_, i) => ({
     id: i + 1, name: person(), team: pick(r, teams).name, position: pick(r, ['P', 'C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF']),
     batting_avg: round(0.18 + r() * 0.17, 3), home_runs: Math.floor(r() * 40),
