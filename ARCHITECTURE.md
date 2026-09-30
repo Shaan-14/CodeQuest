@@ -1,6 +1,6 @@
 # ARCHITECTURE.md
 
-How CodeQuest is built as of **Phase 3**. Read `CLAUDE.md` first for the rules; this file explains the structure and why.
+How CodeQuest is built as of **Phase 5**. Read `CLAUDE.md` first for the rules; this file explains the structure and why.
 
 ## Stack and why
 | Choice | Reason |
@@ -22,7 +22,7 @@ scripts/copy-pyodide.mjs   copies the Pyodide runtime from node_modules → publ
 e2e/run.mjs                real-browser end-to-end tests (+ screenshots to e2e/screenshots, gitignored)
 src/
   main.tsx                 mounts <App/>
-  core/save.ts             SaveData (v5), migrations, load/write/export/import
+  core/save.ts             SaveData (v8), migrations, load/write/export/import
   learning/                the learning ENGINE (language-agnostic contracts + Python implementation)
     runner.ts              CodeRunner interface: run() and grade()
     mastery.ts             EvidenceRecord, SupportLevel, summarizeSkill, unmetRequirements, detectPatterns
@@ -31,6 +31,10 @@ src/
     python/pythonWorker.ts Web Worker that loads Pyodide and hosts the engine
     python/PythonRunner.ts main-thread controller: worker lifecycle, timeouts (kill + restart)
     python/runner.ts       shared singleton
+    sheet/                 Phase 5: spreadsheet ENGINE (formulas, pivots, charts) + workbook grader (recompute on hidden data)
+    git/                   Phase 5: Git SIMULATOR (repo model, commands, merge, remotes/PRs) + transcript replay + repository-STATE grader
+    r/                     Phase 5: real R through webR (RRunner: fresh environment per check, output/variable/script checks)
+    gradeAny.ts            one entry point that grades any challenge in any language
     web/                   the WEB runner: WebRunner.ts (host), sandboxRuntime.js + sandboxPage.ts (the sandboxed page), apiServer.js/apiData.ts (in-game API), testHarness.ts (Playwright, tests only)
   content/                 curriculum and world DATA (no game logic)
     schema.ts              types: Lesson, Challenge, Check (incl. WebCheck), Constraint, Skill, Area, Quest, Item, DailyMeta...
@@ -39,6 +43,13 @@ src/
     sql/NN-*.ts            SQL lessons 01-14 (Database District)
     dataeng/NN-*.ts        data-engineering lessons (Data Pipeline Works)
     databases/             the game's SQLite databases as data (deterministic seeded generators) + hidden twins
+    stats/NN-*.ts          Phase 5: statistics (Python) lessons 01-10 + computed-reference check helper
+    sheet/NN-*.ts          Phase 5: spreadsheet lessons 01-08 (formulas -> modelling)
+    git/NN-*.ts            Phase 5: Git lessons 01-06 (commits -> professional workflow)
+    r/NN-*.ts              Phase 5: R lessons 01-06 (console -> a complete analysis)
+    worlds.ts, worldEffects.ts   Phase 5: the learning WORLDS (tracks/areas/skills/givers) and the world-effect table (Phase 6 boundary)
+    training/notes.pro.ts  Phase 5: refresher cards for every new skill
+    reference.pro.ts       Phase 5: Field Manual entries for R, spreadsheets, Git and statistics
     web/NN-*.ts            web lessons 01-26 (HTML, CSS, JavaScript, DOM, events, forms, storage, async, fetch, projects, trials)
     daily/                 authored Daily Challenges (Python, SQL, data-eng, web) + test-only solutions
     boss/                  boss problems (Python, SQL, data engineering, web, summit): versions per boss + test-only solutions
@@ -53,7 +64,9 @@ src/
     progression.ts         XP curve, levels, rewards (independent of mastery)
     selection.ts           pure, deterministic variant picking + practice recommendations
     backfill.ts            fills evidence fields missing from older saves at load
-    daily.ts, dailySelect.ts, retention.ts   the Daily Challenge, its deterministic selection, and retention memory
+    graph.ts               Phase 5: THE skill graph (competencies, gaps, access, eligibility)
+    worldEvents.ts, explore.ts, balance.ts   Phase 5: world-effect events + derived world state; worlds visited; the balance table
+    daily.ts, dailySelect.ts, retention.ts   the Daily Challenge, its deterministic selection, and retention memory / the spaced-review schedule
     evidence.ts, diagnosis.ts, weakness.ts, training.ts, trainingPlan.ts, trainingNeeds.ts, skillHistory.ts, returnPoint.ts, boss.ts   Phase 4: adaptive training, bosses (see "Phase 4 systems")
     achievements.ts, world.ts (unlock rules, quest offers), lessons.ts (status helpers, tracks), events.ts
     store.ts               reactive store: applies action results, persists, queues toasts
@@ -220,6 +233,37 @@ The curriculum is still one chunk (~1.14 MB minified, ~329 KB gzip); rarely used
 ### Harness note
 `harness.py` resets logging state before every run so a program cannot pass because of `logging` configuration left by an earlier run.
 
+## Phase 5 systems: a nonlinear skill graph, more technologies, open-ended finale
+The idea: **the player chooses the path; the game only ever asks what they can demonstrate.** Nothing here replaced the Phase 4 loop (fail → diagnose → train → fresh proof → return, Focus 100 = ready); it generalised the ground the loop stands on.
+
+### The skill graph (`game/graph.ts`, `content/worlds.ts`, `content/skills.ts`)
+- **Worlds** (`content/worlds.ts`): Python, SQL, Web, Git, Spreadsheets, R are *foundations* (open from the start, freely switchable); Statistics and Data Engineering are skill-gated; each world owns a map area, lesson-id prefixes, skill-id prefixes and its quest givers. `trackOfLessonId`/`trackOfSkillId` are the only mappings.
+- **Competency** (`competencyOf`): `none < introduced < developing < demonstrated`, derived from the evidence log (a completed lesson or guided pass = introduced; an independent pass = developing; a skill's mastery requirements = demonstrated). XP/level/quests never enter. A per-save `WeakMap` snapshot keeps dailies that test hundreds of challenges cheap.
+- **Edges are data**: `Skill.prerequisites`, `Lesson.prerequisites` (same-world order) and `Lesson.requires` (`SkillReq`: a skill at a level, a composite, or a solved objective; any world), `Challenge.requires`, `Area.lock` (`skills` or `lessonsCompleted`). One evaluation path: `lessonGaps` / `lessonAccess` / `areaGaps` / `challengeGaps` / `challengeEligible`; `Gap.teach` always names the first lesson on the path that is **open now** (`nextOpenLesson`), so "go learn X" never points at something that is itself blocked. `unlocksOf` answers "what does showing this help open?".
+- **Enforcement is in the game layer** (`submitChallenge`, `advanceStep`, `completeLesson` refuse a lesson whose gaps are not met), not only in the UI. The UI (`PrerequisitePanel`, `Locked`, `WorldChooser`, `LessonList`, `WorldMap`) renders the same gaps: which skills, which level, what you have, where to learn it, what it unlocks.
+- **Eligibility outside lessons**: practice, dailies and training draw only challenges whose skills are all at least *introduced* (`challengeEligible`), never a concept the player has not met, in any world.
+
+### More technologies, each with a real grader (`learning/sheet|git|r`)
+- **Spreadsheets**: a formula engine (~60 functions, cross-sheet refs, absolute refs, approximate and exact lookups, conditional aggregates, dates/text) plus pivot tables and charts. A challenge is a workbook; the grader parses the player's workbook JSON, enforces locked cells, applies `with` overrides (hidden data), recomputes and compares cells/pivots/charts. UI: `SheetWorkbench` (grid, formula bar, pivot and chart builders).
+- **Git**: `repo.ts`/`commands.ts`/`merge3.ts` simulate a repository (index, commits, branches, detached HEAD, three-way merge with conflict markers, stash, tags, remotes, pull requests and reviews). `replay` runs the player's transcript against a `RepoSnapshot`; `grade` checks the resulting STATE (files, branches, commits, messages, remote, PRs), never the commands. UI: `GitWorkbench` (terminal with file viewer and repo graph).
+- **R**: real R through webR (`r/RRunner.ts`; runtime copied to `public/webr` by `scripts/copy-webr.mjs`). Every check gets a fresh environment, so nothing leaks between runs; checks are `output`, `variable` and `script` (R assertions run after the player's code, optionally with a `prelude` of hidden inputs). Output comparison ignores trailing spaces per line.
+- **Statistics** lessons are plain Python with `stats/helpers.ts: statCalls` (expected values computed by an embedded reference, compared with a tolerance; reference helper names are `_rf_*` so they can never overwrite the player's). Field Manual entries for all four worlds live in `content/reference.pro.ts`; `reference.pro.test.ts` executes every example.
+
+### Dailies, spaced review, training, balance
+- **Daily** (`game/dailySelect.ts`): kind rotates `current → review → mixed`. The pool is every non-guided challenge (authored dailies + lesson challenges) whose skills are introduced, from ANY world; *mixed* prefers cross-world or transfer challenges and says so in its reason. Still: one attempt, no hints, no retry, never costs Focus, evidence only (`Challenge` → `DailyRun` now supports python/sql/web/sheet/git/r).
+- **Spaced review** (`game/retention.ts` `reviewSchedule`): interval from the record: streak of independent hint-free passes → 2/7/14/30/60 days; a failure or hinted pass → next day; work only at difficulty ≤ 2 → 60%; the clock restarts on any executed evidence. `reviewsDue` feeds the Training Board and the Skills view; every entry carries its reasons.
+- **Global training**: unchanged mechanics (see Phase 4), now over every world: `taughtPool` uses `availableObjectives` (which honours cross-world `requires`), refresher cards are authored for every new skill (`trainingNotes`), plans share the Focus that was lost.
+- **Balance** (`game/balance.ts`): Focus losses, plan shapes, review intervals and daily rewards in one readable table, guarded by `balance.test.ts`.
+
+### The Summit, open-ended (`content/bosses.ts`, `game/boss.ts`)
+Seven mastery guardians now exist (Python, SQL, data engineering, web, **analytics**, **spreadsheets**, **R**). The Summit requires **any three** (`requiresAnyOf`) and an open **route** (`BossDef.routes`: Data, Analytics, Spreadsheet, R; a route opens when its guardians are defeated). The player picks the route in `BossRun`; `nextVersion(save, boss, route)` offers a version of that route never attempted; a failure seals the boss until training as before; passing by any route sets `campaign.completedAt` (the campaign is still finite). Sheets and R bosses are checked by `boss.sheet.test.ts` / `boss.r.test.ts` (the analytics and Summit-analytics bosses by `boss.test.ts`).
+
+### The Phase 6 boundary (`game/worldEvents.ts`, `content/worldEffects.ts`)
+`Challenge.worldEffects` declares what the *world* should do when something is demonstrated (`target: 'vault.door'`, `action: 'open'`). `submitChallenge`/`submitBoss` emit a `worldEffect` event on the FIRST pass; `deriveWorldState(save)` rebuilds the state of every world object from the evidence log alone (identical after reload, never reads XP/level/items). A future scene subscribes to the events and reads the state; it cannot change any rule. See `docs/FUTURE_WORLDS.md`.
+
+### Save v8
+`SAVE_VERSION = 8`: `explore` (visited worlds, last world: navigation only) and Daily records/offers may carry `focus: 'mixed'`. Migration 7 → 8 adds `explore`; nothing else is touched, so evidence, lessons and quests carry over and no player is re-locked: access is computed from evidence on load.
+
 ## Security model (what is and isn't guaranteed)
 Player code is untrusted and runs only inside a Web Worker running WebAssembly CPython:
 - No DOM, no `localStorage`/`document.cookie` (workers don't have them), no host filesystem or OS access (Emscripten virtual FS only), no subprocess/socket access from Python itself.
@@ -231,7 +275,7 @@ Player code is untrusted and runs only inside a Web Worker running WebAssembly C
 - `harness.py` is trusted code and runs inside the same interpreter as the player's code: player code can in principle tamper with the harness's globals. Acceptable under the threat model above.
 
 ## Save data
-`core/save.ts`, version **7** (Focus gate; migration 6->7 sets Focus to 100 and refunds Focus consumables; v6 added `Weakness.required`; migration 5->6 is a pass-through; Phase 4 added `training`, `bosses`, `campaign`; migration 4->5 adds empty blocks; Phase 3 added `daily: { current, history, lastSeenAt }`; migration 3->4 starts with no daily and repairs a corrupt daily block instead of rejecting the save; Phase 2 added evidence fields, migration 2->3; v1 -> fresh). Contains player profile, stats (xp, coins, focus), inventory, quests, achievements, unlocked areas, lesson progress, challenge progress (attempts, runs, hints, time, draft code, XP already awarded), one-off flags, and the full evidence log. Level is derived from XP, not stored. Migrations are a table keyed by "from version"; v1 (Phase 0 shell, no player data) → fresh; v2 → v3 adds evidence fields without losing progress (tested). A save that can't be read (corrupt or from a *newer* version) is copied to `codequest.save.backup` and never silently destroyed; the UI shows a notice.
+`core/save.ts`, version **8** (Phase 5: `explore` block, daily kind `mixed`; migration 7->8 adds `explore`; v7 = Focus gate; migration 6->7 sets Focus to 100 and refunds Focus consumables; v6 added `Weakness.required`; migration 5->6 is a pass-through; Phase 4 added `training`, `bosses`, `campaign`; migration 4->5 adds empty blocks; Phase 3 added `daily: { current, history, lastSeenAt }`; migration 3->4 starts with no daily and repairs a corrupt daily block instead of rejecting the save; Phase 2 added evidence fields, migration 2->3; v1 -> fresh). Contains player profile, stats (xp, coins, focus), inventory, quests, achievements, unlocked areas, lesson progress, challenge progress (attempts, runs, hints, time, draft code, XP already awarded), one-off flags, and the full evidence log. Level is derived from XP, not stored. Migrations are a table keyed by "from version"; v1 (Phase 0 shell, no player data) → fresh; v2 → v3 adds evidence fields without losing progress (tested). A save that can't be read (corrupt or from a *newer* version) is copied to `codequest.save.backup` and never silently destroyed; the UI shows a notice.
 
 ## UI
 `App.tsx` holds a `route` (map | area | lesson) and an optional journal panel; there are no URL routes. Screens: Title (character creation), WorldMap, Academy (mentor + intro dialogue + quest board + rest), TrainingGrounds (the Programming Hall: robot + Python lessons + Practice Yard), TrainingYard (the Training Grounds), TrackArea (Database District with SQL Sandbox; Data Pipeline Works), Library (notebook, Field Manual, training log), Shop, Locked/future areas, LessonScreen (steps). The journal (Hud buttons) has quests, pack, skills, trophies, menu (export/import/reset). Toasts/level-up overlay are driven by `GameEvent`s returned from actions. `prefers-reduced-motion` is honoured. Layout is responsive (single column under 900px).
@@ -239,13 +283,14 @@ Player code is untrusted and runs only inside a Web Worker running WebAssembly C
 ## Testing layers
 1. **Unit** (Vitest): save/migrations (incl. 2->3, 3->4 and corrupt saves), the Daily Challenge (timer, clock rollback, selection, one attempt, rewards, achievements, persistence), retention recommendations, progression, mastery, selection/retry, backfill, actions (XP, unlocks, quests, achievements, evidence, shop, reset).
 2. **Adaptive training (unit)**: `game/training.test.ts`, `boss.test.ts`, `dailyCombo.test.ts`: diagnosis scales with evidence, fresh problems, composites, detour semantics, no Focus loss, escalation without lockout, mastery retained, guided vs independent evidence, the Training Board, boss remediation and a new version after training, the ending, save round-trips, v4 -> v5 migration and corrupt-block repair.
-3. **Content in real Python and real SQLite** (Vitest + Pyodide in Node): every challenge's starter fails, every reference solution passes, every wrong attempt fails, hints don't contain solutions, demos run, structure/mode rules, mastery requirements achievable.
+3. **Phase 5 layers**: `game/graph.test.ts` (gates, exact messages, cross-world paths, reachability of every area), `retention.test.ts` (spaced review and exploration), `trainingGlobal.test.ts` (training in every world), `worldEvents.test.ts`, `balance.test.ts`; content validated per runtime: `content/sheet` (engine), `content/git` (simulator), `content/r` and `content/boss/boss.r.test.ts` (real R), `content/boss/boss.sheet.test.ts`, `reference.pro.test.ts` (Field Manual examples in all four new worlds).
+3b. **Content in real Python and real SQLite** (Vitest + Pyodide in Node): every challenge's starter fails, every reference solution passes, every wrong attempt fails, hints don't contain solutions, demos run, structure/mode rules, mastery requirements achievable.
 4. **Web content in real Chromium** (Vitest + Playwright harness): every web challenge and web Daily: starter fails, reference solutions pass, wrong attempts fail, hints do not leak solutions, Field Manual web examples run without errors, sandbox isolation and API server unit tests.
 5. **End-to-end** (`npm run e2e`): the built game in Chromium (Phase 2 adds SQL lesson flow, failing -> different-problem retry with evidence, Field Manual lookup, sandbox persistence/reset, the pipeline lesson, phone layout): character creation, mentor, map/locks, lessons, real Python errors, hints/evidence, infinite-loop handling, focus/rest, shop, save/load/export/reset, corrupt saves, a full playthrough of all lessons plus the independent trial, and a phone-width overflow check. Screenshots are written to `e2e/screenshots/`.
 
 ## Known open questions
 - Exploration model (UI-driven now; canvas later if movement-based exploration is wanted).
-- How Git skills will be practised (in-browser git simulation). APIs are covered by the in-game API sandbox (real network and CORS are only documented).
+- Git is practised in a simulator (no real `git`, so no rebase/cherry-pick/submodules yet); APIs are covered by the in-game API sandbox (real network and CORS are only documented).
 - Loading curriculum payloads per track/lesson on demand (async registry) to shrink the first load.
 - Future worlds and a 3D presentation layer are documented in `docs/FUTURE_WORLDS.md`.
 - Cloud sync / accounts (none; export/import text only).

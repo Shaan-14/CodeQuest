@@ -198,4 +198,29 @@ export const sheetSolutions: Record<string, { valid: SheetSolution[]; wrong: She
     valid: [{ cells: { E2: '=MAX(B2:B8)', E3: '=LARGE(B2:B8,2)', E4: '=MEDIAN(B2:B8)', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }, { cells: { E2: '=LARGE(B2:B8,1)', E3: '=LARGE(B2:B8,2)', E4: '=MEDIAN(B2:B8)', E5: '=E2-SMALL(B2:B8,1)' } }],
     wrong: [{ cells: { E2: '=MAX(B2:B8)', E3: '=SMALL(B2:B8,2)', E4: '=MEDIAN(B2:B8)', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }, { cells: { E2: '=MAX(B2:B8)', E3: '=LARGE(B2:B8,2)', E4: '=AVERAGE(B2:B8)', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }, { cells: { E2: '=MAX(B2:B8)', E3: '=LARGE(B2:B8,2)', E4: '=MEDIAN(B2:B8)', E5: '=MAX(B2:B8)' } }, { cells: { E2: 91, E3: 88, E4: 79, E5: 37 } }, { cells: { E2: '=MAX(B2:B8)', E3: '=MAX(B2:B8)-MIN(B2:B8)', E4: '=MEDIAN(B2:B8)', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }, { cells: { E2: '=MAX(B2:B8)', E3: '=LARGE(B2:B8,2)', E4: '=B5', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }],
   },
+
+  'xl-09-rank-board': {
+    valid: [{ cells: rows('C', 2, 7, (r) => `=RANK(B${r},$B$2:$B$7,0)`) }, { cells: rows('C', 2, 7, (r) => `=COUNTIF($B$2:$B$7,">"&B${r})+1`) }],
+    wrong: [{ cells: rows('C', 2, 7, (r) => `=RANK(B${r},$B$2:$B$7,1)`) }, { cells: { C2: 4, C3: 2, C4: 5, C5: 2, C6: 1, C7: 6 } }, { cells: rows('C', 2, 7, (r) => `=COUNTIF($B$2:$B$7,">="&B${r})`) }, { cells: rows('C', 2, 7, () => `=ROW()-1`) }],
+  },
+  'xl-09-rank-lap': {
+    valid: [{ cells: rows('C', 2, 7, (r) => `=RANK(B${r},$B$2:$B$7,1)`) }, { cells: rows('C', 2, 7, (r) => `=COUNTIF($B$2:$B$7,"<"&B${r})+1`) }],
+    wrong: [{ cells: rows('C', 2, 7, (r) => `=RANK(B${r},$B$2:$B$7,0)`) }, { cells: { C2: 4, C3: 1, C4: 3, C5: 1, C6: 6, C7: 4 } }, { cells: rows('C', 2, 7, (r) => `=COUNTIF($B$2:$B$7,"<="&B${r})`) }],
+  },
+  'xl-09-weighted': {
+    valid: [{ cells: { E1: '=SUMPRODUCT(B2:B5,C2:C5)/SUM(C2:C5)' } }, { cells: { E1: '=(B2*C2+B3*C3+B4*C4+B5*C5)/(C2+C3+C4+C5)' } }],
+    wrong: [{ cells: { E1: '=SUMPRODUCT(B2:B5,C2:C5)/100' } }, { cells: { E1: '=AVERAGE(B2:B5)' } }, { cells: { E1: '=SUMPRODUCT(B2:B5,C2:C5)' } }, { cells: { E1: 74.5 } }, { cells: { E1: '=SUM(B2:B5)*SUM(C2:C5)/4' } }],
+  },
+  'xl-09-supplier': {
+    valid: [{ cells: { E1: '=SUMPRODUCT(B2:B5,C2:C5)/SUM(C2:C5)' } }],
+    wrong: [{ cells: { E1: '=AVERAGE(B2:B5)' } }, { cells: { E1: '=SUMPRODUCT(B2:B5,C2:C5)/10' } }, { cells: { E1: '=SUMPRODUCT(B2:B5,C2:C5)/COUNT(B2:B5)' } }, { cells: { E1: 3.35 } }],
+  },
+  'xl-09-joined': {
+    valid: [{ cells: { C1: '=TEXTJOIN(", ",TRUE,A2:A8)' } }, { cells: { C1: '=TEXTJOIN(", ",1,A2:A8)' } }],
+    wrong: [{ cells: { C1: '=TEXTJOIN(", ",FALSE,A2:A8)' } }, { cells: { C1: '=TEXTJOIN(",",TRUE,A2:A8)' } }, { cells: { C1: '=A2&", "&A4&", "&A5&", "&A7&", "&A8' } }, { cells: { C1: 'Ana, Ben, Caz, Dev, Eli' } }, { cells: { C1: '=TEXTJOIN(", ",TRUE,A2:A7)' } }],
+  },
+  'xl-09-joined-b': {
+    valid: [{ cells: { C1: '=TEXTJOIN(" | ",TRUE,A2:A8)' } }],
+    wrong: [{ cells: { C1: '=TEXTJOIN(" | ",FALSE,A2:A8)' } }, { cells: { C1: '=TEXTJOIN("|",TRUE,A2:A8)' } }, { cells: { C1: '=A3&" | "&A4&" | "&A6' } }, { cells: { C1: '=TEXTJOIN(" | ",TRUE,A2:A6)' } }],
+  },
 };

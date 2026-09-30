@@ -21,6 +21,7 @@ import { buildEvidence } from './evidence';
 import { ensureRequiredPlan } from './training';
 import { FAILURE_LEVELS, failureLevelOf, focusReady, loseFocus } from './focus';
 import { applyDiagnosis, resolveOnPass, upsertWeakness } from './weakness';
+import { emitWorldEffects } from './worldEvents';
 import { diagnoseBossFailure, maxSeverity, SEVERITY_ORDER } from './diagnosis';
 
 export type BossStatus = 'locked' | 'ready' | 'sealed' | 'passed';
@@ -116,6 +117,7 @@ export function submitBoss(save: SaveData, bossId: string, passed: boolean, time
 
   const at = now();
   const record = buildEvidence(s, c, { passed, at, timeMs, hintsUsed: 0, lookups: 0, attemptNumber: 1, source: 'boss', detail, forceIndependent: true, boss: { bossId, version } });
+  emitWorldEffects(s, events, c, passed);
   s.evidence.push(record);
   const st = (s.bosses[bossId] ??= { attempts: [] });
   const attempt = { version, challengeId: c.id, at, passed, weaknessIds: [] as string[] };

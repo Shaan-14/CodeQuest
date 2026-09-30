@@ -35,6 +35,7 @@ function describe(e: GameEvent): { icon: string; title: string; body?: string; k
     case 'bossPassed': return { icon: '👑', title: 'Boss defeated!', kind: 'boss' };
     case 'bossFailed': return { icon: '🩹', title: 'Boss not yet beaten', body: 'Go to the Training Grounds for your diagnosis and training.', kind: 'boss' };
     case 'campaignComplete': return { icon: '🏔️', title: 'You reached the Summit!', body: 'CodeQuest complete.', kind: 'boss' };
+    case 'worldEffect': return { icon: '🌍', title: 'Something in the world changed', body: `${e.target.replace('.', ': ').replaceAll('-', ' ')} · ${e.action.replaceAll('-', ' ')}`, kind: 'world' };
     case 'dailyFailed': return { icon: '🌙', title: 'Daily Challenge attempted', body: 'No penalty. A fresh one arrives soon.', kind: 'daily' };
   }
 }

@@ -10,6 +10,7 @@ import { newSave, type ChallengeProgress, type SaveData } from '../core/save';
 import { newlyEarned } from './achievements';
 import type { GameEvent } from './events';
 import { levelFromXp, rewardFor } from './progression';
+import { emitWorldEffects } from './worldEvents';
 import { isAreaUnlocked } from './world';
 import { buildEvidence, failuresSinceLastPass } from './evidence';
 import { applyDiagnosis } from './weakness';
@@ -162,6 +163,7 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   p.code = code;
 
   const record = buildEvidence(s, c, { passed, at: now(), timeMs: p.timeMs, hintsUsed: p.hintsUsed, lookups: p.lookups ?? 0, attemptNumber: p.attempts, source: opts.source, detail: opts.detail });
+  emitWorldEffects(s, events, c, passed); // before the record is appended, so "first pass" is still knowable
   s.evidence.push(record);
 
   if (passed) {

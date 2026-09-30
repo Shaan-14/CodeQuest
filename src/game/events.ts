@@ -21,4 +21,6 @@ export type GameEvent =
   | { type: 'trainingComplete'; planId: string }
   | { type: 'bossPassed'; id: string }
   | { type: 'bossFailed'; id: string }
-  | { type: 'campaignComplete' };
+  | { type: 'campaignComplete' }
+  /** Phase 6 boundary: something in the game WORLD should react (a door opens, a robot wakes). Emitted once, on the first pass of a challenge that declares it. */
+  | { type: 'worldEffect'; target: string; action: string; detail?: Record<string, string | number | boolean>; challengeId: string };
