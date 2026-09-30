@@ -3,7 +3,8 @@ import { newSave, MAX_FOCUS, type SaveData } from '../core/save';
 import { areas, quests } from '../content/world';
 import { lessons } from '../content';
 import * as A from './actions';
-import { isAreaUnlocked } from './world';
+import { isAreaUnlocked, questOffered } from './world';
+import { newlyEarned } from './achievements';
 import { levelFromXp } from './progression';
 
 const started = () => A.createPlayer(newSave(), '  Ada  ', 'wizard').save;
@@ -33,7 +34,7 @@ describe('quest and areas', () => {
   it('keeps future areas locked, even after finishing everything', () => {
     let s = A.acceptQuest(started(), 'wake-the-robot').save;
     for (const l of lessons) s = A.completeLesson(s, l.id).save;
-    for (const id of ['data-center', 'web-workshop', 'observatory', 'summit']) expect(isAreaUnlocked(area(id), s)).toBe(false);
+    for (const id of ['web-workshop', 'observatory', 'summit']) expect(isAreaUnlocked(area(id), s)).toBe(false);
   });
   it('unlocks Library and Shop through lessons', () => {
     let s = A.acceptQuest(started(), 'wake-the-robot').save;
@@ -182,5 +183,52 @@ describe('shop, items, rest', () => {
 describe('reset', () => {
   it('returns a brand new save', () => {
     expect(A.resetAll().save.player).toBeNull();
+  });
+
+  describe('Phase 2 world and story', () => {
+    it('opens the Database District after Messy Data, and the Pipeline Works after Safe and Fast', () => {
+      let s = A.acceptQuest(started(), 'wake-the-robot').save;
+      expect(isAreaUnlocked(area('data-center'), s)).toBe(false);
+      expect(isAreaUnlocked(area('pipeline-works'), s)).toBe(false);
+      s = A.completeLesson(s, 'py-21-cleaning').save;
+      expect(isAreaUnlocked(area('data-center'), s)).toBe(true);
+      expect(isAreaUnlocked(area('pipeline-works'), s)).toBe(false);
+      s = A.completeLesson(s, 'sql-13-integrity-performance').save;
+      expect(isAreaUnlocked(area('pipeline-works'), s)).toBe(true);
+    });
+    it('offers story quests in order and completes each exactly once with its reward', () => {
+      let s = started();
+      const ledger = quests.find((q) => q.id === 'ledger-vault')!;
+      const district = quests.find((q) => q.id === 'database-district')!;
+      expect(questOffered(ledger, s)).toBe(false);
+      s = A.acceptQuest(s, 'wake-the-robot').save;
+      for (const o of quests[0]!.objectives) s = A.completeLesson(s, o.lessonId).save;
+      expect(s.quests['wake-the-robot']?.status).toBe('complete');
+      expect(questOffered(ledger, s)).toBe(true);
+      expect(questOffered(district, s)).toBe(false);
+      s = A.acceptQuest(s, ledger.id).save;
+      for (const o of ledger.objectives) s = A.completeLesson(s, o.lessonId).save;
+      expect(s.quests[ledger.id]?.status).toBe('complete');
+      expect(questOffered(district, s)).toBe(true);
+      const xp = s.stats.xp;
+      s = A.completeLesson(s, ledger.objectives[0]!.lessonId).save;
+      expect(s.stats.xp).toBe(xp);
+    });
+    it('every quest objective names a real lesson, and quest lessons never duplicate across quests', () => {
+      const ids = new Set(lessons.map((l) => l.id));
+      const seen = new Set<string>();
+      for (const q of quests) for (const o of q.objectives) {
+        expect(ids.has(o.lessonId), o.lessonId).toBe(true);
+        expect(seen.has(o.lessonId), `duplicate ${o.lessonId}`).toBe(false);
+        seen.add(o.lessonId);
+      }
+    });
+    it('achievements: first SQL pass and quest milestones are earned from evidence, not XP', () => {
+      let s = started();
+      expect(newlyEarned(s)).not.toContain('first-query');
+      s = A.submitChallenge(s, 'sql-01-cheap-products', true, 1000, 'SELECT 1').save;
+      expect(s.achievements['first-query']).toBeDefined();
+      expect(s.achievements['vault-open']).toBeUndefined();
+    });
   });
 });

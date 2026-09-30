@@ -252,3 +252,31 @@ pre.console-error { background: #0a0c1a; padding: .5rem; border-radius: 6px; whi
 @media (max-width: 900px) { .rec, .objective { flex-direction: column; align-items: flex-start; } }
 .row-between { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: .5rem; }
 .skill-category h3 { margin: 1rem 0 .4rem; color: var(--gold); }
+
+/* ---- Phase 2: SQL results, schema browser, manual, NPCs, new areas ---- */
+.sql-results { display: grid; gap: .6rem; padding: .4rem 0; }
+.sql-echo code { font-size: .78rem; color: var(--muted, #9aa3c7); }
+.sql-scroll { overflow-x: auto; max-width: 100%; }
+.sql-table { border-collapse: collapse; font-family: var(--mono); font-size: .85rem; min-width: 50%; }
+.sql-table th, .sql-table td { border: 1px solid var(--line); padding: .2rem .55rem; text-align: left; white-space: nowrap; }
+.sql-table th { background: #101430; }
+.sql-table td.num { text-align: right; }
+.sql-table td.null { color: #8b93b8; font-style: italic; }
+.schema { margin: .5rem 0; border: 2px solid var(--line); border-radius: 8px; padding: .3rem .7rem; background: #0a0d20; }
+.schema summary { cursor: pointer; font-weight: 800; }
+.schema-table ul { margin: .1rem 0 .5rem 1rem; padding: 0; columns: 2; font-size: .85rem; }
+.manual-search { width: 100%; margin: .5rem 0; padding: .5rem .7rem; border-radius: 8px; border: 2px solid var(--line); background: #0a0d20; color: inherit; font: inherit; }
+.manual-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .4rem; }
+.manual-item { width: 100%; text-align: left; display: grid; gap: .1rem; background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: .4rem .7rem; color: inherit; font: inherit; cursor: pointer; }
+.manual-sig { font-size: .82rem; color: var(--gold); overflow-wrap: anywhere; }
+.manual-entry { padding: .4rem .8rem .6rem; }
+.method ol { margin: .3rem 0 0 1.2rem; padding: 0; columns: 2; font-size: .9rem; }
+.npc-row { display: grid; gap: .6rem; margin: .8rem 0; }
+.npc-card { display: flex; gap: .8rem; align-items: flex-start; }
+.npc-icon { font-size: 2.2rem; flex: none; }
+.quest-offers { display: grid; gap: .6rem; margin: .6rem 0; }
+.scene.theme-pipeline { background: linear-gradient(#1f3a36, #0d1717 75%); }
+.sandbox .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin: .5rem 0; }
+@media (max-width: 640px) {
+  .schema-table ul, .method ol { columns: 1; }
+}

@@ -69,7 +69,7 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy }: Props) {
   return (
     <main class="lesson" data-testid="lesson">
       <div class="lesson-head">
-        <button class="btn small ghost" onClick={onExit}>← Training Grounds</button>
+        <button class="btn small ghost" onClick={onExit}>← {lessonId.startsWith('sql-') ? 'Database District' : lessonId.startsWith('de-') ? 'Pipeline Works' : 'Training Grounds'}</button>
         <h1>{lesson.title}</h1>
         <ol class="dots" aria-label="Lesson progress">
           {lesson.steps.map((s, i) => (
@@ -95,7 +95,7 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy }: Props) {
         {!last ? (
           <button class="btn primary" disabled={!canContinue} onClick={() => go(index + 1)} data-testid="continue">{canContinue ? 'Continue →' : 'Complete this step to continue'}</button>
         ) : (
-          <button class="btn gold" disabled={!canContinue} onClick={finish} data-testid="finish">{completed ? 'Back to Training Grounds' : canContinue ? 'Complete lesson ✔' : 'Solve the challenge to finish'}</button>
+          <button class="btn gold" disabled={!canContinue} onClick={finish} data-testid="finish">{completed ? 'Back' : canContinue ? 'Complete lesson ✔' : 'Solve the challenge to finish'}</button>
         )}
       </div>
     </main>

@@ -6,7 +6,11 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { chromium } from 'playwright-core';
-import { solutions } from '../src/content/python/solutions.testdata.ts';
+import { solutions as solutionsPhase1 } from '../src/content/python/solutions.testdata.ts';
+import { solutionsPhase2Python } from '../src/content/python/solutions.phase2.testdata.ts';
+import { solutionsSql } from '../src/content/sql/solutions.testdata.ts';
+
+const solutions = { ...solutionsPhase1, ...solutionsPhase2Python, ...solutionsSql };
 
 const PORT = 4179;
 const BASE = `http://localhost:${PORT}/`;
@@ -72,7 +76,7 @@ async function setCode(page, code) {
 }
 async function run(page) {
   await tid(page, 'run').click();
-  await page.locator('[data-testid=stdout], [data-testid=stderr]').first().waitFor({ timeout: 30000 });
+  await page.locator('[data-testid=stdout], [data-testid=stderr], [data-testid=sql-results]').first().waitFor({ timeout: 30000 });
 }
 async function xp(page) { return parseInt((await tid(page, 'xp').innerText()).replace(/\D/g, ''), 10); }
 async function openLesson(page, id) {
@@ -100,12 +104,34 @@ async function playLesson(page, id, { solutionIndex = 0 } = {}) {
     }
     if (await tid(page, 'finish').count()) {
       await tid(page, 'finish').click();
-      await tid(page, 'grounds').waitFor();
+      await page.locator('[data-testid=grounds], [data-testid^=area-screen-]').first().waitFor();
       return;
     }
     await tid(page, 'continue').click();
   }
   throw new Error('lesson did not finish: ' + id);
+}
+/** Continues an OPEN lesson from its current step to the end, solving challenges with the reference solutions. */
+async function playLessonFrom(page, startStep = 0) {
+  for (let step = startStep; step < 30; step++) {
+    const kind = await stepKind(page, step);
+    if (kind === 'challenge') {
+      const cid = await tid(page, 'briefing').getAttribute('data-challenge');
+      await setCode(page, solutions[cid].valid[0]);
+      await tid(page, 'submit').click();
+      await tid(page, 'result').waitFor({ timeout: 30000 });
+      assert(await page.locator('.result.pass').count() === 1, `challenge ${cid} should pass`);
+    } else if (kind === 'demo') {
+      await run(page);
+    }
+    if (await tid(page, 'finish').count()) {
+      await tid(page, 'finish').click();
+      await page.locator('[data-testid=grounds], [data-testid^=area-screen-]').first().waitFor();
+      return;
+    }
+    await tid(page, 'continue').click();
+  }
+  throw new Error('lesson did not finish');
 }
 async function openPanel(page, tab) {
   await page.getByRole('button', { name: /Menu|Skills|Trophies|Pack|Quests/ }).first(); // ensure HUD
@@ -113,6 +139,26 @@ async function openPanel(page, tab) {
   await page.locator(`button[title="${label}"]`).click();
   await page.getByRole('dialog').waitFor();
 }
+
+
+/** Writes completed lessons straight into the real save, then reloads (fast route to later areas). */
+async function seed(page, lessonIds) {
+  await page.evaluate((ids) => {
+    const s = JSON.parse(localStorage.getItem('codequest.save'));
+    for (const id of ids) s.learning.lessons[id] = { stepIndex: 99, completed: true };
+    s.flags['mentor-intro'] = true;
+    s.quests['wake-the-robot'] = s.quests['wake-the-robot'] ?? { status: 'active', acceptedAt: new Date().toISOString() };
+    localStorage.setItem('codequest.save', JSON.stringify(s));
+  }, lessonIds);
+  await page.reload();
+  await tid(page, 'hud').waitFor();
+}
+async function gotoArea(page, id) {
+  await page.locator('button[title="World map"]').click();
+  await tid(page, 'worldmap').waitFor();
+  await tid(page, `area-${id}`).click();
+}
+const readSave = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('codequest.save')));
 
 /* ---------------- tests ---------------- */
 async function main() {
@@ -154,13 +200,16 @@ async function main() {
       await page.locator('button[title="World map"]').click();
       await tid(page, 'worldmap').waitFor();
       await page.screenshot({ path: SHOTS + '04-map.png' });
-      // Library and Shop are locked at first, Data Center is a locked future area.
+      // Library and Shop are locked at first; the Database District needs cleaning skills; the Web Workshop is a future area.
       await tid(page, 'area-library').click();
       await tid(page, 'locked-screen').waitFor();
       assert((await tid(page, 'lock-reason').innerText()).includes('first lesson'), 'library reason');
       await page.locator('button:has-text("Back to the map")').click();
       await tid(page, 'area-data-center').click();
-      assert((await tid(page, 'lock-reason').innerText()).includes('Phase 3'), 'data center reason');
+      assert((await tid(page, 'lock-reason').innerText()).includes('Messy Data'), 'database district reason');
+      await page.locator('button:has-text("Back to the map")').click();
+      await tid(page, 'area-web-workshop').click();
+      assert((await tid(page, 'lock-reason').innerText()).includes('Phase 3'), 'future area reason');
       await page.screenshot({ path: SHOTS + '05-locked.png' });
       await page.locator('button:has-text("Back to the map")').click();
       await tid(page, 'area-training-grounds').click();
@@ -432,7 +481,7 @@ async function main() {
       await openPanel(page, 'menu');
       await tid(page, 'export').click();
       const exported = await tid(page, 'save-text').inputValue();
-      assert(exported.includes('"version":2'), 'exported');
+      assert(exported.includes('"version":3'), 'exported');
       await tid(page, 'import').click();
       assert((await page.getByRole('status').innerText()).includes('restored'), 'import ok');
       // reset
@@ -440,6 +489,158 @@ async function main() {
       await tid(page, 'reset-confirm').click();
       await tid(page, 'begin').waitFor();
       assert(await page.evaluate(() => JSON.parse(localStorage.getItem('codequest.save')).player === null), 'save reset');
+      await page.context().close();
+    });
+
+
+    console.log('Phase 2: SQL, retry, manual, pipelines');
+    await test('Database District: opens after Messy Data; SQL runs on real SQLite; lesson completes', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, ['py-21-cleaning']);
+      await gotoArea(page, 'data-center');
+      await tid(page, 'area-screen-data-center').waitFor();
+      await tid(page, 'npc-vex').waitFor();
+      await page.screenshot({ path: SHOTS + '30-database-district.png' });
+      await openLesson(page, 'sql-01-select');
+      await tid(page, 'continue').click(); // teach -> demo
+      await run(page);
+      await tid(page, 'sql-results').waitFor();
+      assert((await page.locator('.sql-table tbody tr').count()) > 0, 'a result table with rows is shown');
+      await page.screenshot({ path: SHOTS + '31-sql-demo.png' });
+      await playLessonFrom(page, 1);
+      const save = await readSave(page);
+      assert(save.learning.lessons['sql-01-select'].completed, 'SQL lesson completed');
+      assert(save.evidence.some((r) => r.challengeId.startsWith('sql-01') && r.passed), 'SQL evidence recorded');
+      eq(page.errors.length, 0, 'console errors: ' + page.errors.join('|'));
+      await page.context().close();
+    });
+
+    await test('failing a SQL challenge offers a DIFFERENT problem; both attempts stay in the evidence', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, ['py-21-cleaning', 'sql-01-select']);
+      await gotoArea(page, 'data-center');
+      await openLesson(page, 'sql-02-sort-limit');
+      let seenChallenges = 0; // the first challenge is a guided one with no alternates; the second has variants
+      for (let i = 0; i < 20; i++) {
+        const kind = await stepKind(page, i);
+        if (kind === 'challenge' && seenChallenges === 1) break;
+        if (kind === 'demo') await run(page);
+        if (kind === 'challenge') {
+          seenChallenges++;
+          const cid0 = await tid(page, 'briefing').getAttribute('data-challenge');
+          await setCode(page, solutions[cid0].valid[0]);
+          await tid(page, 'submit').click();
+          await page.locator('.result.pass').waitFor({ timeout: 30000 });
+        }
+        await tid(page, 'continue').click();
+      }
+      const first = await tid(page, 'briefing').getAttribute('data-challenge');
+      await setCode(page, 'SELECT 1;');
+      await tid(page, 'submit').click();
+      await tid(page, 'result').waitFor({ timeout: 30000 });
+      assert(await page.locator('.result.fail').count() === 1, 'wrong SQL fails');
+      await tid(page, 'other-variant').click();
+      const second = await tid(page, 'briefing').getAttribute('data-challenge');
+      assert(first !== second, 'the alternate is a different challenge');
+      const chip = await tid(page, 'variant-chip').innerText();
+      assert(/Problem \d of \d/.test(chip), 'variant chip: ' + chip);
+      await setCode(page, solutions[second].valid[0]);
+      await tid(page, 'submit').click();
+      await page.locator('.result.pass').waitFor({ timeout: 30000 });
+      const save = await readSave(page);
+      const failed = save.evidence.filter((r) => r.challengeId === first && !r.passed);
+      const passed = save.evidence.filter((r) => r.challengeId === second && r.passed);
+      assert(failed.length === 1 && passed.length === 1, 'failure and later success are both recorded');
+      assert(passed[0].priorFailures >= 1, 'the success knows about the earlier failure');
+      assert(save.achievements['retry-wisdom'], 'retry achievement earned');
+      await page.context().close();
+    });
+
+    await test('Field Manual: search, open an entry, lookup recorded as research evidence', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, ['py-21-cleaning']);
+      await gotoArea(page, 'data-center');
+      await openLesson(page, 'sql-01-select');
+      for (let i = 0; i < 20 && (await stepKind(page, i)) !== 'challenge'; i++) {
+        if ((await stepKind(page, i)) === 'demo') await run(page);
+        await tid(page, 'continue').click();
+      }
+      const cid = await tid(page, 'briefing').getAttribute('data-challenge');
+      await tid(page, 'open-manual').click();
+      await tid(page, 'manual-search').fill('order by');
+      await page.locator('[data-testid^=manual-]:not([data-testid=manual-search])').first().click();
+      await page.locator('.manual-entry').waitFor();
+      const save = await readSave(page);
+      assert((save.learning.challenges[cid]?.lookups ?? 0) >= 1, 'lookup recorded on the challenge');
+      await page.context().close();
+    });
+
+    await test('SQL sandbox: changes persist across reloads; reset restores the original data', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, ['py-21-cleaning']);
+      await gotoArea(page, 'data-center');
+      await tid(page, 'tab-sandbox').click();
+      await tid(page, 'sandbox').waitFor();
+      await setCode(page, "DELETE FROM order_items; SELECT COUNT(*) AS n FROM order_items;");
+      await tid(page, 'sandbox-run').click();
+      await page.locator('.sql-table td').first().waitFor({ timeout: 30000 });
+      eq((await page.locator('.sql-table td').first().innerText()).trim(), '0', 'rows deleted in the sandbox');
+      await page.reload();
+      await gotoArea(page, 'data-center');
+      await tid(page, 'tab-sandbox').click();
+      assert((await tid(page, 'sandbox-state').innerText()).includes('changes'), 'state remembered after reload');
+      await setCode(page, 'SELECT COUNT(*) AS n FROM order_items;');
+      await tid(page, 'sandbox-run').click();
+      await page.locator('.sql-table td').first().waitFor({ timeout: 30000 });
+      eq((await page.locator('.sql-table td').first().innerText()).trim(), '0', 'still empty after reload');
+      await tid(page, 'sandbox-reset').click();
+      await tid(page, 'sandbox-run').click();
+      await page.locator('.sql-table td').first().waitFor({ timeout: 30000 });
+      assert(parseInt(await page.locator('.sql-table td').first().innerText(), 10) > 0, 'reset restores the data');
+      const save = await readSave(page);
+      assert(!save.evidence.length, 'the sandbox never writes evidence');
+      await page.context().close();
+    });
+
+    await test('Data Pipeline Works: locked until Safe and Fast; a Python + database lesson completes', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, ['py-21-cleaning']);
+      await gotoArea(page, 'pipeline-works');
+      await tid(page, 'locked-screen').waitFor();
+      assert((await tid(page, 'lock-reason').innerText()).includes('Safe and Fast'), 'pipeline reason');
+      await seed(page, ['sql-13-integrity-performance']);
+      await gotoArea(page, 'pipeline-works');
+      await tid(page, 'area-screen-pipeline-works').waitFor();
+      await tid(page, 'npc-sana').waitFor();
+      await openLesson(page, 'de-01-pipelines');
+      await tid(page, 'continue').click();
+      await playLessonFrom(page, 1);
+      const save = await readSave(page);
+      assert(save.learning.lessons['de-01-pipelines'].completed, 'pipeline lesson completed');
+      await page.context().close();
+    });
+
+    await test('Phase 2 screens: phone layout has no horizontal scroll', async () => {
+      const page = await newPage({ width: 390, height: 800 });
+      await startGame(page);
+      await seed(page, ['py-21-cleaning']);
+      const noOverflow = async (label) => {
+        const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        assert(over <= 1, `${label}: horizontal overflow ${over}px`);
+      };
+      await gotoArea(page, 'data-center'); await noOverflow('district');
+      await tid(page, 'tab-sandbox').click(); await noOverflow('sandbox');
+      await page.screenshot({ path: SHOTS + '32-mobile-sandbox.png', fullPage: true });
+      await page.locator('button[title="World map"]').click();
+      await tid(page, 'area-data-center').click();
+      await openLesson(page, 'sql-01-select');
+      await tid(page, 'continue').click(); await run(page); await noOverflow('sql demo');
+      await page.screenshot({ path: SHOTS + '33-mobile-sql-demo.png', fullPage: true });
       await page.context().close();
     });
 

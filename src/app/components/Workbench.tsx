@@ -17,13 +17,14 @@ interface Props {
   /** Extra toolbar buttons (Submit, Hint). */
   children?: ComponentChildren;
   readOnly?: boolean;
+  language?: 'python' | 'sql';
 }
 
 /** Editor + toolbar + program input + console. Used by lesson demos and challenges. */
 export function Workbench(p: Props) {
   return (
     <div class="workbench">
-      <CodeEditor value={p.code} onChange={p.onCode} onRun={p.onRun} readOnly={p.readOnly} />
+      <CodeEditor value={p.code} onChange={p.onCode} onRun={p.onRun} readOnly={p.readOnly} language={p.language} />
       <div class="toolbar">
         <button class="btn primary" onClick={p.onRun} disabled={p.busy} data-testid="run">▶ Run</button>
         <button class="btn" onClick={p.onReset} disabled={p.busy} data-testid="reset-code">↺ Reset</button>
@@ -36,7 +37,7 @@ export function Workbench(p: Props) {
           <textarea rows={3} value={p.stdin} onInput={(e) => p.onStdin((e.target as HTMLTextAreaElement).value)} spellcheck={false} data-testid="stdin" />
         </label>
       )}
-      <Console state={p.console} status={p.status} />
+      <Console state={p.console} status={p.status} language={p.language} />
     </div>
   );
 }

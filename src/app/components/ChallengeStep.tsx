@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Challenge } from '../../content/schema';
+import { databasesUsedBy } from '../../content/helpers';
+import { sourcesFor } from '../../content/databases';
 import { getRunner } from '../../learning/python/runner';
 import type { GradeResult } from '../../learning/runner';
-import { FOCUS_LOSS_PER_FAILED_SUBMIT, recordRun, revealHint, saveDraftCode, startReplay, submitChallenge } from '../../game/actions';
+import { FOCUS_LOSS_PER_FAILED_SUBMIT, recordLookup, recordRun, revealHint, saveDraftCode, startReplay, submitChallenge } from '../../game/actions';
 import { rewardFor } from '../../game/progression';
 import { getStore, useGame } from '../../game/store';
 import { RichText } from './RichText';
@@ -10,7 +12,9 @@ import { emptyConsole, type ConsoleState } from './Console';
 import { Modal } from './Modal';
 import { NotesList } from './NotesList';
 import { Workbench } from './Workbench';
-import { GRADE_TIMEOUT_MS, runPython, useRunnerStatus } from './useRunner';
+import { FieldManual, MethodCard } from './FieldManual';
+import { SchemaBrowser } from './SchemaBrowser';
+import { GRADE_TIMEOUT_MS, runCode, useRunnerStatus } from './useRunner';
 
 const MODE_LABEL = { learning: 'Learning mode', challenge: 'Challenge mode', independent: 'Independent trial' } as const;
 const MODE_BLURB = {
@@ -31,7 +35,7 @@ interface Props {
 /** A plain-language account of what went wrong, without revealing the answer. */
 function explainFailure(result: GradeResult): string {
   if (result.timedOut) return 'Your program ran for too long, so it was stopped. That usually means a loop that never ends.';
-  if (result.error) return 'Python could not run your program at all, so none of the tests ran. Read the error above, look at the line it points to, fix that one thing, and submit again.';
+  if (result.error) return 'Your code could not run at all, so none of the checks ran. Read the error above, look at the part it points to, fix that one thing, and submit again.';
   const failed = result.checks.filter((k) => !k.passed);
   const hidden = failed.filter((k) => !k.visible).length;
   const parts = [`${failed.length} of ${result.checks.length} check${result.checks.length === 1 ? '' : 's'} did not pass.`];
@@ -50,6 +54,10 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
   const [payout, setPayout] = useState<{ xp: number; coins: number; note: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState(false);
+  const [manual, setManual] = useState(false);
+  const sources = useMemo(() => sourcesFor(databasesUsedBy(c)), [c]);
+  const isSql = c.language === 'sql';
+  const workspace = [...Object.keys(c.fixtures?.files ?? {}), ...(c.fixtures?.databases ?? []).map((d) => `${d.split(':')[1] ?? d.split(':')[0]}.db`)];
   const status = useRunnerStatus();
 
   const hintsUsed = progress?.hintsUsed ?? 0;
@@ -74,11 +82,11 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
 
   useEffect(() => { if (passed) onReady(); }, [passed]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const showInput = useMemo(() => !!c.sampleInput || code.includes('input('), [c.sampleInput, code]);
+  const showInput = useMemo(() => !isSql && (!!c.sampleInput || code.includes('input(')), [c.sampleInput, code, isSql]);
 
   const run = async () => {
     setBusy(true);
-    const { state } = await runPython(code, stdin);
+    const { state } = await runCode(c.language, code, { stdin, fixtures: c.fixtures, sources, db: c.db });
     setCons(state);
     setBusy(false);
     const s = getStore();
@@ -90,7 +98,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
     setPayout(null);
     let graded: GradeResult;
     try {
-      graded = await getRunner().grade({ language: 'python', code, checks: c.checks, constraints: c.constraints, timeoutMs: GRADE_TIMEOUT_MS });
+      graded = await getRunner().grade({ language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, sources, db: c.db, timeoutMs: GRADE_TIMEOUT_MS });
     } catch (e) {
       graded = { passed: false, error: `CodeQuest could not grade your code: ${String(e)}`, timedOut: false, checks: [], constraints: [] };
     }
@@ -108,6 +116,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
     }
   };
 
+  const lookup = () => { const st = getStore(); st.apply(recordLookup(st.save, c.id)); };
   const reset = () => { setCode(c.starterCode); setCons(emptyConsole); };
   const hint = () => { const s = getStore(); s.apply(revealHint(s.save, c.id)); };
   const replay = () => {
@@ -137,6 +146,8 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
         <h2>{c.title}</h2>
         <p class="muted small">{MODE_BLURB[c.mode]}</p>
         <RichText text={c.prompt} />
+        {isSql && c.db && <SchemaBrowser dbId={c.db} />}
+        {workspace.length > 0 && <p class="small muted" data-testid="workspace">📁 Available to your program: {workspace.map((f) => <code key={f}>{f} </code>)}</p>}
         {c.expectedBehavior && (
           <div class="expected"><strong>Expected behaviour</strong><RichText text={c.expectedBehavior} /></div>
         )}
@@ -203,7 +214,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
         )}
       </section>
 
-      <Workbench code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={showInput} console={cons} status={status} busy={busy} onRun={run} onReset={reset}>
+      <Workbench language={c.language === 'sql' ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={showInput} console={cons} status={status} busy={busy} onRun={run} onReset={reset}>
         <button class="btn gold" onClick={submit} disabled={busy || exhausted} data-testid="submit" title={exhausted ? 'Out of Focus' : 'Check your solution'}>✔ Submit</button>
         {!independent && c.hints.length > 0 && (
           <button class="btn" onClick={hint} disabled={hintsUsed >= c.hints.length} data-testid="hint" title="Hints lower your reward and are recorded in your evidence">
@@ -211,9 +222,11 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
           </button>
         )}
         {independent && <button class="btn" onClick={() => setNotes(true)}>📚 Notes</button>}
+        <button class="btn" onClick={() => setManual(true)} data-testid="open-manual" title="Search the documentation. Looking things up is a professional skill.">📖 Field Manual</button>
         {passed && hintsUsed > 0 && <button class="btn" onClick={replay} data-testid="replay">🔁 Replay without hints</button>}
       </Workbench>
 
+      {manual && <Modal title="Field Manual" onClose={() => setManual(false)} wide><MethodCard /><FieldManual language={c.language === 'sql' ? 'sql' : 'python'} onLookup={lookup} /></Modal>}
       {notes && <Modal title="My notes" onClose={() => setNotes(false)} wide><NotesList /></Modal>}
     </div>
   );

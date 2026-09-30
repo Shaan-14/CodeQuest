@@ -4,6 +4,7 @@ import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lin
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching, indentUnit } from '@codemirror/language';
 import { python } from '@codemirror/lang-python';
+import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 
 interface Props {
@@ -13,13 +14,14 @@ interface Props {
   onRun?: () => void;
   readOnly?: boolean;
   minLines?: number;
+  language?: 'python' | 'sql';
 }
 
 /**
  * CodeMirror 6 wrapper: syntax highlighting, line numbers, 4-space indentation.
  * Autocomplete is deliberately NOT enabled: the editor should not suggest solutions.
  */
-export function CodeEditor({ value, onChange, onRun, readOnly = false, minLines = 8 }: Props) {
+export function CodeEditor({ value, onChange, onRun, readOnly = false, minLines = 8, language = 'python' }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const cb = useRef({ onChange, onRun });
@@ -37,7 +39,7 @@ export function CodeEditor({ value, onChange, onRun, readOnly = false, minLines 
           history(),
           bracketMatching(),
           indentUnit.of('    '),
-          python(),
+          language === 'sql' ? sql() : python(),
           oneDark,
           EditorState.readOnly.of(readOnly),
           keymap.of([{ key: 'Mod-Enter', run: () => (cb.current.onRun?.(), true) }, indentWithTab, ...defaultKeymap, ...historyKeymap]),

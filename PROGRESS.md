@@ -1,12 +1,29 @@
 # PROGRESS.md
 
-_Last updated: end of Phase 1._
+_Last updated: end of Phase 2._
 
 ## Current phase
-**Phase 1 (playable core loop + Python foundations): COMPLETE.** Phase 2 has not been started; wait for explicit instruction.
-(Phase 0, the foundation shell, is complete and preserved: same repo, same architecture, save format migrated v1 → v2.)
+**Phase 2 (intermediate Python, SQL & databases, data engineering, retry/variant system): COMPLETE.** Phase 3 has not been started; wait for explicit instruction.
+(Phases 0 and 1 are preserved: same repo, same architecture. Save format v1 → v2 → v3, migrations tested; Phase 1 saves load unchanged and gain the new evidence fields.)
 
-## What Phase 1 built
+## What Phase 2 built
+**Learning/retry system**
+- Objectives and **variants**: 126 objectives; 72 have 2+ authored variants (same skills/concepts/difficulty; different context, data, structure). Phase 1 challenges gained variants too, without changing their ids or content.
+- A failed challenge offers "Try a different problem on this idea"; the step completes when any variant passes. Every graded attempt stays in the evidence with `priorFailures`; a pass after failures is recorded as such and is never automatic mastery. Hints/lookups are recorded; hint use lowers reward and evidence strength.
+- **Practice Yard** and recommendations (`game/selection.ts`, pure/deterministic, each with a stated reason): fresh problem after failure (same difficulty), less support after a guided/hinted solve, harder after consistent hint-free success, an old concept in a new context.
+- Stronger evidence model: requirements across distinct challenges, objectives and contexts; `unmetRequirements` explains what is missing; still no numeric score. Skills UI groups 33 skills into 10 categories (Programming, Python, Data Structures, Debugging, Problem Solving, SQL, Databases, Data Engineering, Testing, Software Design).
+
+**Curriculum (43 lessons, 198 challenges, 34 contexts; 37 learning / 153 challenge / 8 independent)**
+- Python 15-26: lists/tuples/slicing/sorting, dicts & sets, records/aggregation, function design (defaults, scope, decomposition), debugging & exceptions, files/CSV/JSON, cleaning/validation, modules/stdlib/documentation, writing tests, OOP (encapsulation, composition, inheritance), multi-concept projects (inventory, production line, transactions, schedule, sensors), independent Ledger Vault trial.
+- SQL 1-14 (Database District): SELECT/WHERE/AND/OR/NOT/IN, ORDER BY/LIMIT/DISTINCT, NULL, COUNT/SUM/AVG/MIN/MAX, GROUP BY/HAVING, joins (inner/left/multi-table), CASE, INSERT/UPDATE/DELETE with safety habits, subqueries/CTEs, window functions, schema design (keys, one-to-many, many-to-many, normalisation by migrating a flat table), constraints, indexes (`EXPLAIN QUERY PLAN`), transactions/rollback, independent Records Hall trial (two hidden-data queries and a schema design).
+- Data engineering 1-3 (Pipeline Works): ETL/ELT, staging tables, idempotent loads, rejecting bad rows with a reject table and counts, Python + SQL (`sqlite3`, parameterised queries, SQL for rows and Python for the median), independent Overnight Feed trial (nightly load + abnormal-downtime investigation).
+- Field Manual: 44 executable reference entries; the 10-step method card; lookups recorded.
+
+**Engine**: SQL on real SQLite via Pyodide's `sqlite3` (fresh DB per run, foreign keys on, runaway-query guard); five databases plus hidden twins with deterministic seeded data; SQL check kinds `sqlResult/sqlState/sqlScript/sqlSchema/sqlPlan`; Python fixtures (virtual files, databases) and check kinds `file/script/tests`; `sql:` and `import:` constraints; SQL Sandbox with persistence (own localStorage key) and reset. See ARCHITECTURE.md "Phase 2 systems".
+
+**World/story**: Database District (data-center, unlocks after Messy Data), Data Pipeline Works (after Safe and Fast), NPCs Vex/Ori/Sana/Pell, quests The Ledger Vault → The Database District → Keep the Pipeline Running (story order via `Quest.requires`), six new achievements (milestones, not skill), future areas renumbered (Web = Phase 3, Analysis/Stats/R/Excel = Phase 4, Summit = Phase 5).
+
+## What Phase 1 built (preserved)
 **RPG layer**
 - Character creation (name + 4 SVG avatars), HUD with level/XP bar, Focus bar, coins, and journal (quests, pack, skills, trophies, menu).
 - World map with 8 places. Unlocked by play: Academy (start), Training Grounds (accept the quest), Library (finish lesson 1), Shop (finish lesson 2). Locked for future phases: Data Center (Phase 3), Web Workshop (Phase 4), Analytics Observatory (Phase 5), The Summit (later). Locked places show why.
@@ -30,34 +47,28 @@ _Last updated: end of Phase 1._
 1 first program (what programming is, execution order, print) · 2 reading errors/debugging · 3 variables · 4 strings/f-strings · 5 ints/floats/arithmetic/operators · 6 input & type conversion · 7 booleans/comparisons/and-or-not · 8 if/else · 9 elif · 10 while · 11 for/range · 12 functions · 13 control program (capstone) · 14 Independent Trial. Contexts include engineering, manufacturing, business, finance, science, data analysis, automation, games, logistics, with one baseball problem.
 
 ## Tests performed
-- **Unit** (save/migration/corruption, progression, mastery, all game actions) and **real-Python content validation** (every challenge: starter fails, valid solutions pass, wrong attempts fail, hints don't leak solutions, demos run, mode rules, mastery requirements achievable).
-- **End-to-end in real Chromium** (`npm run e2e`): startup, character creation, mentor, map and locks, lesson flow, real Python output and errors, failing then passing submissions, hints and evidence, hint-free replay, infinite loop and output flood handling, Focus exhaustion/rest, shop/pack, save/reload persistence, export/import/reset, corrupt save, independent trial has no hints/named tools, the skills view shows no XP, a full playthrough of all lessons, and no horizontal overflow at phone width. Screenshots were reviewed by hand.
+- **Unit + content** (`npm test`, Vitest): save/migration v1→v2→v3/corruption, progression, mastery, selection/retry/alternate-selection/difficulty preservation, backfill, all game actions incl. XP/Focus/coins/quests/achievements/unlock rules/story order, sandbox storage; **every one of the 198 challenges validated in real Python/SQLite**: starter fails, valid and alternate valid solutions pass, plausible wrong attempts fail, hints do not leak solutions, demos run, hidden twin data present, reference queries non-empty, mode rules, variants share concepts/difficulty with distinct contexts, mastery requirements achievable; Field Manual examples executed; engine tests for Python fixtures/files/tests-check, SQL result/state/schema/plan/script checks, DB reset/persistence, Python + SQL integration.
+- **End-to-end in real Chromium** (`npm run e2e`): all 16 Phase 1 scenarios plus Phase 2: locks and reasons for the new areas, SQL demo showing a real result table, a full SQL lesson, failing a SQL challenge → different problem → both attempts in evidence (with `priorFailures` and the retry achievement), Field Manual search + recorded lookup, sandbox persistence across reload and reset (no evidence written), a Python + database pipeline lesson, phone-width overflow on the new screens. Screenshots in `e2e/screenshots/`.
 
-**Final results (end of Phase 1):** typecheck clean; `npm test` 261 passed in 6 files (incl. 198 real-Python content checks); production build OK (~490KB JS, gzip 166KB, plus the lazily loaded Python runtime); `npm run e2e` 16 of 16 passed against the production build (with CSP): full playthrough finished at Level 7, 2303 XP, 32 evidence records.
-During testing the e2e run found and fixed: a missing favicon (404), an untruthful message that called learning-mode passes "independent" evidence (now "guided"), the Focus warning being hidden below a sticky footer, and tall sticky bars on phones.
+**Final results (end of Phase 2):** typecheck clean; `npm test` 1443 passed in 12 files (1,300 of them real Python/SQLite content checks); production build OK; `npm run e2e` **22 of 22 passed** against the production build (16 Phase 1 + 6 Phase 2). Bugs found and fixed while testing this phase: weak hidden checks (strengthened with distinguishing data), a check-level hidden database colliding with the challenge database (now replaces by alias), the e2e `run` helper not recognising SQL results, and Phase 1 e2e assertions updated for the renamed Database District and save v3.
 
 ## Known limitations / issues
-- **Not tamper-proof**: player code shares an origin with the game; a determined player can forge results or edit their save. Fine for a single-player tool; needs server-side grading for any competitive/trusted feature. (ARCHITECTURE.md, Security model.)
-- Infinite loops are stopped by **terminating and restarting the worker** (a few seconds). SharedArrayBuffer interrupts would need COOP/COEP headers.
-- First Python start downloads/compiles ~13MB of WebAssembly (cached afterwards). The app shows "Starting Python…".
-- `input()` is fed from a text box, not interactively in the console.
-- Mastery requirements are deliberately modest for beginner skills (some need only 1–2 independent solves). They are data in `content/skills.ts` and should be raised as content grows. Independent evidence today comes from challenge mode plus one Independent Trial; Phase 2+ needs many more independent/transfer problems.
-- Only Python is runnable. Only one Independent Trial exists.
-- Routing is in-memory: reloading returns to the Academy screen (progress is kept). No deep links.
-- Accessibility is basic (semantic buttons, labels, focus outlines, reduced motion); no full screen-reader audit.
-- Bundle: ~490KB JS (CodeMirror), plus lazily-loaded Python. Not yet code-split.
-- `harness.py` and player code share one Python interpreter (documented; acceptable under the threat model).
-- Art is CSS/SVG/emoji only; no audio.
+- **Not tamper-proof** (unchanged): same-origin worker; a determined player can forge results or edit their save. Fine for single-player.
+- The SQL/Python graders share one worker and interpreter with the harness (documented). Infinite loops still cost a worker restart; runaway SQL is stopped by a progress handler.
+- Bundle is now ~900KB JS (~284KB gzip) because all 198 challenges and databases are bundled; content should be code-split/lazy-loaded per area in a later phase.
+- Only Python and SQLite are runnable. No JavaScript/HTML/R runners yet. SQL is SQLite 3.39 (dialect differences from PostgreSQL/MySQL are noted only where they matter, e.g. no built-in median).
+- Independent evidence is still limited: 8 independent challenges. Mastery requirements are data (`content/skills.ts`) and modest for some skills; raise them as more independent/transfer problems are added.
+- Practice recommendations are simple, explainable rules, not a full adaptive engine; they never consider time-of-day or spaced-repetition scheduling.
+- Database designs are judged structurally (keys, foreign keys, required tables, no copied names); a design can pass while being poor in ways the rules do not detect. The pipeline "simulations" are code tasks, not a visual pipeline editor.
+- Story/NPC dialogue is short and progress-driven, not branching. Art is CSS/SVG/emoji only; no audio.
+- Routing is in-memory (reload returns to the Academy; progress kept). Accessibility is basic.
+- The variant picker only chooses among authored variants: 54 objectives still have a single variant.
 
-## Remaining work / roadmap (proposed, order adjustable)
-- **Phase 2: Python in depth + testing/debugging discipline**: lists, tuples, dicts, strings in depth, files/CSV, modules, exceptions, writing tests for your own code, debugging harder programs, more challenge- and independent-mode problems per skill, first "unfamiliar problem" (transfer) tasks, a real adaptive layer built on `detectPatterns`.
-- **Phase 3: SQL & databases (Data Center)**: SQLite-WASM runner, new `Check` kinds (query result sets), schema design, joins, aggregation.
-- **Phase 4: The web (Web Workshop)**: HTML/CSS/JavaScript runners (sandboxed iframe), APIs and fetch (with a safe API sandbox).
-- **Phase 5: Data analysis, statistics, R, Excel; Git/GitHub; research skills; capstone projects** (Analytics Observatory, The Summit), with open-ended, multi-technology projects and mastery assessments (no hints, unfamiliar context).
-- Cross-cutting: more independent problems and "research" scaffolding (finding and reading docs), project-style graded tasks, save cloud sync or richer backup, code-splitting, accessibility audit, more world content/art/audio.
+## Recommended Phase 3 priorities
+1. **The web (Web Workshop)**: HTML/CSS/JavaScript runners in a sandboxed iframe, DOM/behaviour checks, then APIs/fetch against a safe in-game API sandbox; reuse the variant/evidence/fixtures machinery unchanged.
+2. Code-split content and databases per area; lazy-load runtimes.
+3. More independent and transfer problems across Phases 1-2 (raise mastery requirements accordingly); more variants for single-variant objectives.
+4. Spaced-review scheduling on top of `recommendPractice`; a "review my weak spots" flow.
+5. Richer pipeline tasks (multi-file/multi-stage runs with logs) and a visual pipeline view; SQL design feedback explaining *why* a schema is weak.
+6. Then analysis/statistics/R/Excel (Phase 4) and Git/research/open projects (Phase 5).
 
-## What Phase 2 should build first
-1. More evidence: 2–3 additional challenge-mode and one independent problem for each Phase 1 skill (so "demonstrated" is harder to reach by accident), and raise requirements accordingly.
-2. Lists/dicts/loops-over-data lessons in the same content format, quest 2 ("The Data Vault" or similar) in the Academy story.
-3. First adaptive behaviour: use `detectPatterns` to suggest a review lesson or a harder challenge, visible and explainable to the player.
-4. A test-writing skill: challenges where the player writes tests (checks) for a given function and the game runs them against correct and buggy implementations.

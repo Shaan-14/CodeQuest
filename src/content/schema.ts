@@ -362,6 +362,8 @@ export interface Quest {
   title: string;
   summary: string;
   giver: string;
+  /** Another quest that must be complete before this one is offered (story order). */
+  requires?: string;
   objectives: QuestObjective[];
   reward: { xp: number; coins: number; items?: string[] };
 }

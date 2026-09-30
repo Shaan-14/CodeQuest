@@ -1,14 +1,14 @@
 # ARCHITECTURE.md
 
-How CodeQuest is built as of **Phase 1**. Read `CLAUDE.md` first for the rules; this file explains the structure and why.
+How CodeQuest is built as of **Phase 2**. Read `CLAUDE.md` first for the rules; this file explains the structure and why.
 
 ## Stack and why
 | Choice | Reason |
 |---|---|
 | **Vite + TypeScript (strict)** | Static build, no backend. Types protect the content schema, save data and runner contract over a long project. |
 | **Preact** | Panel-heavy UI (editor, quest log, dialogue) suits components; ~4KB, React-like API. No router or state library: screens are plain state and game state is one store. |
-| **CodeMirror 6** | Real editor (highlighting, line numbers, undo, indentation) at reasonable size. **Autocomplete is deliberately not installed** so the editor never suggests solutions. |
-| **Pyodide (CPython 3.14 → WebAssembly)** | Real Python in the browser: real output, real tracebacks, real semantics. Self-hosted (see below). |
+| **CodeMirror 6** (+ `@codemirror/lang-sql`) | Real editor (highlighting, line numbers, undo, indentation) at reasonable size. **Autocomplete is deliberately not installed** so the editor never suggests solutions. |
+| **Pyodide (CPython 3.14 → WebAssembly)** | Real Python in the browser: real output, real tracebacks, real semantics. Self-hosted (see below). Its built-in `sqlite3` module (SQLite 3.39) is also the **SQL engine** (Phase 2): no second WASM runtime. |
 | **Vitest** | Unit tests, including tests that run real Python (Pyodide in Node). |
 | **playwright-core** (dev only) | End-to-end tests of the built game in a real Chromium (`npm run e2e`). |
 | **localStorage** | Enough for single-player saves; storage is injected so it can be swapped. Export/import text backup exists. |
@@ -22,11 +22,11 @@ scripts/copy-pyodide.mjs   copies the Pyodide runtime from node_modules → publ
 e2e/run.mjs                real-browser end-to-end tests (+ screenshots to e2e/screenshots, gitignored)
 src/
   main.tsx                 mounts <App/>
-  core/save.ts             SaveData (v2), migrations, load/write/export/import
+  core/save.ts             SaveData (v3), migrations, load/write/export/import
   learning/                the learning ENGINE (language-agnostic contracts + Python implementation)
     runner.ts              CodeRunner interface: run() and grade()
-    mastery.ts             EvidenceRecord, SupportLevel, summarizeSkill, detectPatterns
-    python/harness.py      Python-side runner/grader (executed inside Pyodide)
+    mastery.ts             EvidenceRecord, SupportLevel, summarizeSkill, unmetRequirements, detectPatterns
+    python/harness.py      Python+SQL runner/grader (executed inside Pyodide): workspace fixtures, all check kinds
     python/pythonEngine.ts glue: harness ⇄ JSON, works with any loaded Pyodide (browser worker OR Node tests)
     python/pythonWorker.ts Web Worker that loads Pyodide and hosts the engine
     python/PythonRunner.ts main-thread controller: worker lifecycle, timeouts (kill + restart)
@@ -34,13 +34,19 @@ src/
   content/                 curriculum and world DATA (no game logic)
     schema.ts              types: Lesson, Challenge, Check, Constraint, Skill, Area, Quest, Item...
     index.ts               registry: lessons in teaching order, lookups by id
-    python/NN-*.ts         one file per lesson (lesson + its challenges)
-    python/solutions.testdata.ts  TEST-ONLY reference solutions/wrong attempts (never imported by the app)
-    skills.ts, world.ts, mentor.ts, avatars.ts, helpers.ts
+    python/NN-*.ts         one file per Python lesson (lesson + its challenges + variants)
+    sql/NN-*.ts            SQL lessons 01-14 (Database District)
+    dataeng/NN-*.ts        data-engineering lessons (Data Pipeline Works)
+    databases/             the game's SQLite databases as data (deterministic seeded generators) + hidden twins
+    reference.ts           the Field Manual (in-game documentation, every example executed by a test)
+    **/solutions*.testdata.ts  TEST-ONLY reference solutions + wrong attempts (never imported by the app)
+    skills.ts, world.ts, npcs.ts, mentor.ts, avatars.ts, helpers.ts
   game/                    PURE game rules on SaveData (no UI, no storage)
     actions.ts             every state transition: (save, …) → { save, events }
     progression.ts         XP curve, levels, rewards (independent of mastery)
-    achievements.ts, world.ts (unlock rules), lessons.ts (status helpers), events.ts
+    selection.ts           pure, deterministic variant picking + practice recommendations
+    backfill.ts            fills evidence fields missing from older saves at load
+    achievements.ts, world.ts (unlock rules, quest offers), lessons.ts (status helpers, tracks), events.ts
     store.ts               reactive store: applies action results, persists, queues toasts
   app/                     UI: App.tsx (routing), screens/, components/, styles.css
 ```
@@ -92,6 +98,44 @@ Every **graded submission** (pass or fail) appends an `EvidenceRecord`: challeng
 - The same `pythonEngine.ts` runs in Node under Vitest against real CPython, which is how all curriculum content is validated (`content.test.ts`).
 - Adding a language: implement `CodeRunner` (+ new `Check` kinds if needed) in `src/learning/<lang>/`; content and UI stay unchanged. Planned: JavaScript (sandboxed iframe/worker), SQL (SQLite-WASM), R (webR), HTML/CSS (sandboxed iframe DOM checks).
 
+## Phase 2 systems
+
+### Objectives and challenge variants (retry system)
+A **learning objective** (`Objective`: one underlying idea) is tested by several **variants**: ordinary `Challenge`s sharing an `objectiveId` (a challenge without one is its own objective). Variants must share language, skills, concepts and difficulty and differ in **context, data and structure** (a content test enforces the first three and requires distinct contexts). `content/index.ts` exposes `variantsOf(objectiveId)`. In a lesson the challenge step is a **slot** (`LessonScreen.ChallengeSlot`): after a failure or a pass the player can switch to another variant; the step counts as done when ANY variant is passed.
+
+`game/selection.ts` is pure and deterministic (same save -> same choice, so it is testable):
+- `pickVariant(save, objective, currentId)`: never-passed before passed, then fewest attempts, then least recently attempted, then authoring order; the current variant is avoided whenever another exists, so a retry is always a different problem.
+- `recommendPractice(save)`: reads evidence and proposes **explainable** practice (kinds `retry`, `less-support`, `revisit`, `harder`, `next-lesson`; each carries a plain-language reason): a failed objective -> a fresh variant at the same difficulty; a hinted/guided solve -> a different problem without hints; a stale concept with only guided/developing evidence -> a problem in a new context; consistent hint-free first-try solving (`solving-easily`) -> a harder objective (one step above what was handled independently). Only unlocked content is offered.
+- UI: the **Practice Yard** (Training Grounds) and `Recommendations` cards; `PracticeRun` runs a variant outside a lesson. Failed attempts are never erased: each graded submission appends an `EvidenceRecord` with `priorFailures` (failures on this objective so far), so a retry success is recorded as "passed after N failures", not as a clean pass and never as automatic mastery.
+
+### Evidence model (v3)
+`EvidenceRecord` gained `objectiveId`, `context`, `lookups` (Field Manual entries opened while solving: research behaviour, free of reward penalty), `priorFailures`, `project`. `summarizeSkill` still returns a categorical status, now requiring independent passes across **distinct challenges, distinct objectives and distinct contexts** (`MasteryRequirements.distinctObjectives/distinctContexts`), and a minimum difficulty; only hint-free (independent/transfer) passes count towards independence. `unmetRequirements` tells the UI which requirement is missing (shown in the Training Log, never as a number). **No numeric mastery score exists.** Save v3 migration (`core/save.ts`, 2->3) adds the new fields; `backfillEvidence` fills `context` at load because content is not available to the save layer.
+
+### SQL engine and databases
+SQL runs on real SQLite through CPython's `sqlite3` inside the same worker (`harness.py`: `cq_sql_run`, `cq_sql_grade`, `cq_sandbox_run`). Each run gets a fresh in-memory database built from the database's setup SQL (`content/databases`: `works` factory, `market` shop, `league` sports, `flat` denormalised sales, `blank`); foreign keys are ON; runaway queries are stopped by a SQLite progress handler; statements are split with `sqlite3.complete_statement` and executed one by one so each shows its own result table or affected-row count.
+
+Grading is by **result or state, never source text**. Check kinds (`content/schema.ts`):
+- `sqlResult`: run the player's query and a REFERENCE query on the visible database AND a **hidden twin** (`works-b`, `market-b`...: same schema, different rows; hard-coded answers fail). Options: `ordered`, `columns` (`count|names|ignore`), `approx`.
+- `sqlState`: run the player's script, then compare verify queries with the state after the reference script (INSERT/UPDATE/DELETE, CREATE, transactions).
+- `sqlScript`: a probe statement must succeed or fail (constraint tests, `expectError`).
+- `sqlSchema`: structural rules on the resulting schema (`minTables`, `hasPrimaryKeys`, `tableLike`, `columnLike`, `foreignKey`, `hasConstraint`, `noColumnLike`): design tasks accept any sensible schema.
+- `sqlPlan`: `EXPLAIN QUERY PLAN` must (not) match a pattern (index lessons).
+Constraints can require SQL constructs via `sql:<regex>` (comments/strings stripped) when a concept is the point (e.g. a JOIN lesson must join).
+
+`databasesUsedBy(challenge)` lists every database a challenge needs; the UI sends `sourcesFor(...)` to the runner. The in-game **SQL Sandbox** (`SqlSandbox.tsx`) serialises the whole database (`con.serialize()`, base64) into `localStorage` key `codequest.sandbox.v1` **separate from the game save**; reset deletes only that entry; sandbox use never writes evidence.
+
+### Python + files + databases
+Python challenges can declare `fixtures`: virtual `files` (CSV/JSON to read) and `databases` (`works` -> `works.db`; `works-b:works` builds the hidden twin AS `works.db`). A check may add its own fixtures (a check's database with the same file name replaces the challenge's), so the same solution is graded on hidden data. New Python check kinds: `file` (compare a file the program wrote, optionally as parsed JSON), `script` (authored Python asserts run in the player's namespace: classes, sqlite3 work, idempotency by calling the player's function twice), `tests` (the PLAYER writes `test_*` functions that must pass on a correct implementation and fail on each planted bug).
+
+### Field Manual and the research method
+`content/reference.ts` is searchable in-game documentation (Python stdlib/builtins, SQL clauses). Every example is executed by `reference.test.ts` so it cannot rot. Opening an entry during a challenge is recorded as a lookup. The Method card lists the 10-step process for unknown problems. Independent challenges are deliberately posed so some need tools that were never taught.
+
+### World, NPCs and story
+Areas are data (`content/world.ts`). Phase 2 repurposes the sealed **Data Center** as the **Database District** (unlocks after `py-21-cleaning`) and adds the **Data Pipeline Works** (after `sql-13-integrity-performance`). `content/npcs.ts` holds characters (Architect Vex, Engineer Ori, Analyst Sana, Dr. Pell) whose advice follows the player's completed lessons. Story quests (`ledger-vault` -> `database-district` -> `pipeline-works`, ordered by `Quest.requires`) are offered by their givers (`QuestOffers`) and complete when their lessons do; quests are pacing, never mastery. Lessons belong to a **track** (`game/lessons.ts: trackOf`, from the id prefix) which decides the area that lists them.
+
+### Curriculum layout (Phase 2)
+43 lessons: Python 1-14 (Phase 1), Python 15-26 (lists, dicts/sets, records, function design, debugging, files/CSV/JSON, cleaning, libraries/docs, testing, OOP, projects, independent trial), SQL 1-14 (select ... window functions, design, integrity/indexes/transactions, independent trial), data engineering 1-3 (pipelines/ETL/ELT/idempotency, Python+SQL, independent trial). 198 challenges over 126 objectives (72 objectives have 2+ variants), 34 contexts, 8 independent challenges, 33 skills in 10 categories.
+
 ## Security model (what is and isn't guaranteed)
 Player code is untrusted and runs only inside a Web Worker running WebAssembly CPython:
 - No DOM, no `localStorage`/`document.cookie` (workers don't have them), no host filesystem or OS access (Emscripten virtual FS only), no subprocess/socket access from Python itself.
@@ -102,15 +146,15 @@ Player code is untrusted and runs only inside a Web Worker running WebAssembly C
 - `harness.py` is trusted code and runs inside the same interpreter as the player's code: player code can in principle tamper with the harness's globals. Acceptable under the threat model above.
 
 ## Save data
-`core/save.ts`, version **2**. Contains player profile, stats (xp, coins, focus), inventory, quests, achievements, unlocked areas, lesson progress, challenge progress (attempts, runs, hints, time, draft code, XP already awarded), one-off flags, and the full evidence log. Level is derived from XP, not stored. Migrations are a table keyed by "from version"; v1 (Phase 0 shell, no player data) → fresh v2. A save that can't be read (corrupt or from a *newer* version) is copied to `codequest.save.backup` and never silently destroyed; the UI shows a notice.
+`core/save.ts`, version **3** (Phase 2 added evidence fields; migration 2->3, and v1 -> fresh). Contains player profile, stats (xp, coins, focus), inventory, quests, achievements, unlocked areas, lesson progress, challenge progress (attempts, runs, hints, time, draft code, XP already awarded), one-off flags, and the full evidence log. Level is derived from XP, not stored. Migrations are a table keyed by "from version"; v1 (Phase 0 shell, no player data) → fresh; v2 → v3 adds evidence fields without losing progress (tested). A save that can't be read (corrupt or from a *newer* version) is copied to `codequest.save.backup` and never silently destroyed; the UI shows a notice.
 
 ## UI
-`App.tsx` holds a `route` (map | area | lesson) and an optional journal panel; there are no URL routes. Screens: Title (character creation), WorldMap, Academy (mentor + intro dialogue + quest board + rest), TrainingGrounds (robot + lesson list), Library (notebook + training log), Shop, Locked/future areas, LessonScreen (steps). The journal (Hud buttons) has quests, pack, skills, trophies, menu (export/import/reset). Toasts/level-up overlay are driven by `GameEvent`s returned from actions. `prefers-reduced-motion` is honoured. Layout is responsive (single column under 900px).
+`App.tsx` holds a `route` (map | area | lesson) and an optional journal panel; there are no URL routes. Screens: Title (character creation), WorldMap, Academy (mentor + intro dialogue + quest board + rest), TrainingGrounds (robot + Python lessons + Practice Yard), TrackArea (Database District with SQL Sandbox; Data Pipeline Works), Library (notebook, Field Manual, training log), Shop, Locked/future areas, LessonScreen (steps). The journal (Hud buttons) has quests, pack, skills, trophies, menu (export/import/reset). Toasts/level-up overlay are driven by `GameEvent`s returned from actions. `prefers-reduced-motion` is honoured. Layout is responsive (single column under 900px).
 
 ## Testing layers
-1. **Unit** (Vitest): save/migrations, progression, mastery, actions (XP, unlocks, evidence, shop, reset).
-2. **Content in real Python** (Vitest + Pyodide in Node): every challenge's starter fails, every reference solution passes, every wrong attempt fails, hints don't contain solutions, demos run, structure/mode rules, mastery requirements achievable.
-3. **End-to-end** (`npm run e2e`): the built game in Chromium: character creation, mentor, map/locks, lessons, real Python errors, hints/evidence, infinite-loop handling, focus/rest, shop, save/load/export/reset, corrupt saves, a full playthrough of all lessons plus the independent trial, and a phone-width overflow check. Screenshots are written to `e2e/screenshots/`.
+1. **Unit** (Vitest): save/migrations (incl. 2->3 and corrupt saves), progression, mastery, selection/retry, backfill, actions (XP, unlocks, quests, achievements, evidence, shop, reset).
+2. **Content in real Python and real SQLite** (Vitest + Pyodide in Node): every challenge's starter fails, every reference solution passes, every wrong attempt fails, hints don't contain solutions, demos run, structure/mode rules, mastery requirements achievable.
+3. **End-to-end** (`npm run e2e`): the built game in Chromium (Phase 2 adds SQL lesson flow, failing -> different-problem retry with evidence, Field Manual lookup, sandbox persistence/reset, the pipeline lesson, phone layout): character creation, mentor, map/locks, lessons, real Python errors, hints/evidence, infinite-loop handling, focus/rest, shop, save/load/export/reset, corrupt saves, a full playthrough of all lessons plus the independent trial, and a phone-width overflow check. Screenshots are written to `e2e/screenshots/`.
 
 ## Known open questions
 - Exploration model (UI-driven now; canvas later if movement-based exploration is wanted).

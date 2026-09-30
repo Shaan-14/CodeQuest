@@ -2,18 +2,22 @@
 
 A long-term, browser-based educational RPG that builds **independent technical problem-solving**, not just familiarity with syntax. The goal is a player who can face an unfamiliar problem, research it, write and test code from a blank file, debug it, and ship original projects, without an AI supplying the answer.
 
-## Learning areas (planned)
-Programming fundamentals · Python · SQL & databases · JavaScript · HTML/CSS · data analysis & statistics · R · APIs · Excel · Git/GitHub · debugging · testing & verification · research · multi-technology projects.
+## Learning areas
+Programming fundamentals · Python · SQL & databases · data engineering (built) · JavaScript · HTML/CSS · data analysis & statistics · R · APIs · Excel · Git/GitHub · debugging · testing & verification · research · multi-technology projects.
 
 The world is an RPG with baseball as an occasional theme; examples span engineering, manufacturing, business, finance, science, data, automation and games.
 
-## What exists today (Phase 1)
-A playable beginner experience:
-- **RPG world**: Bytehaven Academy (Mentor Juno, quest board, rest), Training Grounds (the broken robot Bolt-7), Great Library (notebook + honest "Training Log"), Shop, and locked future areas (Data Center, Web Workshop, Analytics Observatory, The Summit).
-- **Character**: name, avatar, level, XP, Focus (health-like resource), coins, inventory, quest log, achievements, saved in your browser.
-- **Python from zero**, taught in 14 short lessons through the quest **“Wake the Training Robot”**: print, errors and debugging, variables, strings, numbers and operators, input and conversion, booleans and comparisons, if/elif/else, while, for/range, functions, and a final control program. Each lesson: explain → run a demo → guided practice → challenges with less help. Ends with an **Independent Trial**: a problem with no hints, no starter code and no named tools.
-- **Real Python** runs in your browser (Pyodide/WebAssembly in a Web Worker), with real output and real error messages. Challenges are graded by **running your code against tests** (including hidden edge cases), not by matching text.
-- **Progressive hints** that cost reward and are recorded, and **evidence-based mastery**: XP and levels are just progress; skills are only marked “demonstrated” after independent, hint-free solves across several challenges.
+## What exists today (Phase 2)
+**Phase 1 (beginner Python)** is intact: Bytehaven Academy, the Training Grounds, Bolt-7 and 14 lessons from “print” to functions, ending in an Independent Trial.
+
+**Phase 2 adds intermediate Python, SQL, databases and data engineering** (43 lessons, 198 challenges, 33 skills):
+- **Retry that teaches**: each learning objective has several authored **variants** (same idea and difficulty, different context and data). Fail, and you are offered a *different* problem; the failed attempt stays in your record. A **Practice Yard** and explainable recommendations (fresh problem after a failure, less support after a guided solve, harder after consistent independent success, an old concept in a new context) choose what to practise.
+- **Intermediate Python** (lessons 15-26): lists, tuples, dicts, sets, slicing, sorting/filtering/aggregation, records, function design, debugging, files/CSV/JSON, cleaning and validating data, the standard library and documentation, writing tests, classes/composition/inheritance, multi-concept projects, and an independent trial.
+- **The Database District** (SQL, real SQLite in your browser): SELECT/WHERE/ORDER BY/LIMIT, NULL, aggregates, GROUP BY/HAVING, joins, CASE, INSERT/UPDATE/DELETE, subqueries/CTEs, window functions, schema design, normalisation, constraints, indexes, transactions and a trial. Queries are graded by **result or resulting database state on visible and hidden data**, never by comparing text; designs are judged structurally. A persistent **SQL Sandbox** lets you experiment (and reset).
+- **The Data Pipeline Works**: ingest, validate, clean, load, ETL vs ELT, idempotent loads, isolating bad rows, and combining Python with SQL (`sqlite3`, parameterised queries, analysis in Python), plus an independent trial.
+- **Field Manual and the 10-step method**: searchable documentation and a process for problems you do not know how to solve. Lookups are recorded as research evidence.
+- **Story**: NPCs (Architect Vex, Engineer Ori, Analyst Sana, Dr. Pell) and quests *The Ledger Vault*, *The Database District* and *Keep the Pipeline Running*.
+- **Honest evidence**: mastery per skill is categorical and computed only from demonstrated, independent, varied performance (distinct challenges, objectives and contexts); XP, levels, quests and achievements are pacing only and there is no numeric mastery score.
 
 ## Core ideas
 - **Real code execution.** Behaviour is tested; any valid solution passes.

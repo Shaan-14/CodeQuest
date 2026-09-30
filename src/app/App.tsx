@@ -13,8 +13,11 @@ import { PracticeRun } from './screens/PracticeRun';
 import { Locked } from './screens/Locked';
 import { Shop } from './screens/Shop';
 import { Title } from './screens/Title';
+import { TrackArea } from './screens/TrackArea';
 import { TrainingGrounds } from './screens/TrainingGrounds';
 import { WorldMap } from './screens/WorldMap';
+
+const areaForLesson = (lessonId: string): string => (lessonId.startsWith('sql-') ? 'data-center' : lessonId.startsWith('de-') ? 'pipeline-works' : 'training-grounds');
 
 /** Screens are plain state, not URL routes: the game is a single-page app with one save. */
 type Route = { name: 'map' } | { name: 'area'; id: string } | { name: 'lesson'; id: string } | { name: 'practice' } | { name: 'practice-run'; challengeId: string };
@@ -41,16 +44,19 @@ export function App() {
     );
   }
 
+  const trackProps = { onOpenLesson: (id: string) => setRoute({ name: 'lesson', id }), onPractice: (id: string) => setRoute({ name: 'practice-run', challengeId: id }), onPracticeYard: () => setRoute({ name: 'practice' }) };
   let screen;
   if (route.name === 'map') screen = <WorldMap current={lastArea} onOpen={open} />;
   else if (route.name === 'practice') screen = <Practice onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onBack={() => open('training-grounds')} />;
   else if (route.name === 'practice-run') screen = <PracticeRun challengeId={route.challengeId} onBack={() => setRoute({ name: 'practice' })} onGoAcademy={() => open('academy')} />;
-  else if (route.name === 'lesson') screen = <LessonScreen lessonId={route.id} onExit={() => open('training-grounds')} onGoAcademy={() => open('academy')} />;
+  else if (route.name === 'lesson') screen = <LessonScreen lessonId={route.id} onExit={() => open(areaForLesson(route.id))} onGoAcademy={() => open('academy')} />;
   else {
     const area = areas.find((a) => a.id === route.id)!;
     if (!isAreaUnlocked(area, save)) screen = <Locked area={area} onMap={toMap} />;
     else if (area.id === 'academy') screen = <Academy onGo={(r) => (r === 'map' ? toMap() : open('training-grounds'))} />;
     else if (area.id === 'training-grounds') screen = <TrainingGrounds onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onPracticeYard={() => setRoute({ name: 'practice' })} />;
+    else if (area.id === 'data-center') screen = <TrackArea areaId="data-center" title="🗄️ Database District" theme="data" track="sql" giver="Architect Vex" blurb="Real SQL on real databases: ask questions, change data safely, and design tables that protect themselves." sandbox {...trackProps} />;
+    else if (area.id === 'pipeline-works') screen = <TrackArea areaId="pipeline-works" title="🏭 Data Pipeline Works" theme="pipeline" track="data-eng" giver="Engineer Ori" blurb="Move data from raw files into databases without breaking anything, then combine Python and SQL." {...trackProps} />;
     else if (area.id === 'library') screen = <Library />;
     else if (area.id === 'shop') screen = <Shop />;
     else screen = <Locked area={area} onMap={toMap} />;

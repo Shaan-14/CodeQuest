@@ -27,3 +27,14 @@ export function nextLesson(save: SaveData): Lesson | undefined {
     return s === 'available' || s === 'in-progress';
   });
 }
+
+/** Which part of the world a lesson belongs to. Derived from the id prefix so content needs no extra field. */
+export type Track = 'python' | 'sql' | 'data-eng';
+
+export function trackOf(lesson: Pick<Lesson, 'id'>): Track {
+  if (lesson.id.startsWith('sql-')) return 'sql';
+  if (lesson.id.startsWith('de-')) return 'data-eng';
+  return 'python';
+}
+
+export const isTrial = (lesson: Pick<Lesson, 'id'>): boolean => lesson.id.includes('independent');

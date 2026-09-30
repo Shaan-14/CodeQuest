@@ -31,6 +31,14 @@ Baseball is a recurring *theme* and source of examples, never the limit of the c
 - Be honest in the UI: learning-mode passes are recorded as *guided*, never "independent". Never label XP/level/achievements/quest completion as skill. The shop must never sell answers, hints, or evidence.
 - Never use `innerHTML` for content; never `eval` player code on the main thread.
 
+## Educational design rules added in Phase 2 (keep them)
+- **Variants, not repeats**: every objective that matters has 2+ variants (`objectiveId`) with the same language/skills/concepts/difficulty and DIFFERENT contexts and data. A retry offers a different problem; failures are never erased (evidence keeps `priorFailures`). Success on a retry is never automatic mastery.
+- **Mastery needs variety**: skill requirements ask for independent passes across distinct challenges, objectives AND contexts. `content.test.ts` proves shipped content can satisfy them. Never show a numeric mastery score.
+- **Hidden data**: SQL/Python data checks must run on a hidden twin database (`x-b`) or alternate fixture so hard-coded answers fail. Check `sqlSchema`/`sqlPlan`/`sqlState` for design, performance and DML tasks instead of comparing text.
+- **Every wrong attempt is a test**: for each challenge add plausible misconceptions to the `solutions*.testdata.ts` files; if a wrong attempt passes, the check is weak: strengthen the check, not the wrong attempt.
+- **Docs are practice**: new documentation goes in the Field Manual (`content/reference.ts`) with an executable example; independent challenges may need tools never taught. Never make the Field Manual print a full solution.
+- Sandboxes (SQL Sandbox) never write evidence and never touch the game save.
+
 ## Development guidelines
 - Stack: Vite + TypeScript (strict) + Preact + CodeMirror 6 + Pyodide + Vitest (+ playwright-core for e2e). See ARCHITECTURE.md.
 - Commands: `npm run dev`, `npm run typecheck`, `npm test`, `npm run build`, `npm run e2e` (builds, serves, drives real Chromium; `E2E_ONLY=<substring>` runs matching tests only). All of typecheck, test, build and e2e should pass before finishing a phase.
@@ -38,6 +46,7 @@ Baseball is a recurring *theme* and source of examples, never the limit of the c
 - Game rules go in `src/game/` as **pure functions** returning `{ save, events }`; UI never mutates saves. Curriculum goes in `src/content/` as data. Learning-engine code goes in `src/learning/`.
 - Save data is versioned (`src/core/save.ts`). Any change to saved shape MUST bump `SAVE_VERSION` and add a migration so existing player progress is never lost; add a migration test.
 - Adding a lesson: new file in `src/content/<area>/`, register in `src/content/index.ts`, add reference solutions **and wrong attempts** to `solutions.testdata.ts`; `npm test` validates it in real Python. Update quest objectives/unlock rules in `content/world.ts` if needed.
+- Adding a SQL/data lesson: files in `src/content/sql/` or `src/content/dataeng/`, register in `content/index.ts`, add solutions to `sql/solutions.testdata.ts` or `python/solutions.phase2.testdata.ts`, and add any new database (plus its `-b` hidden twin) to `content/databases/`.
 - Adding a language: a new `CodeRunner` in `src/learning/<lang>/` (see `runner.ts`); do not special-case the UI.
 - Add tests for logic. Keep e2e for behaviour that only a real browser can prove.
 - Match surrounding style; comments explain *why*. Keep dependencies few and justify new ones in ARCHITECTURE.md.

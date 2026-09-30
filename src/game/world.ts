@@ -1,5 +1,5 @@
 import { areas } from '../content/world';
-import type { Area } from '../content/schema';
+import type { Area, Quest } from '../content/schema';
 import type { SaveData } from '../core/save';
 
 export function isAreaUnlocked(area: Area, save: SaveData): boolean {
@@ -29,4 +29,9 @@ export function areaIsFuture(area: Area): boolean {
 /** Ids of areas that are unlocked by the current state. */
 export function unlockedAreaIds(save: SaveData): string[] {
   return areas.filter((a) => isAreaUnlocked(a, save)).map((a) => a.id);
+}
+
+/** A quest is offered once the quest it `requires` (story order) is complete. */
+export function questOffered(quest: Quest, save: SaveData): boolean {
+  return !quest.requires || save.quests[quest.requires]?.status === 'complete';
 }
