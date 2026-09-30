@@ -12,7 +12,7 @@ import { apiConfig, type ApiVariant } from './apiData';
 import { isSandboxOut, type SandboxIn, type SandboxOut } from './protocol';
 
 const START_TIMEOUT_MS = 8000;
-const CHECK_TIMEOUT_MS = 12000;
+const CHECK_TIMEOUT_MS = 8000;
 export const SANDBOX_URL = `${import.meta.env.BASE_URL}web-sandbox.html`;
 
 export interface SandboxEvents {
@@ -112,7 +112,7 @@ function runCheck(files: WebFiles, check: WebCheck): Promise<{ passed: boolean; 
       holder.remove();
       resolve({ passed, message });
     };
-    const timer = setTimeout(() => finish(false, 'The check did not finish in time.'), CHECK_TIMEOUT_MS);
+    const timer = setTimeout(() => finish(false, TIMEOUT_MESSAGE), CHECK_TIMEOUT_MS);
     handle = mountSandbox(holder, files, {
       mode: 'grade',
       api: check.api ?? 'a',
@@ -127,6 +127,8 @@ function runCheck(files: WebFiles, check: WebCheck): Promise<{ passed: boolean; 
   });
 }
 
+const TIMEOUT_MESSAGE = 'The check did not finish in time. Does your page run forever (an endless loop) or wait for something that never happens?';
+
 export const isWebCheck = (c: Check): c is WebCheck => c.kind === 'web';
 
 /** Grade a web project: every check in its own sandbox. `code` is the JSON of the three files. */
@@ -136,6 +138,11 @@ export async function gradeWeb(files: WebFiles, checks: Check[]): Promise<GradeR
     if (!isWebCheck(c)) continue;
     const r = await runCheck(files, c);
     outcomes.push({ name: c.name, passed: r.passed, visible: c.visible !== false, message: r.passed ? '' : c.feedback ? `${r.message} ${c.feedback}`.trim() : r.message });
+    if (!r.passed && r.message === TIMEOUT_MESSAGE) {
+      // A page that hangs will hang every check the same way: report it once instead of waiting once per check.
+      for (const rest of checks.slice(checks.indexOf(c) + 1)) if (isWebCheck(rest)) outcomes.push({ name: rest.name, passed: false, visible: rest.visible !== false, message: TIMEOUT_MESSAGE });
+      break;
+    }
   }
   return { passed: outcomes.length > 0 && outcomes.every((o) => o.passed), error: '', timedOut: false, checks: outcomes, constraints: [] };
 }

@@ -806,7 +806,7 @@ async function main() {
         'try { new XMLHttpRequest(); console.log("xhr:open"); } catch (e) { console.log("xhr:blocked"); }',
       ].join('\n') });
       await run(page);
-      await page.waitForFunction(() => document.body.innerText.includes('network:'), null, { timeout: 15000 });
+      await page.locator('[data-testid=console]').filter({ hasText: 'network:' }).waitFor({ timeout: 15000 });
       const out = await tid(page, 'console').innerText();
       assert(out.includes('parent-blocked:SecurityError'), 'the page cannot read the game: ' + out);
       assert(out.includes('save:null'), 'the page cannot see the game save: ' + out);
@@ -816,6 +816,25 @@ async function main() {
       const attr = await page.locator('[data-testid=web-preview] iframe').getAttribute('sandbox');
       assert(attr.includes('allow-scripts') && !attr.includes('allow-same-origin'), 'iframe sandbox attribute: ' + attr);
       assert((await readSave(page)).player.name === 'Tester', 'the game save is intact');
+      await page.context().close();
+    });
+
+    await test('Web page with an endless loop: the game stays responsive and grading ends with an explanation', async () => {
+      const page = await newPage();
+      await startGame(page);
+      await seed(page, [...PY_EARLY, ...WEB_PREREQ.slice(0, 14)]);
+      await gotoArea(page, 'web-district');
+      await openLesson(page, 'web-15-js-basics');
+      await advanceToChallenge(page);
+      await tid(page, 'web-tab-js').click();
+      await setCode(page, 'while (true) {}');
+      await tid(page, 'run').click();
+      await page.waitForTimeout(1200);
+      const alive = await Promise.race([page.evaluate(() => 40 + 2), new Promise((r) => setTimeout(() => r('frozen'), 5000))]);
+      eq(alive, 42, 'the game page is still responsive while the sandboxed page loops');
+      await tid(page, 'submit').click();
+      await tid(page, 'result').waitFor({ timeout: 40000 });
+      assert(await page.locator('.result.fail').count() === 1, 'it does not pass');
       await page.context().close();
     });
 
