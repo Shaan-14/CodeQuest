@@ -19,6 +19,8 @@ export interface BuildCtx {
   reduced: boolean;
   /** Change the light of the whole place: 0 = as authored, 1 = dawn (the Summit finale). */
   mood: (k: number) => void;
+  /** Take the camera to a fixed viewpoint for a moment (null returns it to the player). */
+  cinema: (v: { x: number; z: number; y?: number; yaw: number; pitch: number; dist: number } | null) => void;
 }
 
 /** A thing in the world whose look depends on what the player has done. */

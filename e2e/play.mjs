@@ -29,18 +29,18 @@ let passed = 0; const failures = [];
 async function test(name, fn) {
   if (process.env.E2E_ONLY && !process.env.E2E_ONLY.split('|').some((k) => name.includes(k))) return;
   const t = Date.now();
-  try { await fn(); passed++; console.log(`  ✓ ${name} (${Date.now() - t}ms)`); } catch (e) { failures.push(name); console.log(`  ✗ ${name}\n      ${String(e.message).split('\n').slice(0, 5).join('\n      ')}`); }
+  try { await fn(); passed++; console.log(`  ✓ ${name} (${Date.now() - t}ms)`); } catch (e) { failures.push(name); try { await lastPage?.screenshot({ path: SHOTS + 'play-FAILED.png' }); } catch { /* page already closed */ } console.log(`  ✗ ${name}\n      ${String(e.message).split('\n').slice(0, 5).join('\n      ')}`); }
 }
-let browser;
+let browser; let lastPage = null;
 const tid = (p, id) => p.getByTestId(id);
 
 /** A new player in the 3D world. */
 async function newGame(opts = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: opts.reduced ? 'reduce' : 'no-preference' });
   const page = await ctx.newPage();
-  page.errors = [];
+  page.errors = []; lastPage = page;
   page.on('pageerror', (e) => page.errors.push(String(e)));
-  page.on('console', (m) => m.type() === 'error' && page.errors.push(m.text()));
+  page.on('console', (m) => { if (m.type() === 'error') page.errors.push(m.text()); if (process.env.E2E_DEBUG && m.text().startsWith('DBG')) console.log('   ', m.text()); });
   await page.addInitScript(() => localStorage.setItem('codequest.e2e', '1'));
   if (opts.save) await page.addInitScript((s) => { if (!localStorage.getItem('codequest.save')) localStorage.setItem('codequest.save', s); }, opts.save);
   await page.goto(BASE);
@@ -85,6 +85,44 @@ async function playLesson(p) {
     await tid(p, 'continue').click();
   }
   throw new Error('lesson did not finish');
+}
+
+
+async function setCode(p, code) { await p.locator('.cm-content').first().click(); await p.keyboard.press('Control+A'); if (code === '') await p.keyboard.press('Delete'); else await p.keyboard.insertText(code); }
+/** Writes completed lessons into the real save and reloads (fast route to later steps). */
+async function seedLessons(p, ids) {
+  await p.evaluate((ids) => { const s = JSON.parse(localStorage.getItem('codequest.save')); for (const id of ids) s.learning.lessons[id] = { stepIndex: 99, completed: true }; localStorage.setItem('codequest.save', JSON.stringify(s)); }, ids);
+  await p.reload();
+  await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+}
+async function advanceToChallengeId(p, id) {
+  for (let i = 0; i < 14; i++) {
+    const kind = await stepKind(p, i);
+    if (kind === 'challenge') {
+      const cid = await tid(p, 'briefing').getAttribute('data-challenge');
+      if (cid === id) return;
+      await setCode(p, solutions[cid].valid[0]); await tid(p, 'submit').click(); await p.locator('.result.pass').waitFor({ timeout: 30000 });
+    } else if (kind === 'demo') { await tid(p, 'run').click(); await p.locator('[data-testid=stdout], [data-testid=stderr]').first().waitFor({ timeout: 30000 }); }
+    await tid(p, 'continue').click();
+  }
+  throw new Error('challenge ' + id + ' not reached');
+}
+/** Plays a whole training plan with the reference solutions until the completion panel appears. */
+async function playTraining(p) {
+  for (let guard = 0; guard < 120; guard++) {
+    if (await tid(p, 'training-complete').count()) return;
+    if (await tid(p, 'training-predict').count()) { for (let i = 0; i < 4 && !(await tid(p, 'predict-right').count()); i++) await tid(p, `predict-${i}`).click(); await tid(p, 'training-read').click(); continue; }
+    if (await tid(p, 'training-read').count()) { await tid(p, 'training-read').click(); continue; }
+    if (await tid(p, 'training-start-step').count()) await tid(p, 'training-start-step').click();
+    await tid(p, 'briefing').waitFor({ timeout: 15000 });
+    const cid = await tid(p, 'briefing').getAttribute('data-challenge');
+    await setCode(p, solutions[cid].valid[0]);
+    await tid(p, 'submit').click();
+    await tid(p, 'result').or(tid(p, 'training-intro')).or(tid(p, 'training-read')).or(tid(p, 'training-complete')).first().waitFor({ timeout: 60000 });
+    if (await tid(p, 'result').count() && await p.locator('.result.fail').count()) throw new Error('the reference solution for ' + cid + ' failed in training');
+    await p.waitForTimeout(150);
+  }
+  throw new Error('training did not finish');
 }
 
 async function main() {
@@ -149,6 +187,53 @@ async function main() {
       await p.reload();
       await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
       assert((await p.evaluate(() => window.__cq3d.dynStates('bolt'))).includes('eyes'), 'the repair persists across a reload');
+      await p.context().close();
+    });
+
+    await test('Failure: wrong code makes the robot malfunction, costs Focus, sends the player to the Simulation Room; training returns them to the same console with a NEW problem, and the fix then works', async () => {
+      const p = await newGame();
+      await go(p, 'maintenance-bay');
+      await seedLessons(p, ['py-01-first-program', 'py-02-fixing-errors', 'py-03-variables', 'py-04-strings']);
+      await go(p, 'maintenance-bay');
+      await tp(p, 1.5, -5.4, 0);
+      await interact(p, 'bolt-console');
+      await tid(p, 'terminal-next').click();
+      await tid(p, 'lesson').waitFor();
+      await advanceToChallengeId(p, 'py-05-crates');
+      const first = await tid(p, 'briefing').getAttribute('data-challenge');
+      await setCode(p, 'print("nope")');
+      await tid(p, 'submit').click();
+      await tid(p, 'result').waitFor({ timeout: 30000 });
+      assert((await tid(p, 'focus').innerText()).includes('50/100'), 'Focus dropped');
+      // the world says what happened out there, even with the terminal open
+      assert((await tid(p, 'terminal-world-note').innerText()).includes('Bolt-7'), 'the consequence is named inside the terminal');
+      await tid(p, 'terminal-look').click();
+      await tid(p, 'play-terminal').waitFor({ state: 'detached' });
+      assert((await tid(p, 'play-caption').innerText()).includes('convulses'), 'the world shows the consequence: ' + await tid(p, 'play-caption').innerText());
+      await p.screenshot({ path: SHOTS + 'play-04-malfunction.png' });
+      assert(!(await p.evaluate(() => window.__cq3d.dynStates('bolt'))).includes('servo'), 'a failure repairs nothing');
+      // the Mentor's single button leads to the Simulation Room
+      await tp(p, 1.5, -5.4, 0);
+      await interact(p, 'bolt-console');
+      await tid(p, 'terminal-blocked').waitFor();
+      await tid(p, 'go-training').click();
+      await tid(p, 'play-training').waitFor();
+      eq((await st(p)).scene, 'sim-room', 'the player is in the Simulation Room');
+      await tid(p, 'start-training').click();
+      await tid(p, 'training-run').waitFor();
+      await playTraining(p);
+      await tid(p, 'focus-restored').waitFor();
+      assert((await tid(p, 'focus').innerText()).includes('100/100'), 'Focus is back');
+      await tid(p, 'training-return-btn').click();
+      // back at the same console, same lesson, a DIFFERENT problem
+      await tid(p, 'play-terminal').waitFor();
+      eq((await st(p)).scene, 'maintenance-bay', 'returned to the bay');
+      await tid(p, 'lesson').waitFor();
+      const second = await tid(p, 'briefing').getAttribute('data-challenge');
+      assert(second !== first, 'a new variant: ' + first + ' -> ' + second);
+      await setCode(p, solutions[second].valid[0]);
+      await tid(p, 'submit').click();
+      await p.locator('.result.pass').waitFor({ timeout: 30000 });
       await p.context().close();
     });
   } finally { await browser.close(); server.kill(); }

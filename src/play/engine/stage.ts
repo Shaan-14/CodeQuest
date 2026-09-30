@@ -7,7 +7,7 @@
  * terminal/dialogue covers the view or the tab is hidden, and every scene's GPU resources are released when the player leaves it.
  */
 import {
-  type Object3D, AmbientLight, Box3, Ray, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
+  BackSide, BufferAttribute, SphereGeometry, type Object3D, AmbientLight, Box3, Ray, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
 } from 'three';
 import type { SaveData } from '../../core/save';
 import type { GameEvent } from '../../game/events';
@@ -89,6 +89,7 @@ export class Stage {
   private camPos = new Vector3(); private camLook = new Vector3();
   private raf = 0; private last = 0; private running = false; private t = 0;
   private stepClock = 0; private posClock = 0; private shake = 0;
+  private sky: Mesh;
   private hemi: HemisphereLight; private sun: DirectionalLight; private amb: AmbientLight;
   private onResize: () => void;
   private resizeObs: ResizeObserver | null = null;
@@ -126,13 +127,17 @@ export class Stage {
     this.sun.castShadow = env.quality === 'high';
     this.sun.shadow.mapSize.set(1024, 1024);
     this.scene.add(this.hemi, this.amb, this.sun, this.sun.target, this.world);
+    // a gradient sky dome (zenith colour above, horizon colour below) that follows the camera: there is always a sky to look at
+    const skyGeo = new SphereGeometry(120, 18, 12); skyGeo.setAttribute('color', new BufferAttribute(new Float32Array(skyGeo.getAttribute('position').count * 3), 3));
+    this.sky = new Mesh(skyGeo, new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false }));
+    this.sky.renderOrder = -10; this.sky.frustumCulled = false; this.scene.add(this.sky);
     this.fx = new Fx(this.scene);
     this.fx.density = env.reducedMotion ? 0.35 : env.quality === 'low' ? 0.5 : 1;
     this.tweens.instant = env.reducedMotion;
     this.input = new Input(host);
     this.playerRig = createRig({ ...env.playerLook, hat: 'none' });
     this.scene.add(this.playerRig.group);
-    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced, mood: (k) => this.setMood(k) };
+    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced, mood: (k) => this.setMood(k), cinema: (v) => this.setCinema(v) };
     this.onResize = () => this.resize();
     if (typeof ResizeObserver !== 'undefined') { this.resizeObs = new ResizeObserver(this.onResize); this.resizeObs.observe(host); }
     window.addEventListener('resize', this.onResize);
@@ -158,6 +163,7 @@ export class Stage {
     const look = def.look;
     this.scene.background = new Color(look.sky);
     this.scene.fog = new Fog(look.fog, look.fogNear ?? 28, look.fogFar ?? 75);
+    this.paintSky(new Color(look.sky).multiplyScalar(look.night ? 0.7 : 1.15), new Color(look.fog));
     this.hemi.color.setHex(look.sky === 0 ? 0x88aaff : 0xbcd2ff); this.hemi.groundColor.setHex(look.ground);
     this.hemi.intensity = look.night ? 0.55 : 0.95; this.amb.intensity = look.ambient ?? 0.25;
     this.sun.intensity = look.sun ?? (look.night ? 0.45 : 1.1);
@@ -174,7 +180,8 @@ export class Stage {
       const make = builders[p.kind];
       if (!make) { console.warn('unknown prop kind', p.kind); continue; }
       const built = make(p, this.ctx);
-      built.object.position.set(p.x, p.y ?? 0, p.z);
+      // offset (not overwrite): a builder may return a mesh that is already lifted by half its height
+      built.object.position.x += p.x; built.object.position.y += p.y ?? 0; built.object.position.z += p.z;
       built.object.rotation.y = p.ry ?? 0;
       this.world.add(built.object);
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
@@ -267,9 +274,17 @@ export class Stage {
 
   private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.colliders = this.colliders.filter((x) => x !== c); this.propColliders.delete(prop); } }
 
+  /** Paint the sky dome: `zenith` at the top blending to `horizon` at eye level. */
+  private paintSky(zenith: Color, horizon: Color): void {
+    const geo = this.sky.geometry, pos = geo.getAttribute('position'), col = geo.getAttribute('color') as BufferAttribute; const c = new Color();
+    for (let i = 0; i < pos.count; i++) { const k = Math.max(0, Math.min(1, pos.getY(i) / 100)); c.copy(horizon).lerp(zenith, Math.pow(k, 0.7)); col.setXYZ(i, c.r, c.g, c.b); }
+    col.needsUpdate = true;
+  }
+
   /** Blend the light of the place toward dawn (0..1). Used by the Summit finale: the outage ends and the sky brightens. */
   setMood(k: number): void {
     const look = this.def?.look; if (!look) return;
+    this.paintSky(new Color(look.sky).lerp(new Color(0x5a8fd8), k * 0.8), new Color(look.fog).lerp(new Color(0xffc58a), k));
     const mix = (a: number, b: number) => new Color(a).lerp(new Color(b), k);
     (this.scene.background as Color).copy(mix(look.sky, 0xffc58a));
     if (this.scene.fog) (this.scene.fog as Fog).color.copy(mix(look.fog, 0xffd9b0));
@@ -328,6 +343,7 @@ export class Stage {
     this.camPos.x += (ex - this.camPos.x) * k; this.camPos.y += (ey - this.camPos.y) * k; this.camPos.z += (ez - this.camPos.z) * k;
     this.camLook.x += (b.x - this.camLook.x) * k; this.camLook.y += (cy - this.camLook.y) * k; this.camLook.z += (b.z - this.camLook.z) * k;
     this.camera.position.copy(this.camPos);
+    this.sky.position.copy(this.camPos);
     for (const w of this.walls) w.obj.visible = (w.nx * (this.camPos.x - w.px) + w.nz * (this.camPos.z - w.pz)) * w.inside > -0.5;
     const bd2 = this.def?.bounds;
     const outside = !!bd2 && (this.camPos.x < bd2.minX || this.camPos.x > bd2.maxX || this.camPos.z < bd2.minZ || this.camPos.z > bd2.maxZ);
@@ -434,6 +450,7 @@ export class Stage {
   dispose(): void {
     this.suspend();
     this.unload();
+    this.scene.remove(this.sky); this.sky.geometry.dispose(); (this.sky.material as MeshBasicMaterial).dispose();
     this.fx.dispose(); this.audio.dispose(); this.input.dispose();
     this.resizeObs?.disconnect(); window.removeEventListener('resize', this.onResize); document.removeEventListener('visibilitychange', this.onVisibility);
     this.renderer.dispose(); this.renderer.forceContextLoss();

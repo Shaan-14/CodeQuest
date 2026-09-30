@@ -88,6 +88,10 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
   const [sim, setSim] = useState(false);
   const [boss, setBoss] = useState<{ start: string | null } | null>(null);
   const [finale, setFinale] = useState(false);
+  const [termNote, setTermNote] = useState('');
+  const [termStart, setTermStart] = useState<string | null>(null);
+  const terminalRef = useRef<string | null>(null);
+  terminalRef.current = terminal;
   const finalePending = useRef(false);
   const [hud, setHud] = useState<DriveHudState | null>(null);
   const [driving, setDriving] = useState(false);
@@ -166,7 +170,14 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
 
   // ---- the world reacts to what the learning engine says happened
   useEffect(() => {
-    const off = getStore().onEvent((e) => { if (e.type === 'campaignComplete') finalePending.current = true; if (overlayOpen.current) pending.current.push(e); else stageRef.current?.react([e]); });
+    const off = getStore().onEvent((e) => {
+      if (e.type === 'campaignComplete') finalePending.current = true;
+      // while a terminal is open the world is hidden behind it: say what the code just did out there
+      if (terminalRef.current) {
+        const def = stageRef.current?.def;
+        if (e.type === 'challengeFailed') { const station = stationOfChallenge(e.challengeId); const c = def?.consequences?.find((x) => x.station === station && x.say); if (c) setTermNote(c.say); }
+        if (e.type === 'worldEffect') { const r = def?.reactions?.find((x) => x.effect === `${e.target}:${e.action}` && x.say); if (r?.say) setTermNote(r.say); }
+      } if (overlayOpen.current) pending.current.push(e); else stageRef.current?.react([e]); });
     return off;
   }, []);
   // any save change (a quest accepted, a lesson done) refreshes what the world offers
@@ -201,7 +212,7 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
         st.apply(recordSeen(st.save, a.id));
         break;
       }
-      case 'terminal': setTerminal(a.station); break;
+      case 'terminal': setTermNote(''); setTermStart(null); setTerminal(a.station); break;
       case 'exit': {
         const exit = stageRef.current?.def?.exits.find((e) => `exit:${e.id}` === it.id);
         const check = exit ? canUseExit(st.save, exit) : { ok: true, reason: '' };
@@ -262,7 +273,7 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
   const returnFromTraining = (r: ReturnPoint) => {
     setTraining(false);
     const station = r.kind === 'lesson' && r.lessonId ? stationOfLesson(r.lessonId) : undefined;
-    if (station) { travel(station.scene); setTerminal(station.id); return; }
+    if (station) { travel(station.scene); setTermNote(''); setTermStart(r.lessonId ?? null); setTerminal(station.id); return; }
     if (r.kind === 'boss') { travel('summit'); setBoss({ start: r.bossId ?? null }); return; }
     if (r.kind === 'lesson' && r.lessonId && onLeaveToLesson) { onLeaveToLesson(r.lessonId); return; }
   };
@@ -304,7 +315,7 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
           {sim && stageRef.current && <SimOverlay stage={stageRef.current} onClose={() => setSim(false)} />}
           {training && <TrainingOverlay onClose={() => setTraining(false)} onReturn={returnFromTraining} />}
           {mapOpen && <MapOverlay sceneId={sceneId} onClose={() => setMapOpen(false)} onTravel={(to, spawn) => { setMapOpen(false); travel(to, spawn); }} />}
-          {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} onClose={() => setTerminal(null)} onGoTraining={goTraining} />}
+          {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} note={termNote} start={termStart} onClose={() => setTerminal(null)} onGoTraining={goTraining} />}
           {paused && <PauseMenu onResume={() => setPaused(false)} onClassic={onClassic} stage={stageRef.current} />}
         </div>
       )}

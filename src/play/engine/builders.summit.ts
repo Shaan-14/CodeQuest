@@ -22,7 +22,7 @@ const beacon: Builder = (p, ctx) => {
       if (s === 'light' && !lit) light(instant);
       if (s === 'ignite' && !lit) {
         light(instant);
-        if (!instant) { fire = 7; ctx.audio.sfx('cheer'); ctx.tweens.add(6, (k) => ctx.mood(k), { ease: ease.inOut }); ctx.say('The great beacon ignites. A column of light climbs into the sky and the dark lifts from every district of Bytehaven.'); }
+        if (!instant) { fire = 7; ctx.audio.sfx('cheer'); ctx.cinema({ x: p.x, z: p.z + 6, y: 10, yaw: 0, pitch: 0.18, dist: 44 }); ctx.tweens.after(8, () => ctx.cinema(null)); ctx.tweens.add(6, (k) => ctx.mood(k), { ease: ease.inOut }); ctx.say('The great beacon ignites. A column of light climbs into the sky and the dark lifts from every district of Bytehaven.'); }
         else ctx.mood(1);
       }
     },

@@ -21,9 +21,9 @@ export function nextModule(station: Station, isDone: (id: string) => boolean): s
  * A terminal in the world. It opens the REAL lesson (explanation, demo, guided practice, graded challenges) in a real editor. Closing it puts
  * the player back in the world, where the consequences of what they wrote play out.
  */
-export function TerminalOverlay({ station, onClose, onGoTraining }: { station: Station; onClose: () => void; onGoTraining: () => void }) {
+export function TerminalOverlay({ station, onClose, onGoTraining, note, start }: { station: Station; /** Open this lesson straight away (returning from training to the exact place). */ start?: string | null; onClose: () => void; onGoTraining: () => void; /** What just happened out in the world because of the player's code (a failure's consequence, a success). */ note?: string }) {
   const { save } = useGame();
-  const [lessonId, setLessonId] = useState<string | null>(null);
+  const [lessonId, setLessonId] = useState<string | null>(start ?? null);
   const blocker = requiredTraining(save);
   const done = (id: string) => !!save.learning.lessons[id]?.completed;
   const next = nextModule(station, done);
@@ -34,7 +34,8 @@ export function TerminalOverlay({ station, onClose, onGoTraining }: { station: S
         {lessonId && <button class="btn small" onClick={() => setLessonId(null)} data-testid="terminal-modules">Modules</button>}
         <button class="btn small gold" onClick={onClose} data-testid="terminal-close">Leave terminal</button>
       </div>
-      <div class="term-body">
+      {note ? <div key="note" class="pill" role="status" data-testid="terminal-world-note" style={{ margin: '.5rem 1rem 0', display: 'flex', gap: '.6rem', alignItems: 'center' }}><span>🌍 {note}</span><button class="btn small" onClick={onClose} data-testid="terminal-look">Go and look</button></div> : null}
+      <div class="term-body" key="body">
         {lessonId ? (
           <Suspense fallback={<p class="muted">Loading…</p>}>
             <LessonScreen lessonId={lessonId} onExit={() => setLessonId(null)} onGoAcademy={onClose} onGoTraining={onGoTraining} onOpenLesson={(id) => setLessonId(id)} />
