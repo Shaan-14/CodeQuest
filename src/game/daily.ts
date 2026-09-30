@@ -7,10 +7,11 @@
  *  - a solve pays coins/XP/Focus and is recorded as ordinary independent EVIDENCE: it never marks a skill mastered.
  */
 import { getAnyChallenge, getSkill } from '../content';
-import { objectiveOf } from '../content/helpers';
 import { DAILY_HISTORY_LIMIT, MAX_FOCUS, type DailyRecord, type SaveData } from '../core/save';
-import { supportFor, type EvidenceRecord } from '../learning/mastery';
-import { draft, failuresSinceLastPass, gain, settle, type Result } from './actions';
+import type { FailureDetail } from '../learning/mastery';
+import { buildEvidence } from './evidence';
+import { applyDiagnosis, resolveOnPass } from './weakness';
+import { draft, gain, settle, type Result } from './actions';
 import { pickDaily } from './dailySelect';
 
 export const DAILY_PERIOD_MS = 12 * 3600 * 1000;
@@ -96,7 +97,7 @@ export function canSubmitDaily(save: SaveData, nowMs: number): boolean {
  * The single graded submission. A second call, a call after expiry, or a call with nothing on offer changes nothing
  * (that is the "no retries" rule, enforced here and not only in the UI).
  */
-export function submitDaily(save: SaveData, nowMs: number, passed: boolean, timeMs: number): Result {
+export function submitDaily(save: SaveData, nowMs: number, passed: boolean, timeMs: number, detail?: FailureDetail): Result {
   const { s, events } = draft(save);
   const cur = s.daily.current;
   if (!cur || !canSubmitDaily(s, nowMs)) return { save: s, events };
@@ -105,26 +106,7 @@ export function submitDaily(save: SaveData, nowMs: number, passed: boolean, time
   const now = effectiveNow(s, nowMs);
   s.daily.lastSeenAt = new Date(now).toISOString();
 
-  const objectiveId = objectiveOf(c);
-  const record: EvidenceRecord = {
-    at: new Date(now).toISOString(),
-    challengeId: c.id,
-    objectiveId,
-    context: c.context ?? '',
-    lookups: 0,
-    priorFailures: failuresSinceLastPass(s, objectiveId),
-    project: !!c.project,
-    skillIds: c.skillIds,
-    concepts: c.concepts,
-    mode: 'independent',
-    difficulty: c.difficulty,
-    passed,
-    support: supportFor('independent', 0, c.transfer),
-    hintsUsed: 0,
-    attemptNumber: 1,
-    timeMs,
-    executed: true,
-  };
+  const record = buildEvidence(s, c, { passed, at: new Date(now).toISOString(), timeMs, hintsUsed: 0, lookups: 0, attemptNumber: 1, source: 'daily', detail, forceIndependent: true });
   s.evidence.push(record);
 
   cur.attempts = 1;
@@ -150,6 +132,9 @@ export function submitDaily(save: SaveData, nowMs: number, passed: boolean, time
   } else {
     events.push({ type: 'dailyFailed' });
   }
+  // A failed daily can point at something worth training (never a mastery penalty: the record is ordinary evidence).
+  resolveOnPass(s, events, record);
+  applyDiagnosis(s, events, c, record);
   settle(s, events);
   return { save: s, events };
 }

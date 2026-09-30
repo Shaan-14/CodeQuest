@@ -3,6 +3,7 @@ import { getChallenge, getLesson, variantsOf } from '../../content';
 import { objectiveOf } from '../../content/helpers';
 import { hasAlternate, pickVariant } from '../../game/selection';
 import { advanceStep, completeLesson } from '../../game/actions';
+import { lessonBlockedBy } from '../../game/training';
 import { getStore, useGame } from '../../game/store';
 import { ChallengeStepView } from '../components/ChallengeStep';
 import { DemoStepView } from '../components/DemoStep';
@@ -12,6 +13,7 @@ interface Props {
   lessonId: string;
   onExit: () => void;
   onGoAcademy: () => void;
+  onTrain?: (weaknessId: string) => void;
 }
 
 /**
@@ -19,13 +21,16 @@ interface Props {
  * VARIANT of the same objective (same idea, same difficulty, different problem). The step counts as done once
  * ANY variant is passed; every failed attempt on the way stays in the evidence log.
  */
-function ChallengeSlot({ primaryId, onReady, onGoAcademy }: { primaryId: string; onReady: () => void; onGoAcademy: () => void }) {
+function ChallengeSlot({ primaryId, onReady, onGoAcademy, onTrain }: { primaryId: string; onReady: () => void; onGoAcademy: () => void; onTrain?: (weaknessId: string) => void }) {
   const game = useGame();
   const primary = getChallenge(primaryId)!;
   const objectiveId = objectiveOf(primary);
   const variants = variantsOf(objectiveId);
   const [currentId, setCurrentId] = useState(() => {
     const started = variants.find((v) => (game.save.learning.challenges[v.id]?.attempts ?? 0) > 0 && !game.save.learning.challenges[v.id]?.passed);
+    // After training on a weakness this problem exposed, the return challenge is a DIFFERENT problem (transfer, not memory).
+    const trained = game.save.training.weaknesses.find((w) => w.status === 'resolved' && w.exposedBy.objectiveId === objectiveId && variants.some((v) => v.id === w.exposedBy.challengeId));
+    if (trained && variants.length > 1 && !variants.some((v) => game.save.learning.challenges[v.id]?.passed)) return pickVariant(game.save, objectiveId, trained.exposedBy.challengeId)?.id ?? started?.id ?? primaryId;
     return started?.id ?? primaryId;
   });
   const anyPassed = variants.some((v) => game.save.learning.challenges[v.id]?.passed);
@@ -38,13 +43,14 @@ function ChallengeSlot({ primaryId, onReady, onGoAcademy }: { primaryId: string;
       challenge={challenge}
       onReady={onReady}
       onGoAcademy={onGoAcademy}
+      onTrain={onTrain}
       onSwitchVariant={switchVariant}
       variantInfo={{ index: variants.findIndex((v) => v.id === currentId), total: variants.length }}
     />
   );
 }
 
-export function LessonScreen({ lessonId, onExit, onGoAcademy }: Props) {
+export function LessonScreen({ lessonId, onExit, onGoAcademy, onTrain }: Props) {
   const game = useGame();
   const lesson = getLesson(lessonId)!;
   const completed = !!game.save.learning.lessons[lessonId]?.completed;
@@ -52,6 +58,7 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy }: Props) {
   const [ready, setReady] = useState<Record<number, boolean>>({});
   const step = lesson.steps[index]!;
   const last = index === lesson.steps.length - 1;
+  const blocker = lessonBlockedBy(game.save, lessonId);
   const canContinue = step.kind === 'teach' || !!ready[index] || completed;
 
   const go = (i: number) => {
@@ -87,15 +94,19 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy }: Props) {
           </section>
         )}
         {step.kind === 'demo' && <DemoStepView step={step} onReady={markReady} />}
-        {step.kind === 'challenge' && <ChallengeSlot primaryId={step.challengeId} onReady={markReady} onGoAcademy={onGoAcademy} />}
+        {step.kind === 'challenge' && <ChallengeSlot primaryId={step.challengeId} onReady={markReady} onGoAcademy={onGoAcademy} onTrain={onTrain} />}
       </div>
 
+      {blocker && !completed && onTrain && (
+        <div class="callout" data-testid="lesson-blocked">This lesson is waiting for some training on <strong>{blocker.skillIds.join(' + ')}</strong>. Your place is saved: train, then come straight back here.
+          <button class="btn small gold" onClick={() => onTrain(blocker.id)} data-testid="blocked-train">🏋️ Start training</button></div>
+      )}
       <div class="lesson-foot">
         <button class="btn" disabled={index === 0} onClick={() => go(index - 1)} data-testid="back">← Back</button>
         {!last ? (
           <button class="btn primary" disabled={!canContinue} onClick={() => go(index + 1)} data-testid="continue">{canContinue ? 'Continue →' : 'Complete this step to continue'}</button>
         ) : (
-          <button class="btn gold" disabled={!canContinue} onClick={finish} data-testid="finish">{completed ? 'Back' : canContinue ? 'Complete lesson ✔' : 'Solve the challenge to finish'}</button>
+          <button class="btn gold" disabled={!canContinue || (!!blocker && !completed)} onClick={finish} data-testid="finish">{completed ? 'Back' : blocker ? 'Training first, then finish' : canContinue ? 'Complete lesson ✔' : 'Solve the challenge to finish'}</button>
         )}
       </div>
     </main>

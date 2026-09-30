@@ -5,6 +5,9 @@ import type { Track } from '../../game/lessons';
 import { LessonList } from '../components/LessonList';
 import { NpcCards, QuestOffers } from '../components/NpcCards';
 import { Recommendations } from '../components/Recommendations';
+import { TrainingHub } from '../components/TrainingHub';
+import { returnPointFor } from '../../game/returnPoint';
+import { useGame } from '../../game/store';
 import { useState } from 'preact/hooks';
 
 const SqlSandbox = lazy(() => import('../components/SqlSandbox').then((m) => ({ default: m.SqlSandbox })));
@@ -22,10 +25,12 @@ interface Props {
   onOpenLesson: (id: string) => void;
   onPractice: (challengeId: string) => void;
   onPracticeYard: () => void;
+  onOpenPlan: (planId: string) => void;
 }
 
 /** A themed area listing one part of the curriculum, with its NPCs, quest offers and (for SQL) a free-play sandbox. */
 export function TrackArea(p: Props) {
+  const { save } = useGame();
   const [tab, setTab] = useState<'lessons' | 'sandbox'>('lessons');
   useEffect(() => void getRunner().warmUp().catch(() => undefined), []);
   return (
@@ -47,6 +52,7 @@ export function TrackArea(p: Props) {
               <h2>Lessons</h2>
               <button class="btn small" onClick={p.onPracticeYard}>🎯 Practice Yard</button>
             </div>
+            <TrainingHub returnTo={returnPointFor(save)} onOpenPlan={p.onOpenPlan} />
             <Recommendations onPractice={p.onPractice} onOpenLesson={p.onOpenLesson} max={2} />
             <LessonList track={p.track} onOpenLesson={p.onOpenLesson} />
           </>

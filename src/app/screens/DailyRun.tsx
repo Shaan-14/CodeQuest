@@ -14,6 +14,7 @@ import { SchemaBrowser } from '../components/SchemaBrowser';
 import { Workbench } from '../components/Workbench';
 import { WebWorkbench } from '../components/WebWorkbench';
 import { gradeWeb, parseWebFiles } from '../../learning/web/WebRunner';
+import { failureDetailOf } from '../../learning/failure';
 import { GRADE_TIMEOUT_MS, runCode, useRunnerStatus } from '../components/useRunner';
 import { useNow } from '../components/useDailyClock';
 
@@ -71,7 +72,7 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
     }
     setBusy(false);
     const s = getStore();
-    s.apply(submitDaily(s.save, Date.now(), graded.passed, activeMs.current));
+    s.apply(submitDaily(s.save, Date.now(), graded.passed, activeMs.current, failureDetailOf(graded)));
     setOutcome(graded.passed ? 'passed' : 'failed');
   };
 

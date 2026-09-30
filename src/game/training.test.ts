@@ -236,6 +236,8 @@ describe('training is a detour, not a step backwards', () => {
     for (let i = 0; i < 5; i++) s = fail(s, a!.id, detail(4, 4));
     expect(lessonBlockedBy(s, 'py-05-numbers')?.severity).toBe('major');
     expect(lessonBlockedBy(s, 'py-04-strings')).toBeUndefined();
+    expect(A.completeLesson(s, 'py-05-numbers').save.learning.lessons['py-05-numbers']?.completed).toBeFalsy(); // held until training
+    expect(A.completeLesson(s, 'py-04-strings').save.learning.lessons['py-04-strings']?.completed).toBe(true);
   });
   it('abandoning training re-opens the weakness and keeps it on record', () => {
     let s = withMastery(atLesson5(), 'py.numbers');

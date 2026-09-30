@@ -24,3 +24,12 @@ export function noteFor(skillId: string): TrainingNote {
   if (lesson) return { skillId, title: lesson.reference.title, body: lesson.reference.body, example: lesson.reference.example, pitfalls: [] };
   return { skillId, title: skill?.title ?? skillId, body: `Review the idea behind ${skill?.title ?? skillId}: what problem it solves, then how you wrote it the last time it worked for you.`, pitfalls: [] };
 }
+
+import type { DemoStep } from './schema';
+
+/** A runnable worked example for a skill: the first non-error demo of the lesson that teaches it. */
+export function exampleDemoFor(skillId: string): DemoStep | undefined {
+  const lesson = lessons.find((l) => l.skillId === skillId && l.steps.some((s) => s.kind === 'demo' && !s.expectsError));
+  const step = lesson?.steps.find((s): s is DemoStep => s.kind === 'demo' && !s.expectsError);
+  return step && lesson ? { ...step, language: step.language ?? lesson.language } : undefined;
+}

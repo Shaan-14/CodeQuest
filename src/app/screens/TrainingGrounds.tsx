@@ -5,8 +5,10 @@ import { useGame } from '../../game/store';
 import { LessonList } from '../components/LessonList';
 import { NpcCards } from '../components/NpcCards';
 import { Recommendations } from '../components/Recommendations';
+import { TrainingHub } from '../components/TrainingHub';
+import { returnPointFor } from '../../game/returnPoint';
 
-export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard }: { onOpenLesson: (id: string) => void; onPractice: (challengeId: string) => void; onPracticeYard: () => void }) {
+export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard, onOpenPlan }: { onOpenLesson: (id: string) => void; onPractice: (challengeId: string) => void; onPracticeYard: () => void; onOpenPlan: (planId: string) => void }) {
   const { save } = useGame();
   useEffect(() => void getRunner().warmUp().catch(() => undefined), []);
   const quest = quests[0]!;
@@ -31,6 +33,7 @@ export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard }: { 
           <h2>Lessons</h2>
           <button class="btn small" onClick={onPracticeYard} data-testid="practice-yard">🎯 Practice Yard</button>
         </div>
+        <TrainingHub returnTo={returnPointFor(save)} onOpenPlan={onOpenPlan} />
         <Recommendations onPractice={onPractice} onOpenLesson={onOpenLesson} max={2} />
         <LessonList track="python" onOpenLesson={onOpenLesson} />
         <NpcCards areaId="training-grounds" />

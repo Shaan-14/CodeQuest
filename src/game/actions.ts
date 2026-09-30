@@ -13,6 +13,7 @@ import { levelFromXp, rewardFor } from './progression';
 import { isAreaUnlocked } from './world';
 import { buildEvidence, failuresSinceLastPass } from './evidence';
 import { applyDiagnosis } from './weakness';
+import { lessonBlockedBy } from './training';
 import { resolveOnPass } from './weakness';
 import type { EvidenceSource, FailureDetail } from '../learning/mastery';
 
@@ -190,6 +191,8 @@ export function completeLesson(save: SaveData, lessonId: string): Result {
   const { s, events } = draft(save);
   const lesson = getLesson(lessonId);
   if (!lesson) return { save: s, events };
+  // A major weakness that surfaced in this lesson holds its completion until training is done (rule enforced here, not only in the UI).
+  if (!s.learning.lessons[lessonId]?.completed && lessonBlockedBy(s, lessonId)) return { save: s, events };
   const lp = (s.learning.lessons[lessonId] ??= { stepIndex: 0, completed: false });
   if (!lp.completed) {
     lp.completed = true;

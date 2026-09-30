@@ -4,10 +4,12 @@ import { databasesUsedBy } from '../../content/helpers';
 import { sourcesFor } from '../../content/databases';
 import { getRunner } from '../../learning/python/runner';
 import type { GradeResult } from '../../learning/runner';
+import { failureDetailOf } from '../../learning/failure';
 import { FOCUS_LOSS_PER_FAILED_SUBMIT, recordLookup, recordRun, revealHint, saveDraftCode, startReplay, submitChallenge } from '../../game/actions';
 import { rewardFor } from '../../game/progression';
 import { getStore, useGame } from '../../game/store';
 import { RichText } from './RichText';
+import { DiagnosisCard } from './DiagnosisCard';
 import { emptyConsole, type ConsoleState } from './Console';
 import { Modal } from './Modal';
 import { NotesList } from './NotesList';
@@ -32,10 +34,20 @@ interface Props {
   /** Present when another variant of this objective exists: switches to a DIFFERENT problem on the same idea. */
   onSwitchVariant?: () => void;
   variantInfo?: { index: number; total: number };
+  /** Where this attempt happens (recorded on the evidence). Default 'lesson'. */
+  source?: 'lesson' | 'practice';
+  /** Training/boss: the parent records the attempt itself (no lesson rewards, no Focus loss). */
+  submitOverride?: (graded: GradeResult, ms: number, code: string) => void;
+  /** Training independent steps and bosses: no hints at all, presented like an independent trial. */
+  noHints?: boolean;
+  /** Offered after a diagnosis: start training for this weakness (the parent handles navigation and remembers the return point). */
+  onTrain?: (weaknessId: string) => void;
+  /** Shown instead of the standard failure footer, e.g. boss text. */
+  failureNote?: string;
 }
 
 /** A plain-language account of what went wrong, without revealing the answer. */
-function explainFailure(result: GradeResult): string {
+export function explainFailure(result: GradeResult): string {
   if (result.timedOut) return 'Your program ran for too long, so it was stopped. That usually means a loop that never ends.';
   if (result.error) return 'Your code could not run at all, so none of the checks ran. Read the error above, look at the part it points to, fix that one thing, and submit again.';
   const failed = result.checks.filter((k) => !k.passed);
@@ -46,7 +58,7 @@ function explainFailure(result: GradeResult): string {
   return parts.join(' ');
 }
 
-export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitchVariant, variantInfo }: Props) {
+export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitchVariant, variantInfo, source = 'lesson', submitOverride, noHints = false, onTrain, failureNote }: Props) {
   const game = useGame();
   const progress = game.save.learning.challenges[c.id];
   const startCode = c.language === 'web' ? JSON.stringify(c.starterFiles ?? { html: '', css: '', js: '' }) : c.starterCode;
@@ -67,7 +79,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
   const hintsUsed = progress?.hintsUsed ?? 0;
   const passed = !!progress?.passed;
   const focus = game.save.stats.focus;
-  const independent = c.mode === 'independent';
+  const independent = c.mode === 'independent' || noHints;
 
   // Active time (seconds the tab is visible), flushed on submit.
   const activeMs = useRef(0);
@@ -113,7 +125,11 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
     const coinsBefore = s.save.stats.coins;
     const ms = activeMs.current;
     activeMs.current = 0;
-    s.apply(submitChallenge(s.save, c.id, graded.passed, ms, code));
+    if (submitOverride) {
+      submitOverride(graded, ms, code);
+      return;
+    }
+    s.apply(submitChallenge(s.save, c.id, graded.passed, ms, code, { detail: failureDetailOf(graded), source }));
     if (graded.passed) {
       const r = rewardFor(c, s.save.learning.challenges[c.id]!.hintsUsed);
       setPayout({ xp: s.save.stats.xp - xpBefore, coins: s.save.stats.coins - coinsBefore, note: r.note });
@@ -130,7 +146,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
     setCode(startCode); setCons(emptyConsole); setResult(null); setPayout(null);
   };
 
-  const exhausted = focus < 1;
+  const exhausted = focus < 1 && !submitOverride;
   const failedChecks = result?.checks.filter((k) => !k.passed) ?? [];
   const failedConstraints = result?.constraints.filter((k) => !k.passed) ?? [];
 
@@ -208,7 +224,9 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
               <>
                 <h3>❌ Not quite yet</h3>
                 {result.error && <pre class="console-error">{result.error}</pre>}
-                <p class="small" data-testid="failure-explanation">{explainFailure(result)} <span class="muted">(−{FOCUS_LOSS_PER_FAILED_SUBMIT} Focus)</span></p>
+                <p class="small" data-testid="failure-explanation">{explainFailure(result)} {!submitOverride && <span class="muted">(−{FOCUS_LOSS_PER_FAILED_SUBMIT} Focus)</span>}</p>
+                {failureNote && <p class="small">{failureNote}</p>}
+                {!submitOverride && <DiagnosisCard challengeId={c.id} onTrain={onTrain} />}
                 <div class="retry-actions">
                   <p class="small muted">Fix your code and submit again, open a hint, or try a different problem on the same idea. This attempt stays in your record either way.</p>
                   {onSwitchVariant && <button class="btn small" onClick={onSwitchVariant} data-testid="other-variant">🔀 Try a different problem on this idea</button>}
