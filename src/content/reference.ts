@@ -30,6 +30,7 @@ export interface ReferenceEntry {
 }
 
 import { webReference } from './reference.web';
+import { proReference } from './reference.pro';
 
 const py = (id: string, group: string, title: string, signature: string, summary: string, details: string, example: string, keywords: string[] = []): ReferenceEntry => ({ id, language: 'python', group, title, signature, summary, details, example, keywords });
 const sql = (id: string, group: string, title: string, signature: string, summary: string, details: string, example: string, db: string, keywords: string[] = []): ReferenceEntry => ({ id, language: 'sql', group, title, signature, summary, details, example, db, keywords });
@@ -94,7 +95,7 @@ const core: ReferenceEntry[] = [
   py('py-datetime-strptime', 'datetime', 'datetime.strptime', 'datetime.strptime(text, format)', 'Read a date or time from text, and reject impossible ones.', 'Raises `ValueError` when the text does not fit the format or is not a real date (`2024-02-30`). Codes: `%Y` year, `%m` month, `%d` day, `%H` hour, `%M` minute, `%S` second. Subtracting two datetimes gives a `timedelta` (`.days`, `.total_seconds()`).', 'from datetime import datetime\nprint(datetime.strptime("2024-03-05 14:22:07", "%Y-%m-%d %H:%M:%S"))\ntry:\n    datetime.strptime("2024-02-30", "%Y-%m-%d")\nexcept ValueError as e:\n    print("invalid:", e)', ['parse date', 'valid date', 'timestamp', 'time difference']),
 ];
 
-export const reference: ReferenceEntry[] = [...core, ...webReference];
+export const reference: ReferenceEntry[] = [...core, ...webReference, ...proReference];
 
 const byId = new Map(reference.map((e) => [e.id, e]));
 export const getReference = (id: string): ReferenceEntry | undefined => byId.get(id);

@@ -71,6 +71,40 @@ export const npcs: Npc[] = [
     ],
   },
   {
+    id: 'mira', name: 'Archivist Mira', role: 'Keeper of the Version Vault', icon: '🗝️', areaId: 'version-vault',
+    lines: [
+      { until: 'git-02-history', text: 'A commit is a promise you can keep: a snapshot with a message, so future you can ask what changed and why. Commit small, and say what you did.' },
+      { after: 'git-02-history', until: 'git-04-merging', text: 'Branches are cheap. Try an idea on one and throw it away if it fails; main stays safe. Always ask where HEAD is before you change anything.' },
+      { after: 'git-04-merging', until: 'git-06-workflow', text: 'A conflict is not an accident, it is two people disagreeing in writing. Read both sides, decide what the file should say, and remove every marker.' },
+      { after: 'git-06-workflow', text: 'Professional Git is boring on purpose: small branches, clear messages, review before merge, and never rewriting what others have seen.' },
+    ],
+  },
+  {
+    id: 'brass', name: 'Keeper Brass', role: 'Master of the Spreadsheet Guild', icon: '📊', areaId: 'spreadsheet-guild',
+    lines: [
+      { until: 'xl-03-logic', text: 'A spreadsheet is a program in disguise. Every formula is a function, every cell reference an argument. Put inputs in labelled cells and never type a number into a formula if it could change.' },
+      { after: 'xl-03-logic', until: 'xl-07-pivots', text: 'Look things up instead of copying them. Count and add by condition instead of filtering by hand. Clean the data before you trust a total.' },
+      { after: 'xl-07-pivots', text: 'A model is judged by what happens when you change an input. Change it on purpose: zero, huge, negative. If something breaks, a number was typed where a reference belonged.' },
+    ],
+  },
+  {
+    id: 'quill', name: 'Professor Quill', role: 'R laboratory lead', icon: '🔬', areaId: 'r-lab',
+    lines: [
+      { until: 'r-03-functions', text: 'In R almost everything is a vector, and operations apply to all of it at once. If you are writing a loop to add one to every element, there is a shorter way.' },
+      { after: 'r-03-functions', until: 'r-05-manipulation', text: 'Data frames are tables whose columns are vectors. Filter rows with a condition, and remember the comma: rows first, then columns.' },
+      { after: 'r-05-manipulation', text: 'Analysis is split, apply, combine. Then report what you found and how sure you are. Print the numbers the way the reader needs them.' },
+    ],
+  },
+  {
+    id: 'nightingale', name: 'Professor Nightingale', role: 'Statistician', icon: '🔭', areaId: 'observatory',
+    lines: [
+      { until: 'st-03-distributions', text: 'A single number hides the shape of the data. Before you summarise, ask how the values are spread, and whether one extreme value is pulling the average.' },
+      { after: 'st-03-distributions', until: 'st-06-sampling', text: 'A chart is a claim. Start the bars at zero, label the units, and never let the design say more than the data does.' },
+      { after: 'st-06-sampling', until: 'st-08-inference', text: 'You almost never see the whole population. How you chose the sample matters more than how big it is, and every sample result has an error bar.' },
+      { after: 'st-08-inference', text: 'No clear difference is a finding, not a failure. Report the uncertainty with the result, and ask whether a difference that is real is also big enough to matter.' },
+    ],
+  },
+  {
     id: 'pell', name: 'Dr. Pell', role: 'Debugging specialist', icon: '🩺', areaId: 'training-grounds',
     lines: [
       { after: 'py-18-function-design', until: 'py-19-debugging', text: 'Bugs are not personal. Reproduce it, shrink it, form ONE hypothesis, test it. Change one thing at a time.' },

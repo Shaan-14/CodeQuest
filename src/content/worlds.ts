@@ -31,7 +31,7 @@ export const worlds: World[] = [
   { track: 'git', areaId: 'version-vault', name: 'Git: Version Vault', icon: '🗝️', foundation: true, prefixes: ['git-'], skillPrefixes: ['git'], blurb: 'Track, branch, merge and review work the way professional teams do.', givers: ['Archivist Mira'] },
   { track: 'sheets', areaId: 'spreadsheet-guild', name: 'Spreadsheets: Guild Hall', icon: '📊', foundation: true, prefixes: ['xl-'], skillPrefixes: ['xl'], blurb: 'Formulas, lookups, tables, pivot tables and models: the most widely used data tool there is.', givers: ['Keeper Brass'] },
   { track: 'r', areaId: 'r-lab', name: 'R: Laboratory', icon: '🔬', foundation: true, prefixes: ['r-'], skillPrefixes: ['r'], blurb: 'Real R: vectors, data frames, functions and analysis of datasets.', givers: ['Professor Quill'] },
-  { track: 'stats', areaId: 'observatory', name: 'Statistics: Analytics Observatory', icon: '🔭', foundation: false, prefixes: ['st-'], skillPrefixes: ['stat'], blurb: 'Describe data, reason about chance and read results honestly. Needs a little programming to explore real datasets.', givers: ['Dr. Pell'] },
+  { track: 'stats', areaId: 'observatory', name: 'Statistics: Analytics Observatory', icon: '🔭', foundation: false, prefixes: ['st-'], skillPrefixes: ['stat'], blurb: 'Describe data, reason about chance and read results honestly. Needs a little programming to explore real datasets.', givers: ['Professor Nightingale'] },
   { track: 'data-eng', areaId: 'pipeline-works', name: 'Data Engineering: Pipeline Works', icon: '🏭', foundation: false, prefixes: ['de-'], skillPrefixes: ['de'], blurb: 'Move data from raw files into databases reliably. Combines Python and SQL, so it needs both.', givers: ['Engineer Ori'] },
 ];
 
