@@ -49,7 +49,8 @@ function explainFailure(result: GradeResult): string {
 export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitchVariant, variantInfo }: Props) {
   const game = useGame();
   const progress = game.save.learning.challenges[c.id];
-  const [code, setCode] = useState(progress?.code ?? c.starterCode);
+  const startCode = c.language === 'web' ? JSON.stringify(c.starterFiles ?? { html: '', css: '', js: '' }) : c.starterCode;
+  const [code, setCode] = useState(progress?.code ?? startCode);
   const [stdin, setStdin] = useState((c.sampleInput ?? []).join('\n'));
   const [cons, setCons] = useState<ConsoleState>(emptyConsole);
   const [result, setResult] = useState<GradeResult | null>(null);
@@ -120,13 +121,13 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
   };
 
   const lookup = () => { const st = getStore(); st.apply(recordLookup(st.save, c.id)); };
-  const reset = () => { setCode(c.starterCode); setCons(emptyConsole); };
+  const reset = () => { setCode(startCode); setCons(emptyConsole); };
   const recordRunOnly = () => { const s = getStore(); s.apply(recordRun(s.save, c.id)); };
   const hint = () => { const s = getStore(); s.apply(revealHint(s.save, c.id)); };
   const replay = () => {
     const s = getStore();
     s.apply(startReplay(s.save, c.id));
-    setCode(c.starterCode); setCons(emptyConsole); setResult(null); setPayout(null);
+    setCode(startCode); setCons(emptyConsole); setResult(null); setPayout(null);
   };
 
   const exhausted = focus < 1;

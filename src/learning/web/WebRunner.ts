@@ -31,6 +31,7 @@ export interface MountOptions extends SandboxEvents {
   /** Serve the in-game API (dataset variant). Omit for no API. */
   api?: ApiVariant | null;
   check?: { script: string; errorsOk?: boolean };
+  storage?: Record<string, string>;
   onResult?: (passed: boolean, message: string) => void;
   onStartFailure?: () => void;
 }
@@ -66,6 +67,7 @@ export function mountSandbox(parent: HTMLElement, files: WebFiles, opts: MountOp
           mode: opts.mode ?? 'run',
           api: opts.api ? apiConfig(opts.api) : { collections: {}, required: {}, latency: 20 },
           check: opts.check,
+          storage: opts.storage,
         },
       };
       iframe.contentWindow?.postMessage(msg, '*');
@@ -112,6 +114,7 @@ function runCheck(files: WebFiles, check: WebCheck): Promise<{ passed: boolean; 
       mode: 'grade',
       api: check.api ?? 'a',
       check: { script: check.script, errorsOk: check.errorsOk },
+      storage: check.storage,
       onResult: finish,
       onStartFailure: () => finish(false, 'The web sandbox could not start. Try reloading the page.'),
     });

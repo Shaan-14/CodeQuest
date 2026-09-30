@@ -21,11 +21,13 @@ const structureWrongs = (h1: string, names: string[]): WebFiles[] => [
 ];
 
 import { cssSolutions } from './solutions.css';
+import { jsSolutions } from './solutions.js';
 import { htmlSolutions } from './solutions.html';
 
 export const webSolutions: Record<string, Sol> = {
   ...htmlSolutions,
   ...cssSolutions,
+  ...jsSolutions,
   'web-01-hello-page': {
     valid: [f(doc('Machine M-7', '<h1>Machine M-7</h1>\n<p>Status: running</p>')), f('<!doctype html><html lang="en-GB"><head><title>Machine M-7</title></head><body><h1>Machine M-7</h1><p>Status: running</p></body></html>')],
     wrong: [

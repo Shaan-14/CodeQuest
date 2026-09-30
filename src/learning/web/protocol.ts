@@ -14,6 +14,8 @@ export type SandboxIn = {
     api?: { collections: Record<string, unknown[]>; required: Record<string, string[]>; latency: number };
     /** Grade mode: the authored check to run against the loaded page. */
     check?: { script: string; timeoutMs?: number; errorsOk?: boolean };
+    /** localStorage contents to seed before the page's scripts run. */
+    storage?: Record<string, string>;
   };
 };
 

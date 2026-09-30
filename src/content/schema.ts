@@ -129,6 +129,8 @@ export interface WebCheck extends CheckBase {
   api?: 'a' | 'b';
   /** True if uncaught JavaScript errors should not automatically fail this check. */
   errorsOk?: boolean;
+  /** localStorage contents present BEFORE the page's scripts run (to test that saved state is restored on load). */
+  storage?: Record<string, string>;
 }
 
 export type PythonCheck = OutputCheck | VariableCheck | CallCheck | FileCheck | ScriptCheck | TestsCheck;

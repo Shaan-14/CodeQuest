@@ -30,7 +30,7 @@ export interface RunOutcome {
 
 export interface WebHarness {
   /** Run one web check against files in a fresh page. */
-  check(files: WebFiles, check: Pick<WebCheck, 'script' | 'viewport' | 'api' | 'errorsOk'>): Promise<{ passed: boolean; message: string }>;
+  check(files: WebFiles, check: Pick<WebCheck, 'script' | 'viewport' | 'api' | 'errorsOk' | 'storage'>): Promise<{ passed: boolean; message: string }>;
   /** Run in "run" mode and report console/error messages (what the Run button would show). */
   run(files: WebFiles, opts?: { api?: 'a' | 'b'; waitMs?: number; viewport?: { width: number; height?: number } }): Promise<{ logs: { level: string; text: string }[]; errors: string[]; html: string }>;
   grade(files: WebFiles, checks: Check[]): Promise<GradeResult>;
@@ -87,7 +87,7 @@ export async function startWebHarness(): Promise<WebHarness> {
 
   const harness: WebHarness = {
     async check(files, check) {
-      const config = { mode: 'grade', api: apiConfig(check.api ?? 'a'), check: { script: check.script, errorsOk: check.errorsOk } };
+      const config = { mode: 'grade', api: apiConfig(check.api ?? 'a'), check: { script: check.script, errorsOk: check.errorsOk }, storage: check.storage };
       try {
         return await session(files, config, check.viewport, 'result', 0, async (_p, msgs) => {
           const r = msgs.find((m) => m.type === 'result') as { passed: boolean; message: string } | undefined;

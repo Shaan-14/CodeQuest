@@ -28,7 +28,8 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
   const c = cur ? getAnyChallenge(cur.challengeId) : undefined;
   const now = useNow(15_000);
   const status = useRunnerStatus(c?.language !== 'web');
-  const [code, setCode] = useState(c?.starterCode ?? '');
+  const startCode = c?.language === 'web' ? JSON.stringify(c.starterFiles ?? { html: '', css: '', js: '' }) : (c?.starterCode ?? '');
+  const [code, setCode] = useState(startCode);
   const [stdin, setStdin] = useState((c?.sampleInput ?? []).join('\n'));
   const [cons, setCons] = useState<ConsoleState>(emptyConsole);
   const [busy, setBusy] = useState(false);
@@ -106,11 +107,11 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
           {!open && !outcome && <p class="callout small" data-testid="daily-closed">This challenge has already been {cur.status === 'passed' ? 'solved' : 'attempted'} (or has expired). A new one is coming.</p>}
         </section>
         {isWeb ? (
-          <WebWorkbench files={parseWebFiles(code)} onFiles={(f) => setCode(JSON.stringify(f))} tabs={c.web?.tabs ?? ['html', 'css', 'js']} api={!!c.web?.api} readOnly={!open} onReset={() => setCode(c.starterCode)} busy={busy}>
+          <WebWorkbench files={parseWebFiles(code)} onFiles={(f) => setCode(JSON.stringify(f))} tabs={c.web?.tabs ?? ['html', 'css', 'js']} api={!!c.web?.api} readOnly={!open} onReset={() => setCode(startCode)} busy={busy}>
           <button class="btn gold" onClick={() => setConfirm(true)} disabled={busy || !open} data-testid="daily-submit">✔ Submit (one attempt)</button>
           </WebWorkbench>
         ) : (
-          <Workbench language={isSql ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={!isSql && (!!c.sampleInput || code.includes('input('))} console={cons} status={status} busy={busy} onRun={run} onReset={() => setCode(c.starterCode)} readOnly={!open}>
+          <Workbench language={isSql ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={!isSql && (!!c.sampleInput || code.includes('input('))} console={cons} status={status} busy={busy} onRun={run} onReset={() => setCode(startCode)} readOnly={!open}>
             <button class="btn gold" onClick={() => setConfirm(true)} disabled={busy || !open} data-testid="daily-submit">✔ Submit (one attempt)</button>
           </Workbench>
         )}

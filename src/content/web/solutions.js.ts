@@ -1,0 +1,36 @@
+import type { WebFiles } from '../schema';
+import type { Sol } from './solutions.testdata';
+
+/** JavaScript-only solutions: `js` strings; html is blank. */
+export const fj = (js: string, html = '', css = ''): WebFiles => ({ html, css, js });
+
+export const jsSolutions: Record<string, Sol> = {
+  'web-15-console-hello': {
+    valid: [fj('const machine = "M-7";\nconst status = "running";\nconst temp = 72.5;\nconsole.log(`Machine: ${machine}`);\nconsole.log(`Status: ${status}`);\nconsole.log("Temperature: " + temp + " C");')],
+    wrong: [fj('console.log("Machine: M-7");\nconsole.log("Status: running");\nconsole.log("Temperature: 72.5 C");'), fj('const machine = "M-7";\nconst status = "running";\nconst temp = 72.5;\nconsole.log(`Status: ${status}`);\nconsole.log(`Machine: ${machine}`);\nconsole.log(`Temperature: ${temp} C`);'), fj('const machine = "M-7";\nconst status = "running";\nconst temp = 72.5;\nconsole.log(`Machine: ${machine}`);\nconsole.log(`Status: ${status}`);\nconsole.log(`Temperature: ${temp}`);'), fj('const machine = "M-7";\nconsole.log("Machine:", machine);')],
+  },
+  'web-15-parcel-class': {
+    valid: [fj('function parcelClass(weightKg, fragile) {\n  if (weightKg <= 0) return "invalid";\n  if (weightKg >= 30) return "freight";\n  if (fragile) return "careful";\n  if (weightKg >= 5) return "standard";\n  return "letter";\n}'), fj('const parcelClass = (w, f) => w <= 0 ? "invalid" : w >= 30 ? "freight" : f ? "careful" : w >= 5 ? "standard" : "letter";')],
+    wrong: [fj('function parcelClass(w, f) {\n  if (f) return "careful";\n  if (w >= 30) return "freight";\n  if (w >= 5) return "standard";\n  return "letter";\n}'), fj('function parcelClass(w, f) {\n  if (w <= 0) return "invalid";\n  if (w > 30) return "freight";\n  if (f) return "careful";\n  if (w > 5) return "standard";\n  return "letter";\n}'), fj('function parcelClass(w, f) {\n  if (w >= 30) return "freight";\n  if (f) return "careful";\n  if (w >= 5) return "standard";\n  return "letter";\n}'), fj('function parcelClass(w, f) {\n  if (w <= 0) return "invalid";\n  if (w >= 30) return "freight";\n  if (f == true) return "careful";\n  if (w >= 5) return "standard";\n}'), fj('function parcelClass(w, f) {\n  if (w <= 0) return "invalid";\n  if (w >= 30) console.log("freight");\n}')],
+  },
+  'web-15-letter-grade': {
+    valid: [fj('function letterGrade(score) {\n  if (typeof score !== "number" || Number.isNaN(score) || score < 0 || score > 100) return "invalid";\n  if (score >= 90) return "A";\n  if (score >= 80) return "B";\n  if (score >= 70) return "C";\n  if (score >= 60) return "D";\n  return "F";\n}')],
+    wrong: [fj('function letterGrade(s) {\n  if (s >= 90) return "A";\n  if (s >= 80) return "B";\n  if (s >= 70) return "C";\n  if (s >= 60) return "D";\n  return "F";\n}'), fj('function letterGrade(s) {\n  if (typeof s !== "number" || s < 0 || s > 100) return "invalid";\n  if (s > 90) return "A";\n  if (s >= 80) return "B";\n  if (s >= 70) return "C";\n  if (s >= 60) return "D";\n  return "F";\n}'), fj('function letterGrade(s) {\n  if (s < 0 || s > 100) return "invalid";\n  if (s >= 90) return "A";\n  if (s >= 80) return "B";\n  if (s >= 70) return "C";\n  if (s >= 60) return "D";\n  return "F";\n}'), fj('function letterGrade(s) {\n  if (typeof s !== "number" || Number.isNaN(s) || s < 0 || s > 100) return "invalid";\n  if (s >= 90) return "A";\n  if (s >= 80) return "B";\n  if (s >= 70) return "C";\n  if (s > 60) return "D";\n  return "F";\n}')],
+  },
+  'web-15-race-flag': {
+    valid: [fj('function flagFor(speedKmh, limitKmh, raining) {\n  if (speedKmh <= 0) return "stopped";\n  if (speedKmh > limitKmh * 1.2) return "red";\n  if (speedKmh > limitKmh) return "yellow";\n  if (raining && speedKmh > limitKmh * 0.8) return "blue";\n  return "green";\n}')],
+    wrong: [fj('function flagFor(s, l, r) {\n  if (s <= 0) return "stopped";\n  if (s > l) return "yellow";\n  if (s > l * 1.2) return "red";\n  if (r && s > l * 0.8) return "blue";\n  return "green";\n}'), fj('function flagFor(s, l, r) {\n  if (s <= 0) return "stopped";\n  if (s >= l * 1.2) return "red";\n  if (s > l) return "yellow";\n  if (r && s > l * 0.8) return "blue";\n  return "green";\n}'), fj('function flagFor(s, l, r) {\n  if (s <= 0) return "stopped";\n  if (s > l * 1.2) return "red";\n  if (s > l) return "yellow";\n  if (r) return "blue";\n  return "green";\n}'), fj('function flagFor(s, l, r) {\n  if (s > l * 1.2) return "red";\n  if (s > l) return "yellow";\n  if (r && s > l * 0.8) return "blue";\n  return "green";\n}')],
+  },
+  'web-15-count-above': {
+    valid: [fj('function countAbove(readings, limit) {\n  let n = 0;\n  for (const r of readings) {\n    if (r > limit) n++;\n  }\n  return n;\n}'), fj('const countAbove = (r, l) => r.filter((x) => x > l).length;')],
+    wrong: [fj('function countAbove(readings, limit) {\n  let n = 0;\n  for (const r of readings) if (r >= limit) n++;\n  return n;\n}'), fj('function countAbove(readings, limit) {\n  let n = 0;\n  for (const r of readings) if (r > limit) n = 1;\n  return n;\n}'), fj('function countAbove(readings, limit) {\n  readings.sort();\n  return readings.filter((x) => x > limit).length;\n}'), fj('function countAbove(readings, limit) {\n  let n = 0;\n  for (let i = 1; i < readings.length; i++) if (readings[i] > limit) n++;\n  return n;\n}')],
+  },
+  'web-15-average-lap': {
+    valid: [fj('function averageLap(laps) {\n  if (laps.length === 0) return null;\n  let total = 0;\n  for (const t of laps) total += t;\n  return Math.round(total / laps.length * 1000) / 1000;\n}')],
+    wrong: [fj('function averageLap(laps) {\n  let total = 0;\n  for (const t of laps) total += t;\n  return Math.round(total / laps.length * 1000) / 1000;\n}'), fj('function averageLap(laps) {\n  if (laps.length === 0) return null;\n  let total = 0;\n  for (const t of laps) total += t;\n  return total / laps.length;\n}'), fj('function averageLap(laps) {\n  if (laps.length === 0) return 0;\n  let total = 0;\n  for (const t of laps) total += t;\n  return Math.round(total / laps.length * 1000) / 1000;\n}'), fj('function averageLap(laps) {\n  if (laps.length === 0) return null;\n  let total = 0;\n  for (let i = 0; i < laps.length - 1; i++) total += laps[i];\n  return Math.round(total / laps.length * 1000) / 1000;\n}')],
+  },
+  'web-15-win-streak': {
+    valid: [fj('function longestStreak(results) {\n  let best = 0;\n  let run = 0;\n  for (const r of results) {\n    if (r === "W") {\n      run++;\n      best = Math.max(best, run);\n    } else {\n      run = 0;\n    }\n  }\n  return best;\n}')],
+    wrong: [fj('function longestStreak(results) {\n  return results.filter((r) => r === "W").length;\n}'), fj('function longestStreak(results) {\n  let best = 0, run = 0;\n  for (const r of results) {\n    if (r === "W") run++; else run = 0;\n  }\n  return run;\n}'), fj('function longestStreak(results) {\n  let best = 0, run = 0;\n  for (const r of results) {\n    if (r === "W") { run++; best = Math.max(best, run); } else if (r === "L") run = 0;\n  }\n  return best;\n}'), fj('function longestStreak(results) {\n  let best = 0, run = 0;\n  for (const r of results) {\n    if (r === "W") { run++; if (run > best) best = run; } else { run = 1; }\n  }\n  return best;\n}')],
+  },
+};

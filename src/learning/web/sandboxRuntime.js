@@ -267,6 +267,7 @@
   /** Stable JSON (object keys sorted) so h.eq ignores key order. */
   function canon(v) {
     if (v === undefined) return 'undefined';
+    if (typeof v === 'number' && !isFinite(v)) return String(v); // NaN and Infinity are not null
     if (v === null || typeof v !== 'object') return nativeJsonStringify(v);
     if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
     return '{' + Object.keys(v).sort().map(function (k) { return nativeJsonStringify(k) + ':' + canon(v[k]); }).join(',') + '}';
@@ -393,6 +394,7 @@
     cfg.files = e.data.files || { html: '', css: '', js: '' };
     cfg.mode = cfg.mode === 'grade' ? 'grade' : 'run';
     state.server = createApiServer(cfg.api || { collections: {}, latency: 20 });
+    Object.keys(cfg.storage || {}).forEach(function (k) { window.localStorage.setItem(k, String(cfg.storage[k])); });
     var doc = buildDocument(cfg.files);
     document.open();
     document.write(doc);
