@@ -301,6 +301,10 @@ export interface DemoStep {
   fixtures?: Fixtures;
   /** Database a SQL demo runs against. */
   db?: string;
+  /** Web demos (language 'web'): the starting HTML/CSS/JS; `code` is then ''. */
+  files?: WebFiles;
+  /** Web demos: serve the in-game API to the page. */
+  api?: boolean;
   /** Short line shown after running, pointing out what to notice. */
   notice: string;
   /** True for demos that intentionally crash, to show a real error message. */

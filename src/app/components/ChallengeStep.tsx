@@ -12,6 +12,8 @@ import { emptyConsole, type ConsoleState } from './Console';
 import { Modal } from './Modal';
 import { NotesList } from './NotesList';
 import { Workbench } from './Workbench';
+import { WebWorkbench } from './WebWorkbench';
+import { gradeWeb, parseWebFiles } from '../../learning/web/WebRunner';
 import { FieldManual, MethodCard } from './FieldManual';
 import { SchemaBrowser } from './SchemaBrowser';
 import { GRADE_TIMEOUT_MS, runCode, useRunnerStatus } from './useRunner';
@@ -57,8 +59,9 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
   const [manual, setManual] = useState(false);
   const sources = useMemo(() => sourcesFor(databasesUsedBy(c)), [c]);
   const isSql = c.language === 'sql';
+  const isWeb = c.language === 'web';
   const workspace = [...Object.keys(c.fixtures?.files ?? {}), ...(c.fixtures?.databases ?? []).map((d) => `${d.split(':')[1] ?? d.split(':')[0]}.db`)];
-  const status = useRunnerStatus();
+  const status = useRunnerStatus(c.language !== 'web');
 
   const hintsUsed = progress?.hintsUsed ?? 0;
   const passed = !!progress?.passed;
@@ -98,7 +101,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
     setPayout(null);
     let graded: GradeResult;
     try {
-      graded = await getRunner().grade({ language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, sources, db: c.db, timeoutMs: GRADE_TIMEOUT_MS });
+      graded = isWeb ? await gradeWeb(parseWebFiles(code), c.checks) : await getRunner().grade({ language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, sources, db: c.db, timeoutMs: GRADE_TIMEOUT_MS });
     } catch (e) {
       graded = { passed: false, error: `CodeQuest could not grade your code: ${String(e)}`, timedOut: false, checks: [], constraints: [] };
     }
@@ -118,6 +121,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
 
   const lookup = () => { const st = getStore(); st.apply(recordLookup(st.save, c.id)); };
   const reset = () => { setCode(c.starterCode); setCons(emptyConsole); };
+  const recordRunOnly = () => { const s = getStore(); s.apply(recordRun(s.save, c.id)); };
   const hint = () => { const s = getStore(); s.apply(revealHint(s.save, c.id)); };
   const replay = () => {
     const s = getStore();
@@ -128,6 +132,20 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
   const exhausted = focus < 1;
   const failedChecks = result?.checks.filter((k) => !k.passed) ?? [];
   const failedConstraints = result?.constraints.filter((k) => !k.passed) ?? [];
+
+  const tools = (
+    <>
+        <button class="btn gold" onClick={submit} disabled={busy || exhausted} data-testid="submit" title={exhausted ? 'Out of Focus' : 'Check your solution'}>✔ Submit</button>
+        {!independent && c.hints.length > 0 && (
+          <button class="btn" onClick={hint} disabled={hintsUsed >= c.hints.length} data-testid="hint" title="Hints lower your reward and are recorded in your evidence">
+            💡 Hint ({hintsUsed}/{c.hints.length})
+          </button>
+        )}
+        {independent && <button class="btn" onClick={() => setNotes(true)}>📚 Notes</button>}
+        <button class="btn" onClick={() => setManual(true)} data-testid="open-manual" title="Search the documentation. Looking things up is a professional skill.">📖 Field Manual</button>
+        {passed && hintsUsed > 0 && <button class="btn" onClick={replay} data-testid="replay">🔁 Replay without hints</button>}
+    </>
+  );
 
   return (
     <div class="two-col">
@@ -214,19 +232,13 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
         )}
       </section>
 
-      <Workbench language={c.language === 'sql' ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={showInput} console={cons} status={status} busy={busy} onRun={run} onReset={reset}>
-        <button class="btn gold" onClick={submit} disabled={busy || exhausted} data-testid="submit" title={exhausted ? 'Out of Focus' : 'Check your solution'}>✔ Submit</button>
-        {!independent && c.hints.length > 0 && (
-          <button class="btn" onClick={hint} disabled={hintsUsed >= c.hints.length} data-testid="hint" title="Hints lower your reward and are recorded in your evidence">
-            💡 Hint ({hintsUsed}/{c.hints.length})
-          </button>
-        )}
-        {independent && <button class="btn" onClick={() => setNotes(true)}>📚 Notes</button>}
-        <button class="btn" onClick={() => setManual(true)} data-testid="open-manual" title="Search the documentation. Looking things up is a professional skill.">📖 Field Manual</button>
-        {passed && hintsUsed > 0 && <button class="btn" onClick={replay} data-testid="replay">🔁 Replay without hints</button>}
-      </Workbench>
+      {isWeb ? (
+        <WebWorkbench files={parseWebFiles(code)} onFiles={(f) => setCode(JSON.stringify(f))} tabs={c.web?.tabs ?? ['html', 'css', 'js']} api={!!c.web?.api} onRun={recordRunOnly} onReset={reset} busy={busy}>{tools}</WebWorkbench>
+      ) : (
+        <Workbench language={c.language === 'sql' ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={showInput} console={cons} status={status} busy={busy} onRun={run} onReset={reset}>{tools}</Workbench>
+      )}
 
-      {manual && <Modal title="Field Manual" onClose={() => setManual(false)} wide><MethodCard /><FieldManual language={c.language === 'sql' ? 'sql' : 'python'} onLookup={lookup} /></Modal>}
+      {manual && <Modal title="Field Manual" onClose={() => setManual(false)} wide><MethodCard /><FieldManual language={c.language === 'sql' ? 'sql' : c.language === 'web' ? 'web' : 'python'} onLookup={lookup} /></Modal>}
       {notes && <Modal title="My notes" onClose={() => setNotes(false)} wide><NotesList /></Modal>}
     </div>
   );

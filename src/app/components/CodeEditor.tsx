@@ -1,10 +1,8 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching, indentUnit } from '@codemirror/language';
-import { python } from '@codemirror/lang-python';
-import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 
 interface Props {
@@ -14,8 +12,19 @@ interface Props {
   onRun?: () => void;
   readOnly?: boolean;
   minLines?: number;
-  language?: 'python' | 'sql';
+  language?: EditorLanguage;
 }
+
+export type EditorLanguage = 'python' | 'sql' | 'html' | 'css' | 'js';
+
+/** Language support is loaded on demand, so each language's parser is its own chunk and only downloaded when used. */
+const LOADERS: Record<EditorLanguage, () => Promise<Extension>> = {
+  python: () => import('@codemirror/lang-python').then((m) => m.python()),
+  sql: () => import('@codemirror/lang-sql').then((m) => m.sql()),
+  html: () => import('@codemirror/lang-html').then((m) => m.html()),
+  css: () => import('@codemirror/lang-css').then((m) => m.css()),
+  js: () => import('@codemirror/lang-javascript').then((m) => m.javascript()),
+};
 
 /**
  * CodeMirror 6 wrapper: syntax highlighting, line numbers, 4-space indentation.
@@ -28,6 +37,7 @@ export function CodeEditor({ value, onChange, onRun, readOnly = false, minLines 
   cb.current = { onChange, onRun };
 
   useEffect(() => {
+    const lang = new Compartment();
     const v = new EditorView({
       parent: host.current!,
       state: EditorState.create({
@@ -39,7 +49,7 @@ export function CodeEditor({ value, onChange, onRun, readOnly = false, minLines 
           history(),
           bracketMatching(),
           indentUnit.of('    '),
-          language === 'sql' ? sql() : python(),
+          lang.of([]),
           oneDark,
           EditorState.readOnly.of(readOnly),
           keymap.of([{ key: 'Mod-Enter', run: () => (cb.current.onRun?.(), true) }, indentWithTab, ...defaultKeymap, ...historyKeymap]),
@@ -49,7 +59,12 @@ export function CodeEditor({ value, onChange, onRun, readOnly = false, minLines 
       }),
     });
     view.current = v;
-    return () => v.destroy();
+    let alive = true;
+    LOADERS[language]().then((ext) => alive && v.dispatch({ effects: lang.reconfigure(ext) })).catch(() => undefined);
+    return () => {
+      alive = false;
+      v.destroy();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

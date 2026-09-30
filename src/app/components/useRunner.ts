@@ -8,15 +8,16 @@ import type { ConsoleState } from './Console';
 export const RUN_TIMEOUT_MS = 8000;
 export const GRADE_TIMEOUT_MS = 10000;
 
-/** Live status of the shared Python runner; also starts loading Python. */
-export function useRunnerStatus(): RunnerStatus {
+/** Live status of the shared Python runner; also starts loading Python (unless `enabled` is false). */
+export function useRunnerStatus(enabled = true): RunnerStatus {
   const runner = getRunner();
   const [status, setStatus] = useState<RunnerStatus>(runner.status);
   useEffect(() => {
     const off = runner.onStatus(setStatus);
-    runner.warmUp().catch(() => undefined);
+    // Web challenges never need Python: do not download the 13MB runtime for them.
+    if (enabled) runner.warmUp().catch(() => undefined);
     return off;
-  }, [runner]);
+  }, [runner, enabled]);
   return status;
 }
 

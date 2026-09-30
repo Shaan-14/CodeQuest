@@ -286,7 +286,20 @@
       norm: norm,
       viewport: { w: window.innerWidth, h: window.innerHeight },
       click: function (s) { var e = needEl(s); e.click(); return e; },
-      type: function (s, value) { var e = needEl(s); e.focus(); nativeSet(e, 'value', value); fire(e, 'input'); fire(e, 'change'); return e; },
+      /**
+       * Type like a user: focus, select the old text, and insert the new text through the editing pipeline. That
+       * makes the value "user-edited", so length limits (maxlength/minlength) apply exactly as they do for people.
+       */
+      type: function (s, value) {
+        var e = needEl(s);
+        e.focus();
+        if (e.select) e.select();
+        var ok = false;
+        try { ok = value === '' ? document.execCommand('delete') : document.execCommand('insertText', false, String(value)); } catch (err) { ok = false; }
+        if (!ok && e.value !== String(value)) { nativeSet(e, 'value', String(value)); fire(e, 'input'); }
+        fire(e, 'change');
+        return e;
+      },
       select: function (s, value) { var e = needEl(s); nativeSet(e, 'value', value); fire(e, 'input'); fire(e, 'change'); return e; },
       check: function (s, on) { var e = needEl(s); if (e.checked !== !!on) e.click(); return e; },
       press: function (s, key) { var e = needEl(s); e.focus(); fire(e, 'keydown', { key: key }); fire(e, 'keyup', { key: key }); return e; },

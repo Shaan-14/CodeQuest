@@ -165,10 +165,11 @@ describe('SQL challenges are well formed', () => {
 
 describe('challenges behave correctly in real Python', () => {
   it('has reference solutions for every challenge', () => {
-    for (const c of challenges) expect(solutions[c.id], c.id).toBeDefined();
+    for (const c of challenges.filter((x) => x.language !== 'web')) expect(solutions[c.id], c.id).toBeDefined();
     for (const id of Object.keys(solutions)) expect(getChallenge(id), id).toBeDefined();
   });
-  for (const c of challenges) {
+  // Web challenges (language 'web') run in a real browser: see content/web/web.test.ts.
+  for (const c of challenges.filter((x) => x.language !== 'web')) {
     describe(c.id, () => {
       it('starter code does not already pass', () => {
         expect(grade(c.starterCode, c.id).passed).toBe(false);
@@ -192,7 +193,7 @@ describe('challenges behave correctly in real Python', () => {
   it('demo programs run', () => {
     for (const l of lessons) {
       for (const s of l.steps) {
-        if (s.kind !== 'demo') continue;
+        if (s.kind !== 'demo' || s.language === 'web') continue;
         const lang = s.language ?? l.language;
         const r = engine.run({ language: lang, code: s.code, stdin: s.stdin, fixtures: s.fixtures, db: s.db, sources: sourcesFor([...(s.fixtures?.databases ?? []).map((d) => d.split(':')[0]!), ...(s.db ? [s.db] : [])]) });
         expect(r.ok, `${l.id}: ${s.title}: ${r.error}`).toBe(!s.expectsError);

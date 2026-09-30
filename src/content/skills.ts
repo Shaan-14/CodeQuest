@@ -62,4 +62,18 @@ export const skills: Skill[] = [
   S('db.design', 'Designing schemas', 'Databases', ['sql.joins'], req(2, 2, 3, 2, 2)),
   S('db.integrity', 'Constraints, integrity & transactions', 'Databases', ['db.design'], req(2, 2, 3, 2, 2)),
   S('db.performance', 'Indexes & query performance', 'Databases', ['db.design'], req(2, 2, 3, 2, 2)),
+  // ---- Web (Phase 3)
+  S('web.html', 'HTML structure & elements', 'HTML', ['py.output'], req(3, 3, 2, 3, 3)),
+  S('web.semantics', 'Semantic HTML & accessibility', 'HTML', ['web.html'], req(3, 3, 3, 3, 3)),
+  S('web.forms', 'Forms & validation attributes', 'HTML', ['web.html'], req(3, 3, 3, 3, 3)),
+  S('web.css', 'CSS: selectors, cascade & styling', 'CSS', ['web.html'], req(3, 3, 3, 3, 3)),
+  S('web.layout', 'CSS layout: box model, flexbox, grid, responsive', 'CSS', ['web.css'], req(3, 3, 3, 3, 3)),
+  S('js.basics', 'JavaScript fundamentals', 'JavaScript', ['py.functions'], req(3, 3, 2, 3, 3)),
+  S('js.data', 'Arrays, objects & higher-order functions', 'JavaScript', ['js.basics'], req(3, 3, 3, 3, 3)),
+  S('js.dom', 'The DOM & events', 'JavaScript', ['js.basics', 'web.html'], req(3, 3, 3, 3, 3)),
+  S('js.forms', 'Forms, validation & browser state', 'JavaScript', ['js.dom', 'web.forms'], req(3, 3, 3, 3, 3)),
+  S('js.async', 'Async JavaScript: timers, promises & async/await', 'JavaScript', ['js.dom'], req(3, 3, 3, 3, 3)),
+  S('web.http', 'HTTP, JSON & APIs (fetch)', 'Web & APIs', ['js.async'], req(3, 3, 3, 3, 3)),
+  S('web.apps', 'Building complete web applications', 'Web & APIs', ['js.forms', 'web.http', 'web.layout'], req(2, 2, 4, 2, 2)),
+  S('web.debugging', 'Debugging in the browser', 'Web & APIs', ['js.basics'], req(2, 2, 3, 2, 2)),
 ];

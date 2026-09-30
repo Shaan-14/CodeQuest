@@ -38,33 +38,50 @@ export interface WebHarness {
 }
 
 export async function startWebHarness(): Promise<WebHarness> {
-  const browser: Browser = await chromium.launch({ executablePath: findChromium(), args: ['--no-sandbox'] });
+  const browser: Browser = await chromium.launch({ executablePath: findChromium(), args: ['--no-sandbox', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] });
   const dir = mkdtempSync(join(tmpdir(), 'cq-web-'));
   const file = join(dir, 'web-sandbox.html');
   writeFileSync(file, buildSandboxPage());
   const url = pathToFileURL(file).href;
 
+  // One browser context; a small pool of pages so checks of a challenge can run concurrently and cheaply.
+  const ctx = await browser.newContext({ viewport: { width: 1024, height: 768 } });
+  await ctx.addInitScript(() => {
+    const w = window as unknown as { __msgs: Record<string, unknown>[]; __orig: (m: unknown, t: string) => void };
+    w.__msgs = [];
+    w.__orig = window.postMessage.bind(window);
+    (window as unknown as { postMessage: unknown }).postMessage = (m: { cq?: unknown }) => {
+      if (m && m.cq === true) w.__msgs.push(m as Record<string, unknown>);
+    };
+  });
+  const idle: import('playwright-core').Page[] = [];
+  const POOL = 6;
+  let inUse = 0;
+  const waiters: (() => void)[] = [];
+  async function acquire(): Promise<import('playwright-core').Page> {
+    while (inUse >= POOL) await new Promise<void>((r) => waiters.push(r));
+    inUse++;
+    return idle.pop() ?? (await ctx.newPage());
+  }
+  function release(p: import('playwright-core').Page) {
+    inUse--;
+    idle.push(p);
+    waiters.shift()?.();
+  }
+
   async function session<T>(files: WebFiles, config: Record<string, unknown>, viewport: { width: number; height?: number } | undefined, until: 'result' | 'ready', extraWaitMs: number, after: (page: import('playwright-core').Page, msgs: Record<string, unknown>[]) => Promise<T>): Promise<T> {
-    const ctx = await browser.newContext({ viewport: { width: viewport?.width ?? 1024, height: viewport?.height ?? 768 } });
-    const page = await ctx.newPage();
+    const page = await acquire();
     try {
-      await page.addInitScript(() => {
-        const w = window as unknown as { __msgs: Record<string, unknown>[]; __orig: (m: unknown, t: string) => void };
-        w.__msgs = [];
-        w.__orig = window.postMessage.bind(window);
-        (window as unknown as { postMessage: unknown }).postMessage = (m: { cq?: unknown }) => {
-          if (m && m.cq === true) w.__msgs.push(m as Record<string, unknown>);
-        };
-      });
+      await page.setViewportSize({ width: viewport?.width ?? 1024, height: viewport?.height ?? 768 });
       await page.goto(url);
-      await page.waitForFunction(() => (window as unknown as { __msgs: { type: string }[] }).__msgs.some((m) => m.type === 'hello'), undefined, { timeout: 10000 });
+      await page.waitForFunction(() => (window as unknown as { __msgs: { type: string }[] }).__msgs.some((m) => m.type === 'hello'), undefined, { timeout: 10000, polling: 10 });
       await page.evaluate(([f, c]) => (window as unknown as { __orig: (m: unknown, t: string) => void }).__orig({ cq: 'run', files: f, config: c }, '*'), [files, config] as const);
-      await page.waitForFunction((u) => (window as unknown as { __msgs: { type: string }[] }).__msgs.some((m) => m.type === u), until, { timeout: 15000 });
+      await page.waitForFunction((u) => (window as unknown as { __msgs: { type: string }[] }).__msgs.some((m) => m.type === u), until, { timeout: 15000, polling: 10 });
       if (extraWaitMs) await page.waitForTimeout(extraWaitMs);
       const msgs = await page.evaluate(() => (window as unknown as { __msgs: Record<string, unknown>[] }).__msgs);
       return await after(page, msgs);
     } finally {
-      await ctx.close();
+      release(page);
     }
   }
 
@@ -89,15 +106,13 @@ export async function startWebHarness(): Promise<WebHarness> {
       }));
     },
     async grade(files, checks) {
-      const outcomes = [];
-      for (const c of checks) {
-        if (c.kind !== 'web') continue;
-        const r = await harness.check(files, c);
-        outcomes.push({ name: c.name, passed: r.passed, visible: c.visible !== false, message: r.passed ? '' : r.message });
-      }
+      const web = checks.filter((c): c is WebCheck => c.kind === 'web');
+      const results = await Promise.all(web.map((c) => harness.check(files, c)));
+      const outcomes = web.map((c, i) => ({ name: c.name, passed: results[i]!.passed, visible: c.visible !== false, message: results[i]!.passed ? '' : results[i]!.message }));
       return { passed: outcomes.length > 0 && outcomes.every((o) => o.passed), error: '', timedOut: false, checks: outcomes, constraints: [] };
     },
     async close() {
+      await ctx.close();
       await browser.close();
     },
   };

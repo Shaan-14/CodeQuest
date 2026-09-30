@@ -12,6 +12,8 @@ import { Modal } from '../components/Modal';
 import { RichText } from '../components/RichText';
 import { SchemaBrowser } from '../components/SchemaBrowser';
 import { Workbench } from '../components/Workbench';
+import { WebWorkbench } from '../components/WebWorkbench';
+import { gradeWeb, parseWebFiles } from '../../learning/web/WebRunner';
 import { GRADE_TIMEOUT_MS, runCode, useRunnerStatus } from '../components/useRunner';
 import { useNow } from '../components/useDailyClock';
 
@@ -25,7 +27,7 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
   const cur = game.save.daily.current;
   const c = cur ? getAnyChallenge(cur.challengeId) : undefined;
   const now = useNow(15_000);
-  const status = useRunnerStatus();
+  const status = useRunnerStatus(c?.language !== 'web');
   const [code, setCode] = useState(c?.starterCode ?? '');
   const [stdin, setStdin] = useState((c?.sampleInput ?? []).join('\n'));
   const [cons, setCons] = useState<ConsoleState>(emptyConsole);
@@ -49,6 +51,7 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
   }
   const open = canSubmitDaily(game.save, now) && !outcome;
   const isSql = c.language === 'sql';
+  const isWeb = c.language === 'web';
 
   const run = async () => {
     setBusy(true);
@@ -61,7 +64,7 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
     setBusy(true);
     let graded: GradeResult;
     try {
-      graded = await getRunner().grade({ language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, sources, db: c.db, timeoutMs: GRADE_TIMEOUT_MS });
+      graded = isWeb ? await gradeWeb(parseWebFiles(code), c.checks) : await getRunner().grade({ language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, sources, db: c.db, timeoutMs: GRADE_TIMEOUT_MS });
     } catch (e) {
       graded = { passed: false, error: String(e), timedOut: false, checks: [], constraints: [] };
     }
@@ -102,9 +105,15 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
           )}
           {!open && !outcome && <p class="callout small" data-testid="daily-closed">This challenge has already been {cur.status === 'passed' ? 'solved' : 'attempted'} (or has expired). A new one is coming.</p>}
         </section>
-        <Workbench language={isSql ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={!isSql && (!!c.sampleInput || code.includes('input('))} console={cons} status={status} busy={busy} onRun={run} onReset={() => setCode(c.starterCode)} readOnly={!open}>
+        {isWeb ? (
+          <WebWorkbench files={parseWebFiles(code)} onFiles={(f) => setCode(JSON.stringify(f))} tabs={c.web?.tabs ?? ['html', 'css', 'js']} api={!!c.web?.api} readOnly={!open} onReset={() => setCode(c.starterCode)} busy={busy}>
           <button class="btn gold" onClick={() => setConfirm(true)} disabled={busy || !open} data-testid="daily-submit">✔ Submit (one attempt)</button>
-        </Workbench>
+          </WebWorkbench>
+        ) : (
+          <Workbench language={isSql ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={!isSql && (!!c.sampleInput || code.includes('input('))} console={cons} status={status} busy={busy} onRun={run} onReset={() => setCode(c.starterCode)} readOnly={!open}>
+            <button class="btn gold" onClick={() => setConfirm(true)} disabled={busy || !open} data-testid="daily-submit">✔ Submit (one attempt)</button>
+          </Workbench>
+        )}
       </div>
       {confirm && (
         <Modal title="Submit your one attempt?" onClose={() => setConfirm(false)}>

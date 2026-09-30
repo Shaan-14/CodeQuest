@@ -29,11 +29,12 @@ export function nextLesson(save: SaveData): Lesson | undefined {
 }
 
 /** Which part of the world a lesson belongs to. Derived from the id prefix so content needs no extra field. */
-export type Track = 'python' | 'sql' | 'data-eng';
+export type Track = 'python' | 'sql' | 'data-eng' | 'web';
 
 export function trackOf(lesson: Pick<Lesson, 'id'>): Track {
   if (lesson.id.startsWith('sql-')) return 'sql';
   if (lesson.id.startsWith('de-')) return 'data-eng';
+  if (lesson.id.startsWith('web-')) return 'web';
   return 'python';
 }
 

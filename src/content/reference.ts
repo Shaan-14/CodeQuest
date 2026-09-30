@@ -11,7 +11,7 @@
 export interface ReferenceEntry {
   id: string;
   /** 'python' | 'sql' */
-  language: 'python' | 'sql';
+  language: 'python' | 'sql' | 'web';
   /** Module or topic group, e.g. 'statistics', 'str', 'SELECT'. */
   group: string;
   title: string;
@@ -88,7 +88,7 @@ const byId = new Map(reference.map((e) => [e.id, e]));
 export const getReference = (id: string): ReferenceEntry | undefined => byId.get(id);
 
 /** Simple, predictable search: every word must appear in the title, group, keywords, or summary. */
-export function searchReference(query: string, language?: 'python' | 'sql'): ReferenceEntry[] {
+export function searchReference(query: string, language?: 'python' | 'sql' | 'web'): ReferenceEntry[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   return reference.filter((e) => {
     if (language && e.language !== language) return false;
