@@ -438,6 +438,10 @@ export interface DemoStep {
   notice: string;
   /** True for demos that intentionally crash, to show a real error message. */
   expectsError?: boolean;
+  /** Spreadsheet demos (language 'sheet'): the workbook shown; `code` is then ''. */
+  sheet?: WorkbookData;
+  /** Git demos (language 'git'): the repository the commands in `code` run against. */
+  git?: RepoSnapshot;
 }
 
 export interface ChallengeStep {

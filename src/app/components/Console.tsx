@@ -13,8 +13,8 @@ export interface ConsoleState {
 
 export const emptyConsole: ConsoleState = { stdout: '', error: '', ran: false };
 
-export function Console({ state, status, language = 'python' }: { state: ConsoleState; status: RunnerStatus; language?: 'python' | 'sql' }) {
-  const name = language === 'sql' ? 'SQL' : 'Python';
+export function Console({ state, status, language = 'python' }: { state: ConsoleState; status: RunnerStatus; language?: 'python' | 'sql' | 'r' | 'shell' }) {
+  const name = language === 'sql' ? 'SQL' : language === 'r' ? 'R' : language === 'shell' ? 'Git' : 'Python';
   const loading = status === 'loading' || status === 'restarting';
   return (
     <div class="console" data-testid="console" aria-live="polite">

@@ -17,7 +17,7 @@ interface Props {
   /** Extra toolbar buttons (Submit, Hint). */
   children?: ComponentChildren;
   readOnly?: boolean;
-  language?: 'python' | 'sql';
+  language?: 'python' | 'sql' | 'r' | 'shell';
 }
 
 /** Editor + toolbar + program input + console. Used by lesson demos and challenges. */
@@ -33,7 +33,7 @@ export function Workbench(p: Props) {
       </div>
       {p.showInput && (
         <label class="stdin">
-          <span>Program input <span class="muted small">(one line for each input() call)</span></span>
+          <span>Program input <span class="muted small">(one line for each input() call; Python only)</span></span>
           <textarea rows={3} value={p.stdin} onInput={(e) => p.onStdin((e.target as HTMLTextAreaElement).value)} spellcheck={false} data-testid="stdin" />
         </label>
       )}

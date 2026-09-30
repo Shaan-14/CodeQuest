@@ -25,7 +25,7 @@ export function MethodCard() {
 }
 
 /** Searchable in-game documentation. `onLookup` fires when an entry is opened (recorded as research evidence). */
-export function FieldManual({ language, onLookup }: { language?: 'python' | 'sql' | 'web'; onLookup?: (entry: ReferenceEntry) => void }) {
+export function FieldManual({ language, onLookup }: { language?: ReferenceEntry['language']; onLookup?: (entry: ReferenceEntry) => void }) {
   const [q, setQ] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const results = searchReference(q, language).slice(0, 40);

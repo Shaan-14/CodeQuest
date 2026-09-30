@@ -2,6 +2,9 @@ import { useEffect, useState } from 'preact/hooks';
 import { getRunner } from '../../learning/python/runner';
 import type { RunnerStatus } from '../../learning/python/PythonRunner';
 import type { Fixtures } from '../../content/schema';
+import { replay } from '../../learning/git/replay';
+import type { RepoSnapshot } from '../../learning/git/types';
+import { getRRunner } from '../../learning/r/runner';
 import type { Language, RunResult } from '../../learning/runner';
 import type { ConsoleState } from './Console';
 
@@ -42,8 +45,22 @@ export async function runPython(code: string, stdinText: string): Promise<{ stat
 export async function runCode(
   language: Language,
   code: string,
-  opts: { stdin?: string; fixtures?: Fixtures; sources?: Record<string, string>; db?: string } = {},
+  opts: { stdin?: string; fixtures?: Fixtures; sources?: Record<string, string>; db?: string; git?: RepoSnapshot } = {},
 ): Promise<{ state: ConsoleState; result: RunResult | null }> {
+  if (language === 'git') {
+    // The Git simulator is instant and pure: replay the commands and show what a terminal would show.
+    const { steps } = replay(opts.git ?? {}, code);
+    const stdout = steps.map((s) => `$ ${s.line}${s.out ? '\n' + s.out : ''}${s.err ? '\n' + s.err : ''}`).join('\n');
+    return { state: { stdout, error: '', ran: true }, result: null };
+  }
+  if (language === 'r') {
+    try {
+      const result = await getRRunner().run({ language, code, fixtures: opts.fixtures, timeoutMs: 20000 });
+      return { state: { stdout: result.stdout, error: result.error, ran: true }, result };
+    } catch (e) {
+      return { state: { stdout: '', error: `CodeQuest could not start R: ${String(e)}\nTry reloading the page.`, ran: true }, result: null };
+    }
+  }
   try {
     const result = await getRunner().run({ language, code, stdin: parseStdin(opts.stdin ?? ''), fixtures: opts.fixtures, sources: opts.sources, db: opts.db, timeoutMs: RUN_TIMEOUT_MS });
     return { state: { stdout: result.stdout, error: result.error, ran: true, sql: result.sql }, result };

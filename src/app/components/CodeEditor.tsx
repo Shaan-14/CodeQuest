@@ -15,7 +15,7 @@ interface Props {
   language?: EditorLanguage;
 }
 
-export type EditorLanguage = 'python' | 'sql' | 'html' | 'css' | 'js';
+export type EditorLanguage = 'python' | 'sql' | 'html' | 'css' | 'js' | 'r' | 'shell';
 
 /** Language support is loaded on demand, so each language's parser is its own chunk and only downloaded when used. */
 const LOADERS: Record<EditorLanguage, () => Promise<Extension>> = {
@@ -24,6 +24,8 @@ const LOADERS: Record<EditorLanguage, () => Promise<Extension>> = {
   html: () => import('@codemirror/lang-html').then((m) => m.html()),
   css: () => import('@codemirror/lang-css').then((m) => m.css()),
   js: () => import('@codemirror/lang-javascript').then((m) => m.javascript()),
+  shell: async () => { const [{ StreamLanguage }, { shell }] = await Promise.all([import('@codemirror/language'), import('@codemirror/legacy-modes/mode/shell')]); return StreamLanguage.define(shell); },
+  r: async () => { const [{ StreamLanguage }, { r }] = await Promise.all([import('@codemirror/language'), import('@codemirror/legacy-modes/mode/r')]); return StreamLanguage.define(r); },
 };
 
 /**

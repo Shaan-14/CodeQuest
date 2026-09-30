@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Challenge } from '../../content/schema';
 import { databasesUsedBy } from '../../content/helpers';
 import { sourcesFor } from '../../content/databases';
-import { getRunner } from '../../learning/python/runner';
+import { gradeChallenge } from '../../learning/gradeAny';
 import type { GradeResult } from '../../learning/runner';
 import { failureDetailOf } from '../../learning/failure';
 import { recordLookup, recordRun, revealHint, saveDraftCode, startReplay, submitChallenge } from '../../game/actions';
@@ -17,10 +17,19 @@ import { Modal } from './Modal';
 import { NotesList } from './NotesList';
 import { Workbench } from './Workbench';
 import { WebWorkbench } from './WebWorkbench';
-import { gradeWeb, parseWebFiles } from '../../learning/web/WebRunner';
+import { parseWebFiles } from '../../learning/web/WebRunner';
+import { SheetWorkbench } from './SheetWorkbench';
+import { GitWorkbench } from './GitWorkbench';
 import { FieldManual, MethodCard } from './FieldManual';
 import { SchemaBrowser } from './SchemaBrowser';
 import { GRADE_TIMEOUT_MS, runCode, useRunnerStatus } from './useRunner';
+
+/** The text a challenge's editor starts with: the source, a workbook (JSON) or a command transcript, depending on the language. */
+export function startCodeOf(c: Challenge): string {
+  if (c.language === 'web') return JSON.stringify(c.starterFiles ?? { html: '', css: '', js: '' });
+  if (c.language === 'sheet') return JSON.stringify(c.sheet?.start ?? { sheets: { Sheet1: {} } });
+  return c.starterCode;
+}
 
 const MODE_LABEL = { learning: 'Learning mode', challenge: 'Challenge mode', independent: 'Independent trial' } as const;
 const MODE_BLURB = {
@@ -63,7 +72,7 @@ export function explainFailure(result: GradeResult): string {
 export function ChallengeStepView({ challenge: c, onReady, onSwitchVariant, variantInfo, source = 'lesson', submitOverride, noHints = false, onGoTraining, failureNote }: Props) {
   const game = useGame();
   const progress = game.save.learning.challenges[c.id];
-  const startCode = c.language === 'web' ? JSON.stringify(c.starterFiles ?? { html: '', css: '', js: '' }) : c.starterCode;
+  const startCode = startCodeOf(c);
   const [code, setCode] = useState(progress?.code ?? startCode);
   const [stdin, setStdin] = useState((c.sampleInput ?? []).join('\n'));
   const [cons, setCons] = useState<ConsoleState>(emptyConsole);
@@ -75,8 +84,11 @@ export function ChallengeStepView({ challenge: c, onReady, onSwitchVariant, vari
   const sources = useMemo(() => sourcesFor(databasesUsedBy(c)), [c]);
   const isSql = c.language === 'sql';
   const isWeb = c.language === 'web';
+  const isSheet = c.language === 'sheet';
+  const isGit = c.language === 'git';
+  const isR = c.language === 'r';
   const workspace = [...Object.keys(c.fixtures?.files ?? {}), ...(c.fixtures?.databases ?? []).map((d) => `${d.split(':')[1] ?? d.split(':')[0]}.db`)];
-  const status = useRunnerStatus(c.language !== 'web');
+  const status = useRunnerStatus(c.language === 'python' || c.language === 'sql');
 
   const hintsUsed = progress?.hintsUsed ?? 0;
   const passed = !!progress?.passed;
@@ -114,12 +126,7 @@ export function ChallengeStepView({ challenge: c, onReady, onSwitchVariant, vari
   const submit = async () => {
     setBusy(true);
     setPayout(null);
-    let graded: GradeResult;
-    try {
-      graded = isWeb ? await gradeWeb(parseWebFiles(code), c.checks) : await getRunner().grade({ language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, sources, db: c.db, timeoutMs: GRADE_TIMEOUT_MS });
-    } catch (e) {
-      graded = { passed: false, error: `CodeQuest could not grade your code: ${String(e)}`, timedOut: false, checks: [], constraints: [] };
-    }
+    const graded: GradeResult = await gradeChallenge(c, code, GRADE_TIMEOUT_MS);
     setResult(graded);
     setBusy(false);
     const s = getStore();
@@ -253,11 +260,15 @@ export function ChallengeStepView({ challenge: c, onReady, onSwitchVariant, vari
 
       {isWeb ? (
         <WebWorkbench files={parseWebFiles(code)} onFiles={(f) => setCode(JSON.stringify(f))} tabs={c.web?.tabs ?? ['html', 'css', 'js']} api={!!c.web?.api} onRun={recordRunOnly} onReset={reset} busy={busy}>{tools}</WebWorkbench>
+      ) : isSheet && c.sheet ? (
+        <SheetWorkbench spec={c.sheet} code={code} onCode={setCode} onReset={reset}>{tools}</SheetWorkbench>
+      ) : isGit && c.git ? (
+        <GitWorkbench spec={c.git} code={code} onCode={setCode} onReset={reset}>{tools}</GitWorkbench>
       ) : (
-        <Workbench language={c.language === 'sql' ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={showInput} console={cons} status={status} busy={busy} onRun={run} onReset={reset}>{tools}</Workbench>
+        <Workbench language={c.language === 'sql' ? 'sql' : isR ? 'r' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={showInput} console={cons} status={status} busy={busy} onRun={run} onReset={reset}>{tools}</Workbench>
       )}
 
-      {manual && <Modal title="Field Manual" onClose={() => setManual(false)} wide><MethodCard /><FieldManual language={c.language === 'sql' ? 'sql' : c.language === 'web' ? 'web' : 'python'} onLookup={lookup} /></Modal>}
+      {manual && <Modal title="Field Manual" onClose={() => setManual(false)} wide><MethodCard /><FieldManual language={c.language === 'sql' ? 'sql' : c.language === 'web' ? 'web' : c.language === 'r' ? 'r' : c.language === 'sheet' ? 'sheet' : c.language === 'git' ? 'git' : 'python'} onLookup={lookup} /></Modal>}
       {notes && <Modal title="My notes" onClose={() => setNotes(false)} wide><NotesList /></Modal>}
     </div>
   );
