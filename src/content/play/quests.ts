@@ -105,4 +105,47 @@ export const playQuests: Quest[] = [
     ],
     reward: { xp: 200, coins: 70, items: ['lantern-charm'] },
   },
+  {
+    id: 'q-park-numbers', title: 'Scout the Numbers', giver: 'Analyst Dara',
+    summary: 'Harborview Park has a season of data and a manager who picks his lineup by jersey number. Load the roster, rank the hitters and clean the missing data.',
+    objectives: [
+      { id: 'n1', text: 'Talk to Analyst Dara in the Analytics Office', kind: 'talk', ref: 'dara' },
+      { id: 'n2', text: 'Ask the database for the roster', kind: 'effect', ref: 'office.roster:load' },
+      { id: 'n3', text: 'Rank the hitters', kind: 'effect', ref: 'office.ranking:sort' },
+      { id: 'n4', text: 'Deal with the missing values', kind: 'effect', ref: 'office.roster:clean' },
+    ],
+    reward: { xp: 90, coins: 30 },
+  },
+  {
+    id: 'q-park-lineup', title: 'Fill Out the Lineup Card', giver: 'Coach Reyes', requires: 'q-park-numbers',
+    summary: 'Coach Reyes will send out whatever lineup you can justify with data. Summarise, group by position, join the tables, and then win a game with the lineup you built.',
+    objectives: [
+      { id: 'p1', text: 'Summarise the season with aggregates', kind: 'effect', ref: 'office.stats:summarise' },
+      { id: 'p2', text: 'Group the players by position', kind: 'effect', ref: 'office.positions:group' },
+      { id: 'p3', text: 'Join players to their stats and set the lineup', kind: 'effect', ref: 'field.lineup:set' },
+      { id: 'p4', text: 'Win a game at Harborview Park with your lineup', kind: 'inspect', ref: 'sim-win' },
+    ],
+    reward: { xp: 180, coins: 60, items: ['pennant'] },
+  },
+  {
+    id: 'q-race-setup', title: 'Telemetry Does Not Lie', giver: 'Crew Chief Marisol',
+    summary: 'The car slides in the corners and locks its brakes. Marisol says the telemetry already explains why: learn to read it in a spreadsheet, fix the setup, and drive the difference.',
+    objectives: [
+      { id: 'c1', text: 'Talk to Crew Chief Marisol in the garage', kind: 'talk', ref: 'marisol' },
+      { id: 'c2', text: 'Work out the tyre pressures with formulas', kind: 'effect', ref: 'garage.car:tyres' },
+      { id: 'c3', text: 'Fix the brake balance with functions', kind: 'effect', ref: 'garage.car:brakes' },
+      { id: 'c4', text: 'Drive a lap of the Redline circuit', kind: 'inspect', ref: 'lap-done' },
+    ],
+    reward: { xp: 120, coins: 40 },
+  },
+  {
+    id: 'q-race-fast', title: 'Find the Lap Time', giver: 'Crew Chief Marisol', requires: 'q-race-setup',
+    summary: 'Fuel load and aerodynamics are the last two systems. Fix them, then beat the crew chief’s par lap with the car you set up yourself.',
+    objectives: [
+      { id: 'f1', text: 'Decide the fuel strategy with logic', kind: 'effect', ref: 'garage.car:fuel' },
+      { id: 'f2', text: 'Look up the aero package from the tables', kind: 'effect', ref: 'garage.car:aero' },
+      { id: 'f3', text: 'Beat the par lap time', kind: 'inspect', ref: 'lap-par' },
+    ],
+    reward: { xp: 180, coins: 60, items: ['checkered-flag'] },
+  },
 ];

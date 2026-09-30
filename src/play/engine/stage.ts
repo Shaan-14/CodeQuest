@@ -51,6 +51,8 @@ interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; h
 
 /** Props that are flat or fixed to walls: they never block the view, so they are never hidden. */
 const NEVER_HIDE = new Set(['wall', 'floor', 'ground', 'pond', 'sign', 'screen', 'statusScreen', 'banner', 'void']);
+/** Wall-mounted things: hidden when the camera is behind them AND outside the room (like the wall itself), so they never fill the screen. */
+const MOUNTED = new Set(['sign', 'screen', 'statusScreen', 'banner']);
 const markerGeo = new OctahedronGeometry(0.22);
 markerGeo.userData.shared = true;
 
@@ -75,12 +77,15 @@ export class Stage {
   /** Tall solid props: hidden while they stand between the camera and the player, so nothing ever hides the character. */
   private occluders: { obj: Object3D; box: Box3 }[] = [];
   private ray = new Ray(); private hit = new Vector3(); private headPos = new Vector3();
+  private mounted: { obj: Object3D; nx: number; nz: number; px: number; pz: number }[] = [];
   private walls: { obj: Object3D; nx: number; nz: number; px: number; pz: number; inside: number }[] = [];
   private active: Interactable[] = [];
   private markers: Marker[] = [];
   private markerMeshes = new Map<string, Mesh>();
   private prompt: Interactable | null = null;
   private yaw = 0; private pitch = 0.55; private dist = 8;
+  /** A fixed broadcast view (a simulated game, a cutscene): the camera orbits this point instead of the player. */
+  private cinema: { x: number; y: number; z: number; yaw: number; pitch: number; dist: number } | null = null;
   private camPos = new Vector3(); private camLook = new Vector3();
   private raf = 0; private last = 0; private running = false; private t = 0;
   private stepClock = 0; private posClock = 0; private shake = 0;
@@ -88,14 +93,29 @@ export class Stage {
   private onResize: () => void;
   private resizeObs: ResizeObserver | null = null;
   private ctx: BuildCtx;
+  /** Speed-up for automated tests only (set through the e2e-only hook). */
+  timeScale = 1;
   /** Extra per-frame hooks from scene modes (a car, a simulation). */
   hooks: ((dt: number, t: number) => void)[] = [];
   /** When set, the player body is driven by something else (a vehicle) and normal walking is off. */
   driver: ((dt: number, input: Input) => void) | null = null;
   reduced: boolean;
+  /** Drive mode (racing): the camera follows this heading (null = normal). */
+  private chase: number | null = null;
+  get colliderList(): Collider[] { return this.colliders; }
+  get worldGroup(): Group { return this.world; }
+  setPlayerVisible(v: boolean): void { this.playerRig.group.visible = v; }
+  setChase(heading: number | null): void { this.chase = heading; }
+  /** Put the player on foot at a place (leaving a car). */
+  placePlayer(x: number, z: number, ry: number): void { this.body.x = x; this.body.z = z; this.body.vx = 0; this.body.vz = 0; this.body.ry = ry; this.playerRig.group.position.set(x, 0, z); this.playerRig.group.rotation.y = ry; }
+  get buildCtx(): BuildCtx { return this.ctx; }
+  get sceneBounds(): SceneDef['bounds'] | undefined { return this.def?.bounds; }
+  /** Show a caption from outside the stage (a simulated game narrates itself). */
+  env_caption?: (text: string) => void;
 
   constructor(canvas: HTMLCanvasElement, private host: HTMLElement, private env: StageEnv) {
     this.reduced = env.reducedMotion;
+    this.env_caption = (t) => env.onCaption(t);
     this.renderer = new WebGLRenderer({ canvas, antialias: env.quality !== 'low', powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, env.quality === 'high' ? 2 : env.quality === 'medium' ? 1.5 : 1));
     this.renderer.shadowMap.enabled = env.quality === 'high';
@@ -112,7 +132,7 @@ export class Stage {
     this.input = new Input(host);
     this.playerRig = createRig({ ...env.playerLook, hat: 'none' });
     this.scene.add(this.playerRig.group);
-    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced };
+    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced, mood: (k) => this.setMood(k) };
     this.onResize = () => this.resize();
     if (typeof ResizeObserver !== 'undefined') { this.resizeObs = new ResizeObserver(this.onResize); this.resizeObs.observe(host); }
     window.addEventListener('resize', this.onResize);
@@ -159,6 +179,7 @@ export class Stage {
       this.world.add(built.object);
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
       if (!NEVER_HIDE.has(p.kind)) { const box = new Box3().setFromObject(built.object); if (box.max.y - box.min.y > 0.7) this.occluders.push({ obj: built.object, box }); }
+      if (MOUNTED.has(p.kind)) { const ry = p.ry ?? 0; this.mounted.push({ obj: built.object, nx: Math.sin(ry), nz: Math.cos(ry), px: p.x, pz: p.z }); }
       if (p.kind === 'wall') { const ry = p.ry ?? 0; const n = { x: Math.sin(ry), z: Math.cos(ry) }; const inside = Math.sign(n.x * (cx - p.x) + n.z * (cz - p.z)) || 1; this.walls.push({ obj: built.object, nx: n.x, nz: n.z, px: p.x, pz: p.z, inside }); }
     }
     this.colliders = collidersOf({ ...def, props: def.props.filter((p) => !p.id) });
@@ -200,10 +221,10 @@ export class Stage {
     this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); });
     clearLabels();
     for (const n of this.npcs) this.scene.remove(n.rig.group);
-    this.npcs = []; this.dyns.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = [];
+    this.npcs = []; this.dyns.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = []; this.mounted = [];
     for (const m of this.markerMeshes.values()) this.scene.remove(m);
     this.markerMeshes.clear();
-    this.prompt = null; this.driver = null; this.hooks = [];
+    this.prompt = null; this.driver = null; this.hooks = []; this.chase = null; this.playerRig.group.visible = true; this.audio.engine(null); this.cinema = null;
   }
 
   /** The save changed: which interactables exist now, which things to mark, and what the world shows. Cheap; call after every action. */
@@ -246,6 +267,16 @@ export class Stage {
 
   private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.colliders = this.colliders.filter((x) => x !== c); this.propColliders.delete(prop); } }
 
+  /** Blend the light of the place toward dawn (0..1). Used by the Summit finale: the outage ends and the sky brightens. */
+  setMood(k: number): void {
+    const look = this.def?.look; if (!look) return;
+    const mix = (a: number, b: number) => new Color(a).lerp(new Color(b), k);
+    (this.scene.background as Color).copy(mix(look.sky, 0xffc58a));
+    if (this.scene.fog) (this.scene.fog as Fog).color.copy(mix(look.fog, 0xffd9b0));
+    this.hemi.intensity = (look.night ? 0.55 : 0.95) + k * 0.6; this.sun.intensity = (look.sun ?? 1) * (1 + k * 0.9);
+    this.sun.color.copy(mix(0xffffff, 0xffc27a));
+  }
+
   /** Play an animation on the player (the UI asks: cast, interact, success...). */
   playerAnim(a: Parameters<Rig['play']>[0]): void { this.playerRig.play(a); }
   dyn(id: string): Dyn | undefined { return this.dyns.get(id); }
@@ -260,7 +291,7 @@ export class Stage {
     const tick = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(tick);
-      const dt = Math.min(0.1, (now - this.last) / 1000); this.last = now; // capped, but high enough that a slow machine slows the picture, not the walking speed
+      const dt = Math.min(0.1, (now - this.last) / 1000) * this.timeScale; this.last = now; // capped, but high enough that a slow machine slows the picture, not the walking speed
       this.frame(dt);
     };
     this.raf = requestAnimationFrame(tick);
@@ -274,27 +305,33 @@ export class Stage {
     this.updateCamera(0, true);
   }
 
+  /** Take the camera to a fixed viewpoint (null returns it to the player). */
+  setCinema(v: { x: number; y?: number; z: number; yaw: number; pitch: number; dist: number } | null): void { this.cinema = v ? { y: 1, ...v } : null; }
+
   private updateCamera(dt: number, snap = false): void {
-    const b = this.body;
-    const cy = 1.5 + b.y * 0.6;
-    const dist = this.dist;
+    const b = this.cinema ? { x: this.cinema.x, z: this.cinema.z, y: 0 } : this.body;
+    const yaw = this.cinema?.yaw ?? this.yaw, pitch = this.cinema?.pitch ?? this.pitch, dist = this.cinema?.dist ?? this.dist;
+    const cy = this.cinema ? this.cinema.y : 1.5 + b.y * 0.6;
     // The camera stays inside the room: if the orbit would leave it, the camera comes closer (and higher) instead of looking at a wall from outside.
     const bd = this.def?.bounds;
-    let flat = Math.cos(this.pitch) * dist;
-    const dirX = Math.sin(this.yaw), dirZ = Math.cos(this.yaw);
+    let flat = Math.cos(pitch) * dist;
+    const dirX = Math.sin(yaw), dirZ = Math.cos(yaw);
     if (bd) {
       const m = -9; // the camera may go well outside the room: the walls in the way disappear
       const lim = (d: number, p: number, lo: number, hi: number) => (d > 1e-4 ? (hi - m - p) / d : d < -1e-4 ? (lo + m - p) / d : Infinity);
       flat = Math.max(1.2, Math.min(flat, lim(dirX, b.x, bd.minX, bd.maxX), lim(dirZ, b.z, bd.minZ, bd.maxZ)));
     }
     const ex = b.x + dirX * flat;
-    const ey = cy + Math.max(Math.sin(this.pitch) * dist, (dist * Math.cos(this.pitch) - flat) * 0.9 + Math.sin(this.pitch) * flat);
+    const ey = cy + Math.max(Math.sin(pitch) * dist, (dist * Math.cos(pitch) - flat) * 0.9 + Math.sin(pitch) * flat);
     const ez = b.z + dirZ * flat;
     const k = snap ? 1 : Math.min(1, dt * 7);
     this.camPos.x += (ex - this.camPos.x) * k; this.camPos.y += (ey - this.camPos.y) * k; this.camPos.z += (ez - this.camPos.z) * k;
     this.camLook.x += (b.x - this.camLook.x) * k; this.camLook.y += (cy - this.camLook.y) * k; this.camLook.z += (b.z - this.camLook.z) * k;
     this.camera.position.copy(this.camPos);
     for (const w of this.walls) w.obj.visible = (w.nx * (this.camPos.x - w.px) + w.nz * (this.camPos.z - w.pz)) * w.inside > -0.5;
+    const bd2 = this.def?.bounds;
+    const outside = !!bd2 && (this.camPos.x < bd2.minX || this.camPos.x > bd2.maxX || this.camPos.z < bd2.minZ || this.camPos.z > bd2.maxZ);
+    for (const m of this.mounted) m.obj.visible = !(outside && (m.nx * (this.camPos.x - m.px) + m.nz * (this.camPos.z - m.pz)) < -0.5);
     // things standing between the camera and the character vanish until they no longer do
     if (this.occluders.length) {
       this.headPos.set(b.x, cy - 0.2, b.z);
@@ -340,6 +377,7 @@ export class Stage {
     this.posClock += dt;
     if (this.posClock > 3 && this.def) { this.posClock = 0; this.env.onPosition(this.def.id, this.body.x, this.body.z, this.body.ry); }
 
+    if (this.chase !== null) { let d = this.chase - this.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; this.yaw += d * Math.min(1, dt * 2.6); this.pitch += (0.32 - this.pitch) * Math.min(1, dt * 2); this.dist += (9.5 - this.dist) * Math.min(1, dt * 2); }
     this.updateCamera(dt);
     this.renderer.render(this.scene, this.camera);
     inp.endFrame();

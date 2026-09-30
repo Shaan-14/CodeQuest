@@ -129,3 +129,66 @@ const ACADEMY: Npc3D[] = [
 ];
 cast.push(...ACADEMY);
 byId.clear(); for (const n of cast) byId.set(n.id, n);
+
+const BALLPARK: Npc3D[] = [
+  {
+    id: 'reyes', icon: '🧢', name: 'Coach Reyes', role: 'Manager, Harborview Herons',
+    personality: 'Loud, loyal and stubborn. Has picked his lineup by feel for twenty years and is starting to suspect feel is losing him games.',
+    look: { body: 0x1d4d8f, head: 0xc99267, accent: 0xffd166, hair: 0x5a5a66, hat: 'cap', scale: 1.05 },
+    dialogue: [
+      { when: { seen: 'sim-win' }, mood: 'cheer', lines: ['We won. With a lineup I did not pick. I have been managing for twenty years and I have not felt this foolish or this happy in a long time.', 'Keep the numbers coming, Analyst.'] },
+      { when: { quest: { id: 'q-park-lineup', status: ['accepted', 'in-progress'] }, effect: 'field.lineup:set' }, lines: ['That is a lineup. Nine names, nine positions, and every one of them is there because of a number. Step up to home plate and call for a game. I will keep my mouth shut. Mostly.'] },
+      { when: { quest: { id: 'q-park-lineup', status: ['accepted', 'in-progress'] } }, lines: ['Summaries, positions, then the join that ties players to their stats. Dara has the console. I will send out whatever you can justify, and I can tell when someone is guessing.'] },
+      { when: { quest: { id: 'q-park-lineup', status: ['available'] } }, offer: 'q-park-lineup', lines: ['Dara says you cleaned the roster. Good. Now I need an actual lineup, and I want it from the data, not from my gut.', 'Summarise the season, group the players by position, join them to their stats. Give me nine names I can defend. Then we play a game and we find out. Deal?'] },
+      { when: { quest: { id: 'q-park-numbers', status: ['accepted', 'in-progress'] } }, lines: ['Talk to Dara in the Analytics Office, the building by third base. Do what she says. I know, I know. Do it anyway.'] },
+      { lines: ['Right now I pick by jersey number. Do not judge me. Go see Dara in the Analytics Office and find out why I should stop.'] },
+    ],
+  },
+  {
+    id: 'dara', icon: '📊', name: 'Analyst Dara', role: 'Head of Analytics, Harborview Herons',
+    personality: 'Exact, funny, allergic to anecdotes. Answers “why” with a query. Keeps a sticky note on her monitor: “What would change my mind?”',
+    look: { body: 0x7a3f8c, head: 0xb98560, accent: 0x7dffb3, hair: 0x1a1020, hat: 'headband' },
+    dialogue: [
+      { when: { quest: { id: 'q-park-lineup', status: ['completed'] } }, mood: 'cheer', lines: ['A win, and you can tell me exactly why. That is the job. The numbers are only half of it; the other half is being able to defend them.'] },
+      { when: { quest: { id: 'q-park-numbers', status: ['completed'] } }, lines: ['Clean roster, clean ranking. Coach Reyes is waiting outside with a lineup card and a lot of opinions.'] },
+      { when: { quest: { id: 'q-park-numbers', status: ['accepted', 'in-progress'] } }, lines: ['The console asks the league database. Start with the roster, then rank, then deal with missing values: a hitter with no stats is not a zero, he is a question.'] },
+      { when: { quest: { id: 'q-park-numbers', status: ['available'] } }, offer: 'q-park-numbers', lines: ['You are the new analyst. Good. I am Dara.', 'Here is the situation: a season of data, a manager who picks by jersey number, and a stadium full of people who would like to win.', 'Start by loading the roster, ranking the hitters and cleaning what is missing. It is less glamorous than it sounds and exactly as important. Ready?'] },
+      { lines: ['Ask the database. Do not guess.'] },
+    ],
+  },
+];
+cast.push(...BALLPARK);
+byId.clear(); for (const n of cast) byId.set(n.id, n);
+
+const RACING: Npc3D[] = [
+  {
+    id: 'marisol', icon: '🏎️', name: 'Crew Chief Marisol', role: 'Crew chief, Redline Raceway',
+    personality: 'Fast-talking, blunt, always holding a stopwatch. Believes every driver complaint is a measurement waiting to be read.',
+    look: { body: 0xe63946, head: 0xc99267, accent: 0xffffff, hair: 0x2a1a12, hat: 'cap' },
+    dialogue: [
+      { when: { quest: { id: 'q-race-fast', status: ['completed'] } }, mood: 'cheer', lines: ['Under par, on a car you set up from the numbers. That is the whole job: read it, fix it, drive it, check it.', 'Keep the flag. You earned it.'] },
+      { when: { quest: { id: 'q-race-fast', status: ['accepted', 'in-progress'] } }, lines: ['Fuel load and aero are the last two. Then go and beat my par time. Not “a good lap”: my number. Measure it.'] },
+      { when: { quest: { id: 'q-race-fast', status: ['available'] } }, offer: 'q-race-fast', lines: ['You can drive it. Now make it quick.', 'Two systems left: fuel strategy and aerodynamics. Both are in the telemetry. Fix them, then beat my par lap with the car you built. Deal?'] },
+      { when: { quest: { id: 'q-race-setup', status: ['accepted', 'in-progress'] } }, lines: ['Telemetry console. Tyres first: pressure from the temperatures. Then brake balance. The car will tell you if you were right. Loudly.'] },
+      { when: { quest: { id: 'q-race-setup', status: ['available'] } }, offer: 'q-race-setup', lines: ['You are the new data person? Good. Look at that car. It slides in every corner and the brakes lock up on the straight. The driver says “it feels wrong”. That is not data.', 'The telemetry is data. It already knows why the car slides. Learn to read it in a spreadsheet, fix the setup, and then you drive the difference. Interested?'] },
+      { lines: ['Stopwatch does not lie. People do.'] },
+    ],
+  },
+];
+cast.push(...RACING);
+byId.clear(); for (const n of cast) byId.set(n.id, n);
+
+const SUMMIT: Npc3D[] = [
+  {
+    id: 'aurel', icon: '🧓', name: 'Keeper Aurel', role: 'Keeper of the Summit beacon',
+    personality: 'Old, unhurried, amused by everything. Has watched every engineer who came up this trail and remembers the ones who asked “why” more than the ones who were fast.',
+    look: { body: 0x6b4a8c, head: 0xd9b48f, accent: 0xffd166, hair: 0xe8e8f0, hat: 'hood', scale: 0.98 },
+    dialogue: [
+      { when: { bossPassed: 'summit' }, mood: 'cheer', lines: ['There it is. The dawn.', 'The robots walk, the lanterns burn, the scoreboard is lit and the telemetry tells the truth. All of it because people learned to write things down precisely, then check them.', 'The trail is open to you any time. Some of the best days up here are the ones with nothing to fix.'] },
+      { when: { any: [{ bossPassed: 'mastery-python' }, { bossPassed: 'mastery-sql' }, { bossPassed: 'mastery-data-eng' }, { bossPassed: 'mastery-web' }, { bossPassed: 'mastery-analytics' }, { bossPassed: 'mastery-sheets' }, { bossPassed: 'mastery-r' }] }, lines: ['Each guardian you defeat lights one of the seven beacons, whatever tools you used. Three are enough to reach the console and face the report itself.', 'Choose the tools you trust. Nobody is going to tell you which ones the problem needs.'] },
+      { lines: ['The Great Outage began here, on the night every system in Bytehaven failed at once. The beacon went dark first.', 'To light it you have to show, to the guardians, that you can solve a problem nobody prepared you for: no hints, one attempt, your own tools. I will not make it easier. I will tell you it is possible.'] },
+    ],
+  },
+];
+cast.push(...SUMMIT);
+byId.clear(); for (const n of cast) byId.set(n.id, n);

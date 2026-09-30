@@ -54,10 +54,14 @@
 .world-tile .tile-status { font-size: .8rem; color: #aab0d8; }
 
 .play-hud-speed { position: absolute; right: 14px; bottom: 60px; font-family: var(--mono, monospace); font-size: 1.4rem; text-align: right; }
-.play-race { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 1rem; font-family: var(--mono, monospace); }
+.play-race { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); display: flex; gap: 1rem; font-family: var(--mono, monospace); }
 
 .play-cine { position: absolute; left: 0; right: 0; bottom: 0; top: 0; pointer-events: none !important; display: grid; place-items: center; }
 .play-cine .banner-text { font-size: clamp(1.4rem, 4vw, 2.4rem); font-weight: 900; text-align: center; color: #fff; text-shadow: 0 3px 0 #000, 0 0 24px #f2c14e; animation: promptIn .6s ease both; }
 
 @media (prefers-reduced-motion: reduce) { .play-prompt, .play-caption, .play-cine .banner-text { animation: none; } }
 @media (max-width: 720px) { .play-tracker { width: 46%; font-size: .8rem; } .play-controls { display: none; } }
+.play-drive { position: absolute; inset: 0; pointer-events: none; }
+.play-drive .play-buttons, .play-drive button { pointer-events: auto; }
+
+.play-drive .play-buttons { bottom: 60px; }

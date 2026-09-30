@@ -30,7 +30,7 @@ export interface MoveInput {
 export const newBody = (x: number, z: number, ry = 0): Body => ({ x, z, y: 0, vx: 0, vz: 0, vy: 0, ry, onGround: true });
 
 /** Push a circle out of one collider; returns the corrected position. */
-function pushOut(px: number, pz: number, r: number, c: Collider): [number, number] {
+export function pushOut(px: number, pz: number, r: number, c: Collider): [number, number] {
   if (c.kind === 'circle') {
     const dx = px - c.x, dz = pz - c.z, min = r + c.r, d2 = dx * dx + dz * dz;
     if (d2 >= min * min) return [px, pz];

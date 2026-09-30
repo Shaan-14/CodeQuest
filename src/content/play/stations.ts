@@ -40,6 +40,16 @@ export const stations: Station[] = [
     blurb: 'Incantations make things happen: click, wait, ask, answer. The Gloomhound answers only to spells that really work.',
     lessons: ['web-15-js-basics', 'web-16-js-data', 'web-17-js-errors', 'web-18-dom', 'web-19-events', 'web-20-forms-js', 'web-21-storage-json', 'web-22-async', 'web-23-fetch', 'web-24-fetch-write', 'web-25-web-projects', 'web-26-independent-js'],
   },
+  {
+    id: 'analytics-console', scene: 'analytics-office', title: 'The Analytics Console',
+    blurb: 'The league’s database. Every question you learn to ask improves the lineup Coach Reyes sends onto the field.',
+    lessons: ['sql-01-select', 'sql-02-sort-limit', 'sql-03-null', 'sql-04-aggregates', 'sql-05-group', 'sql-06-joins', 'sql-07-left-join', 'sql-08-case'],
+  },
+  {
+    id: 'telemetry-console', scene: 'garage', title: 'The Telemetry Console',
+    blurb: 'Lap data in a spreadsheet. Every formula you get right changes how the car behaves on the track: tyres, brakes, fuel and aerodynamics.',
+    lessons: ['xl-01-formulas', 'xl-02-functions', 'xl-03-logic', 'xl-04-lookups'],
+  },
 ];
 export const getStation = (id: string): Station | undefined => stations.find((s) => s.id === id);
 export const stationOfLesson = (lessonId: string): Station | undefined => stations.find((s) => s.lessons.includes(lessonId));

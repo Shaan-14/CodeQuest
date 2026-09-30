@@ -47,4 +47,16 @@ export const PLAY_EFFECTS: Record<string, WorldEffect[]> = {
   'web-22-async': [{ target: 'arena.hound', action: 'hit4' }],
   'web-23-fetch': [{ target: 'arena.oracle', action: 'answer' }],
   'web-26-independent-js': [{ target: 'arena.hound', action: 'defeat' }],
+  // Harborview Park: each step of the analysis improves the lineup (see play/logic/baseballSim.ts).
+  'sql-01-select': [{ target: 'office.roster', action: 'load' }],
+  'sql-02-sort-limit': [{ target: 'office.ranking', action: 'sort' }],
+  'sql-03-null': [{ target: 'office.roster', action: 'clean' }],
+  'sql-04-aggregates': [{ target: 'office.stats', action: 'summarise' }],
+  'sql-05-group': [{ target: 'office.positions', action: 'group' }],
+  'sql-06-joins': [{ target: 'field.lineup', action: 'set' }],
+  // Redline Raceway: telemetry analysis becomes the car's setup (see play/logic/vehicle.ts).
+  'xl-01-formulas': [{ target: 'garage.car', action: 'tyres' }],
+  'xl-02-functions': [{ target: 'garage.car', action: 'brakes' }],
+  'xl-03-logic': [{ target: 'garage.car', action: 'fuel' }],
+  'xl-04-lookups': [{ target: 'garage.car', action: 'aero' }],
 };

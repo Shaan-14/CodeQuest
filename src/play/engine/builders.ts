@@ -17,6 +17,8 @@ export interface BuildCtx {
   say: (text: string) => void;
   /** True when motion should be replaced by instant state changes. */
   reduced: boolean;
+  /** Change the light of the whole place: 0 = as authored, 1 = dawn (the Summit finale). */
+  mood: (k: number) => void;
 }
 
 /** A thing in the world whose look depends on what the player has done. */
@@ -30,6 +32,8 @@ export interface Dyn {
   update?(dt: number, t: number): void;
   /** World position for effects. */
   at(): { x: number; y: number; z: number };
+  /** Run a longer scripted sequence (a simulated game, a race start). Resolves when it ends. */
+  run?(name: string, arg?: unknown): Promise<void>;
   /** States entered so far (for tests and the accessibility summary). */
   states?(): string[];
 }
@@ -47,5 +51,6 @@ import { roboticsBuilders } from './builders.robotics';
 import { academyBuilders } from './builders.academy';
 import { ballparkBuilders } from './builders.ballpark';
 import { racingBuilders } from './builders.racing';
+import { summitBuilders } from './builders.summit';
 
-export const builders: Record<string, Builder> = { ...coreBuilders, ...roboticsBuilders, ...academyBuilders, ...ballparkBuilders, ...racingBuilders };
+export const builders: Record<string, Builder> = { ...coreBuilders, ...roboticsBuilders, ...academyBuilders, ...ballparkBuilders, ...racingBuilders, ...summitBuilders };

@@ -145,6 +145,7 @@ const statusScreen: Builder = (p, ctx) => {
   g.add(off, on);
   const dyn: Dyn = {
     id: p.id ?? 'status', object: g, at: () => ({ x: p.x, y: y + h / 2, z: p.z }), states: () => (on.visible ? ['on'] : []),
+    play(name) { if (name === 'malfunction') { ctx.audio.sfx('fail'); const was = on.visible; let n = 0; const tick = () => { if (n++ > 6) { on.visible = was; off.visible = !was; return; } on.visible = !on.visible; off.visible = !off.visible; ctx.tweens.after(0.08, tick); }; tick(); ctx.fx.burst('sparks', p.x, y + h / 2, p.z + 0.3, 14); } },
     setState(_s, instant) { if (on.visible) return; on.visible = true; off.visible = false; if (!instant) { ctx.audio.sfx('interact'); ctx.fx.burst('magic', p.x, y + h / 2, p.z + 0.3, 14, 0.8); ctx.fx.flash(p.x, y + h / 2, p.z + 0.6, 0x7dffb3, 6, 0.5); } },
   };
   return { object: g, dyn };
