@@ -55,6 +55,7 @@ export const skills: Skill[] = [
   S('de.cleaning', 'Cleaning & validating data', 'Data Engineering', ['de.files', 'py.defensive'], req(2, 2, 3, 2, 2)),
   S('de.pipelines', 'Pipelines: ETL, ELT & reliability', 'Data Engineering', ['de.cleaning', 'db.design'], req(2, 2, 3, 2, 2)),
   S('de.integration', 'Python + SQL together', 'Data Engineering', ['sql.aggregate', 'de.files'], req(2, 2, 3, 2, 2)),
+  S('de.analytics', 'Analysing data that lives in a database', 'Data Engineering', ['de.integration', 'stat.descriptive', 'stat.spread'], req(2, 2, 3, 2, 2)),
   S('de.quality', 'Validating data & measuring quality', 'Data Engineering', ['de.cleaning'], req(2, 2, 3, 2, 2)),
   S('de.observability', 'Logging, monitoring & failing safely', 'Data Engineering', ['de.pipelines'], req(2, 2, 3, 2, 2)),
   S('de.incremental', 'Incremental processing & reporting', 'Data Engineering', ['de.pipelines', 'de.integration'], req(2, 2, 3, 2, 2)),

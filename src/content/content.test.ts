@@ -17,8 +17,9 @@ import { solutionsPhase3Sql } from './sql/solutions.phase3.testdata';
 import { solutionsPhase4Python } from './python/solutions.phase4.testdata';
 import { solutionsPhase4Sql } from './sql/solutions.phase4.testdata';
 import { solutionsStats } from './stats/solutions.testdata';
+import { solutionsAnalytics } from './dataeng/solutions.analytics.testdata';
 
-const solutions: Record<string, { valid: string[]; wrong: string[] }> = { ...solutionsPhase1, ...solutionsPhase2Python, ...solutionsSql, ...solutionsPhase3Python, ...solutionsPhase3Sql, ...solutionsPhase4Python, ...solutionsPhase4Sql, ...solutionsStats };
+const solutions: Record<string, { valid: string[]; wrong: string[] }> = { ...solutionsPhase1, ...solutionsPhase2Python, ...solutionsSql, ...solutionsPhase3Python, ...solutionsPhase3Sql, ...solutionsPhase4Python, ...solutionsPhase4Sql, ...solutionsStats, ...solutionsAnalytics };
 import { createPythonEngine, type PythonEngine } from '../learning/python/pythonEngine';
 
 let engine: PythonEngine;
