@@ -52,10 +52,10 @@ export function applyDiagnosis(s: SaveData, events: GameEvent[], challenge: Chal
   const d = diagnose(s, challenge);
   if (!d) return null;
   const w = upsertWeakness(s, events, d, rec, rec.at);
-  // A meaningful failure in the CURRICULUM (a lesson or a boss) must be trained before the player goes on. A hinted pass
-  // of a guided (learning-mode) challenge is normal, so it never blocks; optional sources (practice, dailies) never block.
+  // A meaningful failure in the CURRICULUM (a lesson or a boss) must be trained before the player goes on. Guided
+  // (learning-mode) exercises never block: a typo in lesson 1 must not send a beginner away. Optional sources (practice, dailies) never block.
   const src = sourceOf(rec);
-  if ((src === 'lesson' || src === 'boss') && !(d.kind === 'hint-reliance' && challenge.mode === 'learning')) w.required = true;
+  if ((src === 'lesson' || src === 'boss') && challenge.mode !== 'learning') w.required = true;
   return w;
 }
 

@@ -116,6 +116,21 @@ async function advanceToChallenge(page) {
   }
   throw new Error('no challenge step found');
 }
+/** Plays the lesson forward (demos run, guided exercises solved) until the given challenge is on screen. */
+async function advanceToChallengeId(page, id) {
+  for (let i = 0; i < 14; i++) {
+    const kind = await stepKind(page, i);
+    if (kind === 'challenge') {
+      const cid = await tid(page, 'briefing').getAttribute('data-challenge');
+      if (cid === id) return;
+      await setCode(page, solutions[cid].valid[0]);
+      await tid(page, 'submit').click();
+      await page.locator('.result.pass').waitFor({ timeout: 30000 });
+    } else if (kind === 'demo') await run(page);
+    await tid(page, 'continue').click();
+  }
+  throw new Error('challenge ' + id + ' not reached');
+}
 /** Solves the challenge on screen with its reference solution (Python, SQL or web). */
 async function solveCurrent(page, cid) {
   if (cid.startsWith('web-')) await setWebFiles(page, fixtures.web[cid]);
@@ -345,14 +360,9 @@ async function main() {
       const save = JSON.parse(await page.evaluate(() => localStorage.getItem('codequest.save')));
       const rec = save.evidence.find((r) => r.challengeId === cid);
       eq(rec.hintsUsed, 2, 'hints in evidence'); eq(rec.support, 'hinted', 'support level'); eq(rec.executed, true, 'executed');
-      // Replay without hints: stronger evidence, only the difference is paid
-      await tid(page, 'replay').click();
-      await setCode(page, solutions[cid].valid[0]);
-      await tid(page, 'submit').click();
-      await page.locator('.result.pass').waitFor({ timeout: 30000 });
-      eq((await xp(page)) - before, 56, 'total for the challenge is now the independent reward');
-      const save2 = JSON.parse(await page.evaluate(() => localStorage.getItem('codequest.save')));
-      eq(save2.evidence.at(-1).support, 'independent', 'replay recorded as independent');
+      // A hinted pass of a challenge means guided evidence: the Mentor sends the player to train (one proof replaces "replay")
+      await tid(page, 'diagnosis').waitFor();
+      eq(await tid(page, 'replay').count(), 0, 'no replay shortcut while training is required');
       await page.context().close();
     });
 
@@ -949,7 +959,7 @@ async function main() {
       await seed(page, PY_EARLY.slice(0, 4));
       await gotoArea(page, 'training-grounds');
       await openLesson(page, 'py-05-numbers');
-      await advanceToChallenge(page);
+      await advanceToChallengeId(page, 'py-05-crates');
       const stepBefore = await page.locator('.lesson-body').first().getAttribute('data-step');
       const lessonBefore = (await readSave(page)).learning.lessons['py-05-numbers'];
       await failOnce(page);
@@ -1014,7 +1024,7 @@ async function main() {
       await seed(page, PY_EARLY.slice(0, 4));
       await gotoArea(page, 'training-grounds');
       await openLesson(page, 'py-05-numbers');
-      await advanceToChallenge(page);
+      await advanceToChallengeId(page, 'py-05-crates');
       const lessonChallenge = await tid(page, 'briefing').getAttribute('data-challenge');
       await failOnce(page);
       await tid(page, 'go-training').click();
@@ -1053,18 +1063,7 @@ async function main() {
       await seed(page, PY_EARLY.slice(0, 4));
       await gotoArea(page, 'training-grounds');
       await openLesson(page, 'py-05-numbers');
-      // the lesson opens with a guided exercise; the second challenge (crates) is challenge mode
-      for (let i = 0; i < 12; i++) {
-        const kind = await stepKind(page, i);
-        if (kind === 'challenge' && (await tid(page, 'briefing').getAttribute('data-challenge')) === 'py-05-crates') break;
-        if (kind === 'demo') await run(page);
-        if (kind === 'challenge') {
-          await solveAny(page, await tid(page, 'briefing').getAttribute('data-challenge'));
-          await tid(page, 'submit').click();
-          await page.locator('.result.pass').waitFor({ timeout: 30000 });
-        }
-        await tid(page, 'continue').click();
-      }
+      await advanceToChallengeId(page, 'py-05-crates');
       await tid(page, 'hint').click();
       const cid = await tid(page, 'briefing').getAttribute('data-challenge');
       await solveAny(page, cid);
@@ -1152,7 +1151,7 @@ async function main() {
       await seed(page, PY_EARLY.slice(0, 4));
       await gotoArea(page, 'training-grounds');
       await openLesson(page, 'py-05-numbers');
-      await advanceToChallenge(page);
+      await advanceToChallengeId(page, 'py-05-crates');
       await failOnce(page);
       await openPanel(page, 'skills');
       assert(await page.locator('[data-testid^=history-]').count() >= 1, 'a history note is shown for the skill with recent trouble');
