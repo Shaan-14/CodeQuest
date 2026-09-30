@@ -15,7 +15,7 @@ export function makeCommit(repo: Repo, parents: string[], message: string, tree:
   const order = ++repo.counter;
   let id = hash(JSON.stringify([parents, message, tree, order]));
   while (repo.commits[id]) id = hash(id + order);
-  const c: Commit = { id, parents, message, tree: { ...tree }, author, order };
+  const c: Commit = { id, parents, message, tree: { ...tree }, author, order, onBranch: 'branch' in repo.head ? repo.head.branch : undefined };
   repo.commits[id] = c;
   return c;
 }
@@ -33,8 +33,10 @@ export function fromSnapshot(snap: RepoSnapshot): Repo {
   let prevId: string | undefined;
   for (const [i, c] of (snap.commits ?? []).entries()) {
     const branch = c.branch ?? 'main';
-    const parentId = c.parents?.[0] ?? c.parent ?? (c.branch === undefined ? prevId : lastOnBranch[branch] ?? prevId);
-    const parents = c.parents ?? (parentId ? [parentId] : []);
+    const ref = (v: string | number): string => (typeof v === 'number' ? byIndex[v]! : v);
+    const explicit = c.parents ? c.parents.map(ref) : c.parent !== undefined ? [ref(c.parent)] : undefined;
+    const parentId = explicit?.[0] ?? (c.branch === undefined ? prevId : lastOnBranch[branch] ?? prevId);
+    const parents = explicit ?? (parentId ? [parentId] : []);
     const base = parents[0] ? { ...repo.commits[parents[0]]!.tree } : {};
     let tree = c.files ? { ...c.files } : base;
     for (const [p, v] of Object.entries(c.edit ?? {})) { if (v === null) delete tree[p]; else tree[p] = v; }
@@ -51,6 +53,7 @@ export function fromSnapshot(snap: RepoSnapshot): Repo {
   repo.files = tip ? { ...repo.commits[tip]!.tree } : { ...(snap.files ?? {}) };
   if (snap.files && tip) repo.files = { ...repo.files, ...snap.files };
   repo.index = tip ? { ...repo.commits[tip]!.tree } : {};
+  for (const p of snap.staged ?? []) { if (p in repo.files) repo.index[p] = repo.files[p]!; else delete repo.index[p]; }
   if (snap.remote) repo.remotes.origin = snap.remote;
   for (const [b, v] of Object.entries(snap.origin ?? {})) { repo.origin.branches[b] = resolve(v); }
   // Remote-tracking refs start as what the player last fetched: origin branches that point at commits they already have locally.

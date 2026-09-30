@@ -25,6 +25,9 @@ beforeAll(async () => {
   engine = createPythonEngine((await loadPyodide()) as never);
 }, 60_000);
 
+/** Python and SQL run in the CPython/SQLite harness here; web, R, spreadsheets and Git have their own validation files. */
+const isPythonSql = (c: { language: string }) => c.language === 'python' || c.language === 'sql';
+
 const grade = (code: string, id: string) => {
   const c = getChallenge(id)!;
   return engine.grade({
@@ -169,11 +172,11 @@ describe('SQL challenges are well formed', () => {
 
 describe('challenges behave correctly in real Python', () => {
   it('has reference solutions for every challenge', () => {
-    for (const c of challenges.filter((x) => x.language !== 'web')) expect(solutions[c.id], c.id).toBeDefined();
+    for (const c of challenges.filter(isPythonSql)) expect(solutions[c.id], c.id).toBeDefined();
     for (const id of Object.keys(solutions)) expect(getChallenge(id), id).toBeDefined();
   });
   // Web challenges (language 'web') run in a real browser: see content/web/web.test.ts.
-  for (const c of challenges.filter((x) => x.language !== 'web')) {
+  for (const c of challenges.filter(isPythonSql)) {
     describe(c.id, () => {
       it('starter code does not already pass', () => {
         expect(grade(c.starterCode, c.id).passed).toBe(false);
@@ -197,7 +200,7 @@ describe('challenges behave correctly in real Python', () => {
   it('demo programs run', () => {
     for (const l of lessons) {
       for (const s of l.steps) {
-        if (s.kind !== 'demo' || s.language === 'web') continue;
+        if (s.kind !== 'demo' || !(s.language === undefined || s.language === 'python' || s.language === 'sql') || (s.language === undefined && l.language !== 'python' && l.language !== 'sql')) continue;
         const lang = s.language ?? l.language;
         const r = engine.run({ language: lang, code: s.code, stdin: s.stdin, fixtures: s.fixtures, db: s.db, sources: sourcesFor([...(s.fixtures?.databases ?? []).map((d) => d.split(':')[0]!), ...(s.db ? [s.db] : [])]) });
         expect(r.ok, `${l.id}: ${s.title}: ${r.error}`).toBe(!s.expectsError);

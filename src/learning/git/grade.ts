@@ -32,6 +32,7 @@ function evaluate(repo: Repo, e: GitExpect, steps: { line: string }[]): string |
   for (const b of e.noBranches ?? []) if (b in repo.branches) return `the branch ${b} should not exist any more`;
   if (e.clean) { const t = head ? repo.commits[head]!.tree : {}; const same = JSON.stringify(Object.entries(repo.index).sort()) === JSON.stringify(Object.entries(t).sort()) && Object.entries(repo.files).every(([p, v]) => repo.index[p] === v) && !repo.merging; if (!same) return 'the working tree is not clean'; }
   if (e.noMergeInProgress && repo.merging) return 'a merge is still in progress';
+  if (e.rootFiles) { const root = head ? ancestors(repo, head).map((id) => repo.commits[id]!).find((c) => c.parents.length === 0) : undefined; if (!root) return 'there is no first commit yet'; const bad = filesMatch(root.tree, e.rootFiles); if (bad) return `in the very first commit: ${bad}`; }
   if (e.files) { const t = head ? repo.commits[head]!.tree : {}; const bad = filesMatch(t, e.files); if (bad) return `in the latest commit: ${bad}`; }
   if (e.working) { const bad = filesMatch(repo.files, e.working); if (bad) return `in your working files: ${bad}`; }
   for (const [branch, want] of Object.entries(e.onBranch ?? {})) {
@@ -49,6 +50,8 @@ function evaluate(repo: Repo, e: GitExpect, steps: { line: string }[]): string |
   if (e.noMergeCommitOn) { const tip = repo.branches[e.noMergeCommitOn]; if (tip && ancestors(repo, tip).some((id) => repo.commits[id]!.parents.length > 1)) return `${e.noMergeCommitOn} should have a linear history (no merge commit)`; }
   if (e.noConflictMarkers) { const bad = Object.entries(repo.files).find(([, v]) => /^(<<<<<<<|=======|>>>>>>>)/m.test(v)); if (bad) return `${bad[0]} still has conflict markers`; const t = head ? repo.commits[head]!.tree : {}; const bt = Object.entries(t).find(([, v]) => /^(<<<<<<<|>>>>>>>)/m.test(v)); if (bt) return `${bt[0]} was committed with conflict markers`; }
   for (const t of e.tags ?? []) if (!(t in repo.tags)) return `the tag ${t} does not exist`;
+  for (const t of e.tagAtHead ?? []) if (!head || repo.tags[t] !== head) return `the tag ${t} should label the current latest commit`;
+  if (e.noDirectCommitsOn) { const direct = Object.values(repo.commits).find((c) => c.author === 'You' && c.parents.length <= 1 && c.onBranch === e.noDirectCommitsOn); if (direct) return `you committed directly on ${e.noDirectCommitsOn}: “${direct.message.split('\n')[0]}”`; }
   if (e.meaningfulMessages) { const own = Object.values(repo.commits).filter((c) => c.author === 'You' && !/^Merge /.test(c.message) && !/^Revert /.test(c.message)); const bad = own.find((c) => !isMeaningfulMessage(c.message)); if (bad) return `the commit message “${bad.message.split('\n')[0]}” does not say what changed`; if (!own.length && e.meaningfulMessages === 'required') return 'make at least one commit with a message that says what changed'; }
   for (const [branch, want] of Object.entries(e.remote ?? {})) {
     const tip = repo.origin.branches[branch];

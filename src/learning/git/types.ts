@@ -8,6 +8,8 @@ export interface Commit {
   author: string;
   /** Creation order, used for stable ids and for `git log` ordering. */
   order: number;
+  /** The branch that was checked out when the commit was made (graded by `noDirectCommitsOn`). */
+  onBranch?: string;
 }
 
 export interface PullRequest {
@@ -45,13 +47,15 @@ export interface Repo {
 export interface RepoSnapshot {
   files?: Record<string, string>;
   /** Commits in creation order. `files` is the full tree at that commit (or use `edit` to change the previous one). */
-  commits?: { id?: string; branch?: string; parent?: string; parents?: string[]; message: string; files?: Record<string, string>; edit?: Record<string, string | null> }[];
+  commits?: { id?: string; branch?: string; parent?: string | number; parents?: (string | number)[]; message: string; files?: Record<string, string>; edit?: Record<string, string | null> }[];
   /** Branch -> commit id (or the index into `commits`), plus which is checked out. */
   branches?: Record<string, string | number>;
   head?: string;
   /** Branches on the server (`origin`), as commit ids or `commits` indexes. Local `origin/<b>` refs mirror them. */
   origin?: Record<string, string | number>;
   remote?: string;
+  /** Paths already staged (`git add`ed) at the start: for tasks that begin with a staging mistake. */
+  staged?: string[];
   prs?: Omit<PullRequest, 'reviews'>[];
 }
 

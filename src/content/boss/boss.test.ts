@@ -12,7 +12,7 @@ import { databasesUsedBy } from '../helpers';
 import { bossChallenges as all } from './index';
 import { bossSolutions } from './solutions.testdata';
 
-const bossChallenges = all.filter((c) => c.language !== 'web');
+const bossChallenges = all.filter((c) => c.language === 'python' || c.language === 'sql');
 let engine: PythonEngine;
 beforeAll(async () => {
   engine = createPythonEngine((await loadPyodide()) as never);

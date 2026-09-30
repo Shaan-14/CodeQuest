@@ -249,6 +249,8 @@ export interface GitExpect {
   noMergeInProgress?: boolean;
   /** Content of the latest commit (HEAD). `null` = the file must not exist. */
   files?: Record<string, string | { includes?: string[]; excludes?: string[] } | null>;
+  /** Content of the very FIRST commit in the current history. */
+  rootFiles?: Record<string, string | { includes?: string[]; excludes?: string[] } | null>;
   /** Content of the working files. */
   working?: Record<string, string | { includes?: string[]; excludes?: string[] } | null>;
   onBranch?: Record<string, GitBranchExpect>;
@@ -258,6 +260,10 @@ export interface GitExpect {
   noMergeCommitOn?: string;
   noConflictMarkers?: boolean;
   tags?: string[];
+  /** Tags that must point at the current HEAD commit. */
+  tagAtHead?: string[];
+  /** The player made no ordinary (non-merge) commit while `branch` was checked out: work went through another branch. */
+  noDirectCommitsOn?: string;
   /** Every commit the player made has a message that says what changed (`'required'`: and they must make at least one). */
   meaningfulMessages?: boolean | 'required';
   /** Branch -> `true` (pushed), `'synced'` (origin equals local) or `false` (must NOT be on origin). */

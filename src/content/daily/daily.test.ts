@@ -12,7 +12,7 @@ import { dailyChallenges as allDailies } from './index';
 import { dailySolutions } from './solutions.testdata';
 
 /** Web dailies run in real Chromium: see content/web/web.test.ts. */
-const dailyChallenges = allDailies.filter((c) => c.language !== 'web');
+const dailyChallenges = allDailies.filter((c) => c.language === 'python' || c.language === 'sql');
 let engine: PythonEngine;
 beforeAll(async () => {
   engine = createPythonEngine((await loadPyodide()) as never);
