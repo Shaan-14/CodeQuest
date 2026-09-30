@@ -619,7 +619,7 @@ async function main() {
       await openPanel(page, 'menu');
       await tid(page, 'export').click();
       const exported = await tid(page, 'save-text').inputValue();
-      assert(exported.includes('"version":7'), 'exported');
+      assert(exported.includes('"version":8'), 'exported');
       await tid(page, 'import').click();
       assert((await page.getByRole('status').innerText()).includes('restored'), 'import ok');
       // reset
