@@ -10,7 +10,8 @@
  */
 import type { Check, Constraint, Fixtures, Json } from '../content/schema';
 
-export type Language = 'javascript' | 'python' | 'sql' | 'r' | 'html-css';
+/** 'web' = an HTML + CSS + JavaScript project run in the sandboxed browser page (learning/web). */
+export type Language = 'javascript' | 'python' | 'sql' | 'r' | 'html-css' | 'web';
 
 export interface RunRequest {
   language: Language;

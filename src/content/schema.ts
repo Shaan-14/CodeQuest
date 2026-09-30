@@ -113,6 +113,24 @@ export interface TestsCheck extends CheckBase {
   minTests?: number;
 }
 
+/**
+ * A check on a web project (language 'web'). `script` is the body of an async function run INSIDE the sandbox
+ * page after the player's HTML/CSS/JS has loaded, with a helper object `h` (see learning/web/sandboxRuntime.js):
+ * `h.$ h.$$ h.text h.style h.click h.type h.submit h.settle h.tick h.assert h.eq h.logs h.errors h.storage h.api
+ * h.files ...`. It passes if it finishes without throwing; assertion messages are nudges about the thinking.
+ * Time is virtual (`h.tick(ms)`), so async and timer behaviour is deterministic.
+ */
+export interface WebCheck extends CheckBase {
+  kind: 'web';
+  script: string;
+  /** Emulated viewport for responsive checks (media queries evaluate against it). Default 1024 x 768. */
+  viewport?: { width: number; height?: number };
+  /** Which dataset the in-game API serves: 'a' (default, the one the player sees) or 'b' (hidden twin). */
+  api?: 'a' | 'b';
+  /** True if uncaught JavaScript errors should not automatically fail this check. */
+  errorsOk?: boolean;
+}
+
 export type PythonCheck = OutputCheck | VariableCheck | CallCheck | FileCheck | ScriptCheck | TestsCheck;
 
 /* ---- SQL checks (language 'sql'). Results are computed by real SQLite; expectations are usually a
@@ -182,7 +200,7 @@ export interface SqlPlanCheck extends SqlBase {
 
 export type SqlCheck = SqlResultCheck | SqlStateCheck | SqlScriptCheck | SqlSchemaCheck | SqlPlanCheck;
 
-export type Check = PythonCheck | SqlCheck;
+export type Check = PythonCheck | SqlCheck | WebCheck;
 
 /** Structural rule on the player's source, so a loop lesson cannot be passed by copy-pasting print(). */
 export interface Constraint {
@@ -199,6 +217,13 @@ export interface Constraint {
 /* ------------------------------------------------------------------ challenges & lessons */
 
 /** Extra metadata for challenges authored specifically for the Daily Challenge (see content/daily). */
+/** The three files of a web project. */
+export interface WebFiles {
+  html: string;
+  css: string;
+  js: string;
+}
+
 export interface DailyMeta {
   /** Which kind of day this suits: reinforcing current learning, reviewing an older skill, or either. */
   focus: 'current' | 'review' | 'either';
@@ -230,6 +255,10 @@ export interface Challenge {
   /** Learning mode only: a short checklist walking through the task. */
   guidedSteps?: string[];
   starterCode: string;
+  /** Web challenges (language 'web'): the starting HTML/CSS/JS. `starterCode` is then ''. */
+  starterFiles?: WebFiles;
+  /** Web challenges: which files the player edits, and which in-game API (dataset variant 'a') is available. */
+  web?: { tabs: ('html' | 'css' | 'js')[]; api?: boolean };
   /** Files/databases available to the player's code (Run and Submit). Checks may add to these. */
   fixtures?: Fixtures;
   /** Database shown in the schema browser and used by Run for SQL challenges (default: first check's db). */
