@@ -551,7 +551,7 @@ async function main() {
       await page.context().close();
     });
 
-    await test('failing a SQL challenge offers a DIFFERENT problem; both attempts stay in the evidence', async () => {
+    await test('failing a SQL challenge is recorded, blocks an immediate retry, and points to the Training Grounds', async () => {
       const page = await newPage();
       await startGame(page);
       await seed(page, ['py-21-cleaning', 'sql-01-select']);
@@ -576,20 +576,11 @@ async function main() {
       await tid(page, 'submit').click();
       await tid(page, 'result').waitFor({ timeout: 30000 });
       assert(await page.locator('.result.fail').count() === 1, 'wrong SQL fails');
-      await tid(page, 'other-variant').click();
-      const second = await tid(page, 'briefing').getAttribute('data-challenge');
-      assert(first !== second, 'the alternate is a different challenge');
-      const chip = await tid(page, 'variant-chip').innerText();
-      assert(/Problem \d of \d/.test(chip), 'variant chip: ' + chip);
-      await setCode(page, solutions[second].valid[0]);
-      await tid(page, 'submit').click();
-      await page.locator('.result.pass').waitFor({ timeout: 30000 });
+      eq(await tid(page, 'other-variant').count(), 0, 'no swapping to another problem instead of training');
+      await tid(page, 'diagnosis').waitFor();
+      assert(await tid(page, 'submit').isDisabled(), 'no immediate retry');
       const save = await readSave(page);
-      const failed = save.evidence.filter((r) => r.challengeId === first && !r.passed);
-      const passed = save.evidence.filter((r) => r.challengeId === second && r.passed);
-      assert(failed.length === 1 && passed.length === 1, 'failure and later success are both recorded');
-      assert(passed[0].priorFailures >= 1, 'the success knows about the earlier failure');
-      assert(save.achievements['retry-wisdom'], 'retry achievement earned');
+      assert(save.evidence.filter((r) => r.challengeId === first && !r.passed).length === 1, 'the failure is recorded');
       await page.context().close();
     });
 
@@ -1062,7 +1053,6 @@ async function main() {
       await seed(page, PY_EARLY.slice(0, 4));
       await gotoArea(page, 'training-grounds');
       await openLesson(page, 'py-05-numbers');
-      await advanceToChallenge(page);
       // the lesson opens with a guided exercise; the second challenge (crates) is challenge mode
       for (let i = 0; i < 12; i++) {
         const kind = await stepKind(page, i);
