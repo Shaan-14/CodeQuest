@@ -6,6 +6,8 @@ const EMP = 'data.frame(name = c("Ana", "Ben", "Caz", "Dev", "Eli", "Fay"), dept
 const DEPT_MEANS = '.cq_ref <- function(df) { a <- aggregate(salary ~ dept, data = df, FUN = mean); names(a) <- c("dept", "mean_salary"); a[order(a$dept), ] }';
 const REGION_TOTALS = '.cq_ref <- function(sales) { a <- aggregate(amount ~ region, data = sales, FUN = sum); names(a) <- c("region", "total"); a[order(-a$total, a$region), ] }';
 const DEFECT_RATE = '.cq_ref <- function(runs) { u <- aggregate(units ~ line, data = runs, FUN = sum); d <- aggregate(defects ~ line, data = runs, FUN = sum); m <- merge(u, d, by = "line"); out <- data.frame(line = m$line, rate = round(m$defects / m$units, 3), stringsAsFactors = FALSE); out[order(-out$rate, out$line), ] }';
+const TOP_PAID = '.cq_ref <- function(df, n) head(df[order(-df$salary, df$name), ], n)';
+const SLOWEST = '.cq_ref <- function(runs, n) head(runs[order(-runs$seconds, runs$test), ], n)';
 const WITH_MANAGER = '.cq_ref <- function(emp, depts) { m <- merge(emp, depts, by = "dept", all.x = TRUE); out <- data.frame(name = m$name, dept_name = m$dept_name, manager = m$manager, stringsAsFactors = FALSE); out[order(out$name), ] }';
 const WITH_PRICE = '.cq_ref <- function(orders, prices) { m <- merge(orders, prices, by = "item", all.x = TRUE); m$total <- m$qty * m$price; out <- data.frame(order_id = m$order_id, item = m$item, total = m$total, stringsAsFactors = FALSE); out[order(out$order_id), ] }';
 
@@ -32,9 +34,11 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'r-05-dept-means' },
       { kind: 'challenge', challengeId: 'r-05-region-totals' },
       { kind: 'challenge', challengeId: 'r-05-with-manager' },
+      { kind: 'challenge', challengeId: 'r-05-top-paid' },
     ],
   },
   objectives: [
+    { id: 'r-obj-top-n', title: 'Pick the top rows of a table', summary: 'Sort a table by one column with a tie-break and keep the first n rows.' },
     { id: 'r-obj-group-summary', title: 'Summarise a table per group', summary: 'Group rows by a key, summarise each group and sort the result.' },
     { id: 'r-obj-join', title: 'Join two tables and compute a column', summary: 'Merge tables on a key, keep unmatched rows and return the requested columns in order.' },
   ],
@@ -84,6 +88,24 @@ export const bundle: LessonBundle = {
       hints: ['Bring the price onto every order.', 'Orders without a price must not disappear.', 'Compute the new column after joining; return the three columns in order.'],
       checks: rCalls('priced_orders', WITH_PRICE, ['o, p', 'o[1:3, ], p', 'o, p[p$item != "nut", ]', 'data.frame(order_id = 9, item = "ghost", qty = 2, stringsAsFactors = FALSE), p', 'o[order(o$order_id, decreasing = TRUE), ], p'], 1, 'o <- data.frame(order_id = c(3, 1, 2, 4), item = c("bolt", "nut", "bolt", "cog"), qty = c(10, 4, 1, 7), stringsAsFactors = FALSE)\np <- data.frame(item = c("bolt", "nut"), price = c(2.5, 0.4), stringsAsFactors = FALSE)'),
       xpReward: 80, coinReward: 12,
+    },
+    {
+      id: 'r-05-top-paid', objectiveId: 'r-obj-top-n', title: 'The Best-Paid Few', mode: 'challenge', language: 'r', skillIds: ['r.manipulation'], concepts: ['order', 'head'], difficulty: 3, context: 'business',
+      prompt: text('Write `top_paid(df, n)`: `df` has the columns `name`, `dept` and `salary`. Return the **`n` highest-paid rows** with all their columns, **highest salary first**, equal salaries in `name` order A to Z. If `n` is larger than the number of rows return them all; `n = 0` returns no rows.'),
+      expectedBehavior: 'The top n rows by salary descending, ties by name, with all columns.',
+      starterCode: 'top_paid <- function(df, n) {\n  \n}\n',
+      hints: ['Order the rows first, then keep the first few.', 'Sort by a number descending and a name ascending at once.', 'Asking for more rows than exist should not fail.'],
+      checks: rCalls('top_paid', TOP_PAID, ['emp, 3', 'emp, 10', 'emp, 0', 'emp[emp$dept == "Ops", ], 2', 'data.frame(name = c("b", "a", "c"), dept = "x", salary = c(5, 5, 9), stringsAsFactors = FALSE), 2'], 1, `emp <- ${EMP}`),
+      xpReward: 75, coinReward: 11,
+    },
+    {
+      id: 'r-05-slowest-runs', objectiveId: 'r-obj-top-n', title: 'The Slowest Runs', mode: 'challenge', language: 'r', skillIds: ['r.manipulation'], concepts: ['order', 'head'], difficulty: 3, context: 'software',
+      prompt: text('Write `slowest_runs(runs, n)`: `runs` has the columns `test`, `suite` and `seconds`. Return the **`n` slowest rows** with all their columns, **longest time first**, equal times in `test` order A to Z. If `n` is larger than the number of rows return them all; `n = 0` returns no rows.'),
+      expectedBehavior: 'The n slowest rows by seconds descending, ties by test name, with all columns.',
+      starterCode: 'slowest_runs <- function(runs, n) {\n  \n}\n',
+      hints: ['Order first, then cut.', 'Descending on one column, ascending on another.', 'Too large an n is not an error.'],
+      checks: rCalls('slowest_runs', SLOWEST, ['rn, 2', 'rn, 50', 'rn, 0', 'rn[rn$suite == "api", ], 1', 'data.frame(test = c("z", "a", "m"), suite = "s", seconds = c(2, 2, 1), stringsAsFactors = FALSE), 2'], 1, 'rn <- data.frame(test = c("t_login", "t_pay", "t_search", "t_export", "t_ui"), suite = c("api", "api", "ui", "ui", "ui"), seconds = c(3.5, 12, 3.5, 40, 8.25), stringsAsFactors = FALSE)'),
+      xpReward: 75, coinReward: 11,
     },
   ],
 };

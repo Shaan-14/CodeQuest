@@ -19,9 +19,11 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'r-06-group-stats' },
       { kind: 'challenge', challengeId: 'r-06-trial' },
       { kind: 'challenge', challengeId: 'r-06-timings' },
+      { kind: 'challenge', challengeId: 'r-06-ad-spend' },
     ],
   },
   objectives: [
+    { id: 'r-obj-relationship', title: 'Describe a relationship between two measurements', summary: 'Correlation, its strength in words and the slope of the best-fit line.' },
     { id: 'r-obj-analysis', title: 'Summarise two groups and test the difference', summary: 'Read a file, summarise each group, run the right test and report the verdict.' },
   ],
   challenges: [
@@ -72,6 +74,41 @@ export const bundle: LessonBundle = {
         rOut("A large study", "M1: n=25, mean 11.06 s\nM2: n=22, mean 14.94 s\np-value: 0.0000\nVerdict: significant difference", { "timings.csv": "machine,seconds\nM2,14.8\nM1,11.5\nM1,10.8\nM2,12.0\nM1,13.1\nM2,19.3\nM2,16.4\nM1,11.6\nM2,13.1\nM2,14.1\nM2,14.9\nM2,15.9\nM1,6.8\nM1,10.4\nM1,10.0\nM2,14.4\nM2,14.1\nM2,16.7\nM1,12.0\nM2,15.3\nM1,13.7\nM2,13.3\nM1,12.7\nM1,11.0\nM2,18.0\nM2,15.4\nM1,14.7\nM2,15.6\nM1,11.3\nM1,11.9\nM2,12.9\nM2,13.7\nM2,15.9\nM1,14.3\nM2,15.2\nM1,9.9\nM1,8.5\nM1,13.6\nM2,13.6\nM1,10.5\nM1,9.4\nM1,9.5\nM2,14.0\nM1,8.6\nM1,9.7\nM1,9.6\nM1,11.3\n" }, false),
         rOut("A small study", "M1: n=7, mean 39.37 s\nM2: n=8, mean 45.38 s\np-value: 0.0134\nVerdict: significant difference", { "timings.csv": "machine,seconds\nM2,46.7\nM1,32.9\nM2,43.7\nM2,44.8\nM1,44.7\nM2,42.7\nM2,46.1\nM1,44.0\nM2,50.4\nM2,44.4\nM1,42.8\nM1,37.4\nM1,34.8\nM2,44.2\nM1,39.0\n" }, false),
         rOut('Just short of significance', "M1: n=10, mean 40.11 s\nM2: n=10, mean 43.48 s\np-value: 0.0837\nVerdict: no significant difference", { 'timings.csv': "machine,seconds\nM2,42.1\nM1,45.4\nM1,34.9\nM2,38.2\nM2,42.9\nM1,32.0\nM2,48.8\nM1,40.5\nM2,40.2\nM1,43.0\nM2,48.9\nM2,42.4\nM1,43.8\nM2,44.9\nM1,39.8\nM1,37.4\nM2,45.7\nM1,46.0\nM2,40.7\nM1,38.3\n" }, false),
+      ],
+      xpReward: 170, coinReward: 26,
+    },
+    {
+      id: 'r-06-ad-spend', objectiveId: 'r-obj-relationship', title: 'Does Advertising Move Sales?', mode: 'independent', language: 'r', skillIds: ['r.analysis', 'stat.correlation'], concepts: [], difficulty: 4, transfer: true, context: 'marketing', project: true,
+      prompt: text(
+        '`ads.csv` has the header `spend,sales`: weekly advertising spend and the sales that week.',
+        'Print three lines: `Correlation: 0.963` (the correlation between spend and sales, **3 decimals**); `Strength: strong positive` (**weak** when the correlation’s size is below 0.3, **moderate** when it is below 0.7, otherwise **strong**; then **positive** or **negative** by its sign); and `Slope: 2.45` (how much sales change on average for one more unit of spend, from the straight line that best fits the data, **2 decimals**).',
+      ),
+      starterCode: '',
+      hints: [],
+      fixtures: { files: { 'ads.csv': "spend,sales\n22.3,63.3\n16.2,55.1\n16.2,56.5\n17.6,55.8\n19.2,64.3\n27.1,88.2\n36.3,103.9\n16.8,52.4\n20.2,74.5\n15.4,64.6\n15.2,61.9\n39.3,113.7\n26.6,84.4\n11.3,38.7\n" } },
+      checks: [
+        rOut('The example data', "Correlation: 0.963\nStrength: strong positive\nSlope: 2.45"),
+        rOut("A weak link", "Correlation: 0.189\nStrength: weak positive\nSlope: 0.24", { "ads.csv": "spend,sales\n37.5,73.0\n13.3,81.8\n21.3,67.8\n22.8,56.1\n10.7,85.9\n11.0,54.2\n9.3,49.7\n32.1,63.5\n17.0,56.4\n12.4,57.8\n7.8,49.3\n26.6,58.0\n" }, false),
+        rOut("A moderate negative link", "Correlation: -0.619\nStrength: moderate negative\nSlope: -0.92", { "ads.csv": "spend,sales\n20.6,65.5\n22.0,91.3\n8.0,82.8\n12.1,75.1\n7.6,69.8\n26.4,52.4\n12.8,89.9\n16.5,58.4\n14.6,64.5\n36.9,33.0\n35.7,56.3\n26.5,59.1\n20.0,64.6\n12.2,70.2\n36.4,66.1\n" }, false),
+        rOut("A tight negative link", "Correlation: -0.996\nStrength: strong negative\nSlope: -3.19", { "ads.csv": "spend,sales\n21.7,129.9\n37.2,81.7\n5.6,188.9\n33.1,96.9\n33.1,99.6\n27.9,120.6\n10.2,171.2\n30.2,103.1\n7.9,175.3\n7.2,177.3\n" }, false),
+      ],
+      xpReward: 170, coinReward: 26,
+    },
+    {
+      id: 'r-06-temp-energy', objectiveId: 'r-obj-relationship', title: 'Temperature and Energy Use', mode: 'independent', language: 'r', skillIds: ['r.analysis', 'stat.correlation'], concepts: [], difficulty: 4, transfer: true, context: 'energy', project: true,
+      prompt: text(
+        '`energy.csv` has the header `temp,kwh`: the outside temperature and the building’s energy use for a day.',
+        'Print three lines: `Correlation: -0.988` (the correlation between temperature and energy use, **3 decimals**); `Strength: strong negative` (**weak** when the correlation’s size is below 0.3, **moderate** when it is below 0.7, otherwise **strong**; then **positive** or **negative** by its sign); and `Slope: -1.72` (how much energy use changes on average per extra degree, from the straight line that best fits the data, **2 decimals**).',
+      ),
+      starterCode: '',
+      hints: [],
+      fixtures: { files: { 'energy.csv': "temp,kwh\n4.7,51.3\n24.5,15.6\n19.7,26.9\n1.0,58.2\n-3.4,66.3\n15.8,32.2\n6.0,51.2\n5.5,45.5\n0.0,59.6\n14.4,34.7\n0.7,62.5\n8.1,50.5\n23.4,22.3\n2.5,55.0\n-0.6,61.2\n10.4,46.2\n" } },
+      checks: [
+        rOut('The example data', "Correlation: -0.988\nStrength: strong negative\nSlope: -1.72"),
+        rOut("A weak link", "Correlation: 0.261\nStrength: weak positive\nSlope: 0.31", { "energy.csv": "temp,kwh\n-2.8,14.7\n5.3,20.4\n11.3,24.2\n15.6,38.5\n13.0,40.5\n5.3,29.1\n6.4,24.5\n1.7,23.3\n19.3,22.2\n-2.3,33.1\n4.5,36.6\n2.6,31.0\n5.4,32.7\n" }, false),
+        rOut("A strong positive link", "Correlation: 0.765\nStrength: strong positive\nSlope: 1.20", { "energy.csv": "temp,kwh\n3.4,7.5\n8.8,25.4\n12.6,19.3\n1.1,17.2\n-1.7,12.5\n-4.2,25.6\n5.6,11.6\n8.0,30.0\n20.7,50.6\n1.1,11.8\n21.3,46.8\n18.9,29.8\n" }, false),
+        rOut("A tight positive link", "Correlation: 0.995\nStrength: strong positive\nSlope: 2.51", { "energy.csv": "temp,kwh\n20.8,58.1\n-1.4,1.3\n4.3,19.5\n5.5,16.0\n8.2,21.9\n8.4,28.1\n4.4,16.3\n10.4,32.0\n-1.2,2.8\n23.6,64.4\n7.6,24.0\n" }, false),
+        rOut('A moderate link', "Correlation: 0.556\nStrength: moderate positive\nSlope: 0.95", { 'energy.csv': "temp,kwh\n3.4,28.8\n-2.0,41.8\n10.1,65.0\n10.6,46.4\n18.7,49.5\n20.2,63.1\n0.0,59.1\n11.4,35.4\n10.5,57.3\n18.2,61.2\n16.9,52.2\n16.7,52.2\n24.7,77.0\n8.4,35.6\n" }, false),
       ],
       xpReward: 170, coinReward: 26,
     },

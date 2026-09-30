@@ -6,6 +6,8 @@ const LETTER = '.cq_ref <- function(score) if (score >= 90) "A" else if (score >
 const RISK = '.cq_ref <- function(score) ifelse(score >= 70, "high", ifelse(score >= 40, "medium", "low"))';
 const STOCK = '.cq_ref <- function(units) ifelse(units >= 10, "ok", ifelse(units >= 1, "low", "out"))';
 const STREAK = '.cq_ref <- function(x) if (length(x) == 0) 0 else max(rle(x)$lengths)';
+const WITH_TAX = '.cq_ref <- function(price, rate = 0.2) round(price * (1 + rate), 2)';
+const SALE = '.cq_ref <- function(price, off = 10) round(price * (1 - off / 100), 2)';
 const DRY = '.cq_ref <- function(rain) { best <- 0; run <- 0; for (r in rain) { if (r == 0) { run <- run + 1; if (run > best) best <- run } else run <- 0 }; best }';
 
 export const bundle: LessonBundle = {
@@ -32,9 +34,11 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'r-03-letter' },
       { kind: 'challenge', challengeId: 'r-03-risk-class' },
       { kind: 'challenge', challengeId: 'r-03-longest-run' },
+      { kind: 'challenge', challengeId: 'r-03-with-tax' },
     ],
   },
   objectives: [
+    { id: 'r-obj-default-arg', title: 'Functions with optional arguments', summary: 'Give an argument a sensible default and use the function with and without it.' },
     { id: 'r-obj-vectorised-decision', title: 'A decision that works on a whole vector', summary: 'Write a function that classifies every element of a vector, with correct boundaries.' },
     { id: 'r-obj-run-length', title: 'Loops over sequences', summary: 'Find the longest run in a sequence using a loop or run-length encoding.' },
   ],
@@ -84,6 +88,24 @@ export const bundle: LessonBundle = {
       hints: ['A running count that resets when something else happens.', 'Keep the best count so far separately.', 'Days with rain end a spell but do not count as one.'],
       checks: rCalls('longest_dry_spell', DRY, ['c(0, 0, 3, 0, 0, 0, 1)', 'c(2, 5)', 'numeric(0)', 'c(0)', 'c(0, 0, 0)', 'c(1, 0, 0, 2, 0)', 'c(0.5, 0, 0, 0, 0.2, 0, 0)'], 2),
       xpReward: 75, coinReward: 11,
+    },
+    {
+      id: 'r-03-with-tax', objectiveId: 'r-obj-default-arg', title: 'Price With Tax', mode: 'challenge', language: 'r', skillIds: ['r.functions'], concepts: ['default argument', 'round'], difficulty: 2, context: 'retail',
+      prompt: text('Write `with_tax(price, rate = 0.2)` returning the price **including tax**: `price × (1 + rate)`, **rounded to 2 decimals**. The `rate` is optional and defaults to **0.2**; it must also work on a whole vector of prices.'),
+      expectedBehavior: 'price * (1 + rate) rounded to 2 decimals, rate defaulting to 0.2.',
+      starterCode: 'with_tax <- function(price, rate = 0.2) {\n  \n}\n',
+      hints: ['The default is written in the function header.', 'One argument, or two: test both.', 'Arithmetic already works on whole vectors.'],
+      checks: rCalls('with_tax', WITH_TAX, ['100', '50, 0.1', 'c(10, 20.5)', '19.99, 0', 'c(1, 2, 3), 0.5', '0', '12.345, 0.08'], 2),
+      xpReward: 55, coinReward: 8,
+    },
+    {
+      id: 'r-03-discounted', objectiveId: 'r-obj-default-arg', title: 'Sale Price', mode: 'challenge', language: 'r', skillIds: ['r.functions'], concepts: ['default argument', 'round'], difficulty: 2, context: 'finance',
+      prompt: text('Write `sale_price(price, off = 10)` returning the price **after a discount of `off` percent**, **rounded to 2 decimals**. The discount is optional and defaults to **10** (percent); it must also work on a whole vector of prices.'),
+      expectedBehavior: 'price * (1 - off/100) rounded to 2 decimals, off defaulting to 10.',
+      starterCode: 'sale_price <- function(price, off = 10) {\n  \n}\n',
+      hints: ['Percent means per hundred.', 'Try it with and without the second argument.', 'Round at the end.'],
+      checks: rCalls('sale_price', SALE, ['200', '80, 25', 'c(10, 99.99)', '50, 0', 'c(1, 2, 3), 50', '0', '19.99, 12.5'], 2),
+      xpReward: 55, coinReward: 8,
     },
   ],
 };

@@ -54,7 +54,7 @@ export const bundle: LessonBundle = {
       xpReward: 70, coinReward: 12,
     },
     {
-      id: 'xl-08-projection-b', objectiveId: 'xl-obj-projection', title: 'Stock Over Five Weeks', mode: 'challenge', language: 'sheet', skillIds: ['xl.modeling'], concepts: ['projection', 'MAX'], difficulty: 3, context: 'logistics',
+      id: 'xl-08-projection-b', objectiveId: 'xl-obj-projection', title: 'Stock Over Five Weeks', mode: 'challenge', language: 'sheet', skillIds: ['xl.modeling'], concepts: ['projection', 'absolute references'], difficulty: 3, context: 'logistics',
       prompt: text('B1 is the stock at the start, B2 the units sold each week and B3 the units delivered each week. Each week the closing stock is the previous stock minus sales plus the delivery, but **stock can never be negative**. Fill B6:B10 with the closing stock of weeks 1 to 5, for any inputs.'),
       expectedBehavior: 'B6:B10 hold the closing stock for weeks 1 to 5, never below 0.',
       starterCode: '',

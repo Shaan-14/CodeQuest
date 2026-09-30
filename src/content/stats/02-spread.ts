@@ -52,7 +52,7 @@ export const bundle: LessonBundle = {
       xpReward: 30, coinReward: 5,
     },
     {
-      id: 'st-02-std', objectiveId: 'st-obj-std', title: 'Bottle Fill Consistency', mode: 'challenge', language: 'python', skillIds: ['stat.spread', 'py.functions'], concepts: ['standard deviation', 'population'], difficulty: 3, context: 'manufacturing',
+      id: 'st-02-std', objectiveId: 'st-obj-std', title: 'Bottle Fill Consistency', mode: 'challenge', language: 'python', skillIds: ['stat.spread', 'py.functions'], concepts: ['standard deviation', 'denominator'], difficulty: 3, context: 'manufacturing',
       prompt: text('A plant measures **every** bottle in a batch. Write `fill_std(volumes)` returning the **population standard deviation** of the volumes (the square root of the average squared distance from the mean, dividing by **n**), **rounded to 3 decimal places**. Return `None` for an empty list.'),
       expectedBehavior: 'The population standard deviation rounded to 3 places; None for an empty list.',
       starterCode: 'def fill_std(volumes):\n    pass\n',
@@ -61,7 +61,7 @@ export const bundle: LessonBundle = {
       xpReward: 70, coinReward: 10,
     },
     {
-      id: 'st-02-std-b', objectiveId: 'st-obj-std', title: 'Monthly Return Volatility', mode: 'challenge', language: 'python', skillIds: ['stat.spread', 'py.functions'], concepts: ['standard deviation', 'sample'], difficulty: 3, context: 'finance',
+      id: 'st-02-std-b', objectiveId: 'st-obj-std', title: 'Monthly Return Volatility', mode: 'challenge', language: 'python', skillIds: ['stat.spread', 'py.functions'], concepts: ['standard deviation', 'denominator'], difficulty: 3, context: 'finance',
       prompt: text('An analyst has a few monthly returns, which are only a **sample** of how the fund behaves. Write `volatility(returns)` returning the **sample standard deviation** (divide the summed squared distances by **n − 1**), **rounded to 3 decimal places**. With fewer than 2 returns there is no spread to estimate, so return `None`.'),
       expectedBehavior: 'The sample standard deviation (n − 1) rounded to 3 places; None with fewer than 2 values.',
       starterCode: 'def volatility(returns):\n    pass\n',
@@ -82,7 +82,7 @@ export const bundle: LessonBundle = {
       xpReward: 80, coinReward: 12,
     },
     {
-      id: 'st-02-outliers-b', objectiveId: 'st-obj-outliers', title: 'Which Sensor Reading Is Off?', mode: 'challenge', language: 'python', skillIds: ['stat.spread', 'py.lists'], concepts: ['quartiles', 'IQR', 'outliers', 'index'], difficulty: 3, context: 'engineering',
+      id: 'st-02-outliers-b', objectiveId: 'st-obj-outliers', title: 'Which Sensor Reading Is Off?', mode: 'challenge', language: 'python', skillIds: ['stat.spread', 'py.lists'], concepts: ['quartiles', 'IQR', 'outliers'], difficulty: 3, context: 'engineering',
       prompt: text(
         'A monitoring script must report **where** the odd readings are. Write `odd_positions(readings)` returning the **indexes** (ascending) of readings outside the IQR fences: below `Q1 − 1.5 × IQR` or above `Q3 + 1.5 × IQR`.',
         'Quartiles: sort a copy; Q1 is the median of the lower half, Q3 the median of the upper half; with an odd count the middle value belongs to neither half. With fewer than 4 readings return `[]`. Do not reorder the original list.',

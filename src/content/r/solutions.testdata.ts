@@ -491,4 +491,236 @@ p <- t.test(seconds ~ machine, data = d)$p.value
 cat(sprintf("p-value: %.4f\n", p))
 cat(if (p < 0.05) "Verdict: significant difference\n" else "Verdict: no significant difference\n")`],
   },
+  'r-06-ad-spend': {
+    valid: [r`d <- read.csv("ads.csv")
+r <- cor(d$spend, d$sales)
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$sales ~ d$spend))[2]))`, r`d <- read.csv("ads.csv")
+r <- cov(d$spend, d$sales) / (sd(d$spend) * sd(d$sales))
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$sales ~ d$spend))[2]))`],
+    wrong: [r`d <- read.csv("ads.csv")
+r <- cor(d$spend, d$sales)
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$sales ~ d$spend))[1]))`, r`d <- read.csv("ads.csv")
+r <- cor(d$spend, d$sales)
+a <- r
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$sales ~ d$spend))[2]))`, r`d <- read.csv("ads.csv")
+r <- cor(d$spend, d$sales)
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.2f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$sales ~ d$spend))[2]))`, r`d <- read.csv("ads.csv")
+r <- cor(d$spend, d$sales, method = "spearman")
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r >= 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$sales ~ d$spend))[2]))`, r`d <- read.csv("ads.csv")
+r <- cor(d$spend, d$sales)
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.5) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$sales ~ d$spend))[2]))`, r`d <- read.csv("ads.csv")
+r <- cor(d$spend, d$sales)^2
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$sales ~ d$spend))[2]))`],
+  },
+  'r-06-temp-energy': {
+    valid: [r`d <- read.csv("energy.csv")
+r <- cor(d$temp, d$kwh)
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$kwh ~ d$temp))[2]))`, r`d <- read.csv("energy.csv")
+r <- cov(d$temp, d$kwh) / (sd(d$temp) * sd(d$kwh))
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$kwh ~ d$temp))[2]))`],
+    wrong: [r`d <- read.csv("energy.csv")
+r <- cor(d$temp, d$kwh)
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$kwh ~ d$temp))[1]))`, r`d <- read.csv("energy.csv")
+r <- cor(d$temp, d$kwh)
+a <- r
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$kwh ~ d$temp))[2]))`, r`d <- read.csv("energy.csv")
+r <- cor(d$temp, d$kwh)
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.2f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$kwh ~ d$temp))[2]))`, r`d <- read.csv("energy.csv")
+r <- cor(d$temp, d$kwh, method = "spearman")
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r >= 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$kwh ~ d$temp))[2]))`, r`d <- read.csv("energy.csv")
+r <- cor(d$temp, d$kwh)
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.5) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$kwh ~ d$temp))[2]))`, r`d <- read.csv("energy.csv")
+r <- cor(d$temp, d$kwh)^2
+a <- abs(r)
+strength <- if (a < 0.3) "weak" else if (a < 0.7) "moderate" else "strong"
+direction <- if (r > 0) "positive" else "negative"
+cat(sprintf("Correlation: %.3f\n", r))
+cat(sprintf("Strength: %s %s\n", strength, direction))
+cat(sprintf("Slope: %.2f\n", coef(lm(d$kwh ~ d$temp))[2]))`],
+  },
+  'r-01-label': {
+    valid: [r`x <- readLines("item.txt")
+cat(x[1], "costs", x[2], "\n")`, r`x <- readLines("item.txt")
+cat(paste(x[1], "costs", x[2]))`],
+    wrong: [r`x <- readLines("item.txt")
+cat(x[1], x[2], "\n")`, r`x <- readLines("item.txt")
+print(paste(x[1], "costs", x[2]))`, r`x <- readLines("item.txt")
+cat(x[1], "costs", as.numeric(x[2]) * 2, "\n")`, r`cat("Bolt costs 2.5")`, r`x <- readLines("item.txt")
+cat(paste0(x[1], "costs", x[2]))`],
+  },
+  'r-01-status-line': {
+    valid: [r`x <- readLines("server.txt")
+cat(paste0(x[1], ": ", x[2], "% load"), "\n")`, r`x <- readLines("server.txt")
+cat(x[1], ": ", x[2], "% load\n", sep = "")`],
+    wrong: [r`x <- readLines("server.txt")
+cat(x[1], ":", x[2], "% load", "\n")`, r`x <- readLines("server.txt")
+cat(paste0(x[1], ": ", x[2], " load"), "\n")`, r`x <- readLines("server.txt")
+print(paste0(x[1], ": ", x[2], "% load"))`, r`x <- readLines("server.txt")
+cat(paste0(x[1], ": ", as.numeric(x[2]) / 100, "% load"), "\n")`, r`cat("web1: 73% load")`],
+  },
+  'r-03-with-tax': {
+    valid: [r`with_tax <- function(price, rate = 0.2) round(price * (1 + rate), 2)`, r`with_tax <- function(price, rate = 0.2) {
+  total <- price + price * rate
+  round(total, 2)
+}`],
+    wrong: [r`with_tax <- function(price, rate) round(price * (1 + rate), 2)`, r`with_tax <- function(price, rate = 0.2) price * (1 + rate)`, r`with_tax <- function(price, rate = 0.2) round(price * rate, 2)`, r`with_tax <- function(price, rate = 20) round(price * (1 + rate), 2)`, r`with_tax <- function(price, rate = 0.2) round(price * (1 + rate), 1)`],
+  },
+  'r-03-discounted': {
+    valid: [r`sale_price <- function(price, off = 10) round(price * (1 - off / 100), 2)`, r`sale_price <- function(price, off = 10) round(price - price * off / 100, 2)`],
+    wrong: [r`sale_price <- function(price, off) round(price * (1 - off / 100), 2)`, r`sale_price <- function(price, off = 10) round(price * (1 - off), 2)`, r`sale_price <- function(price, off = 10) round(price * off / 100, 2)`, r`sale_price <- function(price, off = 0.1) round(price * (1 - off / 100), 2)`, r`sale_price <- function(price, off = 10) price * (1 - off / 100)`],
+  },
+  'r-04-top-earner': {
+    valid: [r`d <- read.csv("staff.csv")
+i <- which.max(d$salary)
+cat("Top: ", d$name[i], " (", d$salary[i], ")\n", sep = "")`, r`d <- read.csv("staff.csv")
+top <- d[which(d$salary == max(d$salary))[1], ]
+cat(sprintf("Top: %s (%s)\n", top$name, top$salary))`],
+    wrong: [r`d <- read.csv("staff.csv")
+i <- which.min(d$salary)
+cat("Top: ", d$name[i], " (", d$salary[i], ")\n", sep = "")`, r`d <- read.csv("staff.csv")
+i <- tail(which(d$salary == max(d$salary)), 1)
+cat("Top: ", d$name[i], " (", d$salary[i], ")\n", sep = "")`, r`d <- read.csv("staff.csv")
+i <- which.max(d$salary)
+cat("Top:", d$name[i], d$salary[i], "\n")`, r`cat("Top: Caz Dunn (72000)\n")`, r`d <- read.csv("staff.csv")
+i <- order(d$salary, decreasing = TRUE)[1]
+cat("Top: ", d$name[i], " (", max(d$salary) - 1, ")\n", sep = "")`],
+  },
+  'r-04-longest-trip': {
+    valid: [r`d <- read.csv("trips.csv")
+i <- which.max(d$km)
+cat("Longest: ", d$driver[i], " (", d$km[i], " km)\n", sep = "")`, r`d <- read.csv("trips.csv")
+best <- d[order(-d$km, seq_len(nrow(d)))[1], ]
+cat(sprintf("Longest: %s (%s km)\n", best$driver, best$km))`],
+    wrong: [r`d <- read.csv("trips.csv")
+i <- which.min(d$km)
+cat("Longest: ", d$driver[i], " (", d$km[i], " km)\n", sep = "")`, r`d <- read.csv("trips.csv")
+i <- tail(which(d$km == max(d$km)), 1)
+cat("Longest: ", d$driver[i], " (", d$km[i], " km)\n", sep = "")`, r`d <- read.csv("trips.csv")
+i <- which.max(d$km)
+cat("Longest: ", d$driver[i], " (", d$km[i], ")\n", sep = "")`, r`d <- read.csv("trips.csv")
+i <- which.max(d$km)
+cat("Longest: ", d$route[i], " (", d$km[i], " km)\n", sep = "")`],
+  },
+  'r-04-payroll': {
+    valid: [r`d <- read.csv("timesheet.csv")
+pay <- ifelse(d$hours > 40, 40 * d$rate + (d$hours - 40) * d$rate * 1.5, d$hours * d$rate)
+cat("Total payroll:", round(sum(pay), 2), "\n")`, r`d <- read.csv("timesheet.csv")
+regular <- pmin(d$hours, 40)
+overtime <- pmax(d$hours - 40, 0)
+cat("Total payroll:", round(sum(regular * d$rate + overtime * d$rate * 1.5), 2), "\n")`],
+    wrong: [r`d <- read.csv("timesheet.csv")
+cat("Total payroll:", round(sum(d$hours * d$rate), 2), "\n")`, r`d <- read.csv("timesheet.csv")
+pay <- ifelse(d$hours >= 40, 40 * d$rate + (d$hours - 40) * d$rate * 1.5, d$hours * d$rate)
+cat("Total payroll:", round(sum(pay) + 1, 2), "\n")`, r`d <- read.csv("timesheet.csv")
+pay <- ifelse(d$hours > 40, d$hours * d$rate * 1.5, d$hours * d$rate)
+cat("Total payroll:", round(sum(pay), 2), "\n")`, r`d <- read.csv("timesheet.csv")
+pay <- ifelse(d$hours > 40, 40 * d$rate + (d$hours - 40) * d$rate * 2, d$hours * d$rate)
+cat("Total payroll:", round(sum(pay), 2), "\n")`, r`d <- read.csv("timesheet.csv")
+pay <- ifelse(d$hours > 40, 40 * d$rate + (d$hours - 40) * d$rate * 1.5, d$hours * d$rate)
+cat("Total payroll:", round(mean(pay), 2), "\n")`],
+  },
+  'r-04-fuel-cost': {
+    valid: [r`d <- read.csv("deliveries.csv")
+cost <- d$litres * 1.8 + ifelse(d$km > 100, 20, 0)
+cat("Total fuel cost:", round(sum(cost), 2), "\n")`, r`d <- read.csv("deliveries.csv")
+total <- sum(d$litres) * 1.8 + 20 * sum(d$km > 100)
+cat("Total fuel cost:", round(total, 2), "\n")`],
+    wrong: [r`d <- read.csv("deliveries.csv")
+cat("Total fuel cost:", round(sum(d$litres) * 1.8, 2), "\n")`, r`d <- read.csv("deliveries.csv")
+cost <- d$litres * 1.8 + ifelse(d$km >= 100, 20, 0)
+cat("Total fuel cost:", round(sum(cost), 2), "\n")`, r`d <- read.csv("deliveries.csv")
+cost <- d$litres * 1.8 + 20
+cat("Total fuel cost:", round(sum(cost), 2), "\n")`, r`d <- read.csv("deliveries.csv")
+cost <- d$km * 1.8 + ifelse(d$km > 100, 20, 0)
+cat("Total fuel cost:", round(sum(cost), 2), "\n")`],
+  },
+  'r-05-top-paid': {
+    valid: [r`top_paid <- function(df, n) head(df[order(-df$salary, df$name), ], n)`, r`top_paid <- function(df, n) {
+  ordered <- df[order(df$salary, decreasing = TRUE), ]
+  ordered <- ordered[order(-ordered$salary, ordered$name), ]
+  ordered[seq_len(min(n, nrow(ordered))), ]
+}`],
+    wrong: [r`top_paid <- function(df, n) head(df[order(df$salary), ], n)`, r`top_paid <- function(df, n) head(df[order(-df$salary), ], n)`, r`top_paid <- function(df, n) df[order(-df$salary, df$name), ][1:n, ]`, r`top_paid <- function(df, n) head(df[order(-df$salary, df$name), "name"], n)`, r`top_paid <- function(df, n) head(df[order(-df$salary, df$name), ], n + 1)`],
+  },
+  'r-05-slowest-runs': {
+    valid: [r`slowest_runs <- function(runs, n) head(runs[order(-runs$seconds, runs$test), ], n)`, r`slowest_runs <- function(runs, n) {
+  o <- runs[order(runs$test), ]
+  o <- o[order(o$seconds, decreasing = TRUE), ]
+  head(o, n)
+}`],
+    wrong: [r`slowest_runs <- function(runs, n) head(runs[order(runs$seconds), ], n)`, r`slowest_runs <- function(runs, n) head(runs[order(-runs$seconds), ], n)`, r`slowest_runs <- function(runs, n) runs[order(-runs$seconds, runs$test), ][1:n, ]`, r`slowest_runs <- function(runs, n) head(runs[order(-runs$seconds, runs$test), c("test", "seconds")], n)`],
+  },
 };

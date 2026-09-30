@@ -96,7 +96,7 @@ export const bundle: LessonBundle = {
       starterCode: '',
       sheet: { start: book(grid('A1', [['Day', 'Defects'], ['Mon', 14], ['Tue', 11], ['Wed', 12], ['Thu', 8], ['Fri', 5]])), editable: [], chart: true },
       hints: ['Think about what the reader must notice.', 'Days are ordered; defects are the measured values.', 'Use the labels as categories and the counts as the series.'],
-      checks: [{ kind: 'chart', name: 'A line chart of defects', types: ['line'], categories: 'A2:A6', series: ['B2:B6'], hint: 'A trend through ordered days is clearest as a line.' }] as Check[],
+      checks: [{ kind: 'chart', name: 'A trend chart', types: ['line', 'column'], categories: 'A2:A6', series: ['B2:B6'], hint: 'Choose a chart type that shows change over time.' }, { kind: 'chart', name: 'Line for time', types: ['line'], categories: 'A2:A6', series: ['B2:B6'], visible: false, hint: 'A trend through ordered days is clearest as a line.' }] as Check[],
       xpReward: 50, coinReward: 8,
     },
   ],

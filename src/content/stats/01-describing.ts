@@ -68,7 +68,7 @@ export const bundle: LessonBundle = {
       xpReward: 60, coinReward: 9,
     },
     {
-      id: 'st-01-median-b', objectiveId: 'st-obj-median', title: 'Typical Asking Price', mode: 'challenge', language: 'python', skillIds: ['stat.descriptive', 'py.lists'], concepts: ['median', 'missing values'], difficulty: 2, context: 'property',
+      id: 'st-01-median-b', objectiveId: 'st-obj-median', title: 'Typical Asking Price', mode: 'challenge', language: 'python', skillIds: ['stat.descriptive', 'py.lists'], concepts: ['median', 'sorted'], difficulty: 2, context: 'property',
       prompt: text('A property site lists asking prices, but some listings have no price yet and show `None`. Write `typical_price(prices)` returning the **median of the prices that exist**, ignoring the `None` entries. If no price exists return `None`.'),
       expectedBehavior: 'The median of the non-None values; None when there are none.',
       starterCode: 'def typical_price(prices):\n    pass\n',
@@ -86,7 +86,7 @@ export const bundle: LessonBundle = {
       xpReward: 60, coinReward: 9,
     },
     {
-      id: 'st-01-modes-b', objectiveId: 'st-obj-modes', title: 'Busiest Hours', mode: 'challenge', language: 'python', skillIds: ['stat.descriptive', 'py.dicts'], concepts: ['mode', 'frequency', 'strings'], difficulty: 2, context: 'operations',
+      id: 'st-01-modes-b', objectiveId: 'st-obj-modes', title: 'Busiest Hours', mode: 'challenge', language: 'python', skillIds: ['stat.descriptive', 'py.dicts'], concepts: ['mode', 'frequency'], difficulty: 2, context: 'operations',
       prompt: text('A help desk logs each call as a time like `"09:41"`. Write `busiest_hours(times)` returning a **sorted list of the hours** (the part before the colon, as text such as `"09"`) that received the **most calls**. Ties return every tied hour; an empty log gives `[]`.'),
       expectedBehavior: 'A sorted list of the hours with the highest call count.',
       starterCode: 'def busiest_hours(times):\n    pass\n',
