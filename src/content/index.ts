@@ -63,8 +63,10 @@ import { bundle as w12 } from './web/12-responsive';
 import { bundle as w13 } from './web/13-css-projects';
 import { bundle as w14 } from './web/14-css-trial';
 import { bundle as w15 } from './web/15-js-basics';
+import { bundle as w16 } from './web/16-js-data';
+import { bundle as w17 } from './web/17-js-errors';
 
-export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, d01, d02, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w12, w13, w14, w15];
+export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, d01, d02, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w12, w13, w14, w15, w16, w17];
 
 import { dailyChallenges } from './daily';
 export { dailyChallenges };
