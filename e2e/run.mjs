@@ -214,6 +214,32 @@ async function main() {
   browser = await chromium.launch({ executablePath: findChromium(), args: ['--no-sandbox'] });
   try {
     console.log('Startup & character creation');
+    /** Types the reference solution for ANY challenge (lesson, daily or boss) into the editor. */
+    const solveAny = async (page, cid) => {
+      if (solutions[cid]) return setCode(page, solutions[cid].valid[0]);
+      const d = fixtures.dailies[cid] ?? fixtures.bosses?.[cid];
+      if (d !== undefined) return typeof d === 'string' ? setCode(page, d) : setWebFiles(page, d);
+      if (fixtures.web[cid]) return setWebFiles(page, fixtures.web[cid]);
+      throw new Error('no reference solution for ' + cid);
+    };
+    /** Plays a whole training plan with reference solutions until the completion panel appears. */
+    const playTraining = async (page) => {
+      for (let guard = 0; guard < 120; guard++) {
+        if (await tid(page, 'training-complete').count()) return;
+        if (await tid(page, 'training-read').count()) { await tid(page, 'training-read').click(); continue; }
+        if (await tid(page, 'training-start-step').count()) await tid(page, 'training-start-step').click();
+        await tid(page, 'briefing').waitFor({ timeout: 15000 });
+        const cid = await tid(page, 'briefing').getAttribute('data-challenge');
+        await solveAny(page, cid);
+        await tid(page, 'submit').click();
+        // A finished step is replaced at once by the next one (or by the completion panel), so wait for whatever comes first.
+        await tid(page, 'result').or(tid(page, 'training-intro')).or(tid(page, 'training-read')).or(tid(page, 'training-complete')).first().waitFor({ timeout: 60000 }).catch((e) => { throw new Error('nothing happened after submitting ' + cid + ': ' + e.message.split('\n')[0]); });
+        if (await tid(page, 'result').count() && await page.locator('.result.fail').count()) throw new Error('the reference solution for ' + cid + ' failed in training');
+        await page.waitForTimeout(150);
+      }
+      throw new Error('training did not finish');
+    };
+
     await test('app starts, renders title screen, no console errors', async () => {
       const page = await newPage();
       await tid(page, 'begin').waitFor();
@@ -421,7 +447,14 @@ async function main() {
       await setCode(page, solutions['py-14-warehouse-audit'].wrong[0]);
       await tid(page, 'submit').click(); await tid(page, 'result').waitFor({ timeout: 30000 });
       assert(await page.locator('.result.fail').count() === 1, 'wrong trial answer fails hidden cases');
-      await setCode(page, solutions['py-14-warehouse-audit'].valid[1]);
+      // A failed independent trial requires training: no retry until it is done, then the return is to this lesson
+      await tid(page, 'go-training').click();
+      await tid(page, 'start-training').click();
+      await playTraining(page);
+      await tid(page, 'training-return-btn').click();
+      await tid(page, 'lesson').waitFor();
+      // after training the lesson offers a DIFFERENT variant of the trial: solve whichever is on screen
+      await solveAny(page, await tid(page, 'briefing').getAttribute('data-challenge'));
       await tid(page, 'submit').click(); await page.locator('.result.pass').waitFor({ timeout: 30000 });
       await tid(page, 'finish').click();
       await tid(page, 'grounds').waitFor();
@@ -920,32 +953,6 @@ async function main() {
 
 
     console.log('Phase 4: adaptive training, bosses, campaign');
-    /** Types the reference solution for ANY challenge (lesson, daily or boss) into the editor. */
-    const solveAny = async (page, cid) => {
-      if (solutions[cid]) return setCode(page, solutions[cid].valid[0]);
-      const d = fixtures.dailies[cid] ?? fixtures.bosses?.[cid];
-      if (d !== undefined) return typeof d === 'string' ? setCode(page, d) : setWebFiles(page, d);
-      if (fixtures.web[cid]) return setWebFiles(page, fixtures.web[cid]);
-      throw new Error('no reference solution for ' + cid);
-    };
-    /** Plays a whole training plan with reference solutions until the completion panel appears. */
-    const playTraining = async (page) => {
-      for (let guard = 0; guard < 120; guard++) {
-        if (await tid(page, 'training-complete').count()) return;
-        if (await tid(page, 'training-read').count()) { await tid(page, 'training-read').click(); continue; }
-        if (await tid(page, 'training-start-step').count()) await tid(page, 'training-start-step').click();
-        await tid(page, 'briefing').waitFor({ timeout: 15000 });
-        const cid = await tid(page, 'briefing').getAttribute('data-challenge');
-        await solveAny(page, cid);
-        await tid(page, 'submit').click();
-        // A finished step is replaced at once by the next one (or by the completion panel), so wait for whatever comes first.
-        await tid(page, 'result').or(tid(page, 'training-intro')).or(tid(page, 'training-read')).or(tid(page, 'training-complete')).first().waitFor({ timeout: 60000 }).catch((e) => { throw new Error('nothing happened after submitting ' + cid + ': ' + e.message.split('\n')[0]); });
-        if (await tid(page, 'result').count() && await page.locator('.result.fail').count()) throw new Error('the reference solution for ' + cid + ' failed in training');
-        await page.waitForTimeout(150);
-      }
-      throw new Error('training did not finish');
-    };
-
     /** Fails the current lesson challenge once on purpose (a wrong program), returning when the result is shown. */
     const failOnce = async (page) => {
       await setCode(page, 'print("nope")');
