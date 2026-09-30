@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { getBoss } from '../../content/bosses';
-import { bossStatus, currentBossChallenge, sealingWeakness, submitBoss } from '../../game/boss';
+import { bossStatus, currentBossChallenge, defaultRoute, openRoutes, sealingWeakness, submitBoss } from '../../game/boss';
 import { getStore, useGame } from '../../game/store';
 import { failureDetailOf } from '../../learning/failure';
 import { ChallengeStepView } from '../components/ChallengeStep';
@@ -14,10 +14,13 @@ export function BossRun({ bossId, onBack, onGoTraining }: { bossId: string; onBa
   const { save } = useGame();
   const boss = getBoss(bossId);
   const [begun, setBegun] = useState(false);
+  const [routeId, setRouteId] = useState<string | undefined>(undefined);
   const [outcome, setOutcome] = useState<'passed' | 'failed' | null>(null);
   if (!boss) return <main class="scene"><div class="scene-card"><p>That boss does not exist.</p><button class="btn" onClick={onBack}>Back</button></div></main>;
   const status = bossStatus(save, boss);
-  const c = currentBossChallenge(save, boss);
+  const routes = boss.routes ? openRoutes(save, boss) : [];
+  const chosen = boss.routes ? (routes.find((r) => r.id === routeId) ?? defaultRoute(save, boss)) : undefined;
+  const c = currentBossChallenge(save, boss, chosen?.id);
   const w = sealingWeakness(save, boss);
   const head = <div class="lesson-head"><button class="btn small ghost" onClick={onBack} data-testid="boss-back">← Back to the Summit</button><h1>{boss.icon} {boss.title}</h1></div>;
 
@@ -50,6 +53,17 @@ export function BossRun({ bossId, onBack, onGoTraining }: { bossId: string; onBa
         {head}
         <section class="panel">
           <p>{boss.intro}</p>
+          {routes.length > 0 && (
+            <fieldset class="routes" data-testid="boss-routes">
+              <legend>Choose the technology you will be tested in</legend>
+              {routes.map((r) => (
+                <label key={r.id} class={`route ${chosen?.id === r.id ? 'chosen' : ''}`}>
+                  <input type="radio" name="route" checked={chosen?.id === r.id} onChange={() => setRouteId(r.id)} data-testid={`boss-route-${r.id}`} />
+                  <span><strong>{r.title}</strong><br /><span class="muted small">{r.blurb}</span></span>
+                </label>
+              ))}
+            </fieldset>
+          )}
           <ul class="muted small"><li>No hints, no starter code, no example output.</li><li>Run as often as you like; you get one graded submission.</li><li>If it goes wrong you get a diagnosis and training, then a different problem. Nothing is lost.</li></ul>
           <button class="btn gold" onClick={() => setBegun(true)} data-testid="boss-begin">Begin</button>
         </section>
@@ -67,7 +81,7 @@ export function BossRun({ bossId, onBack, onGoTraining }: { bossId: string; onBa
         onGoAcademy={onBack}
         noHints
         submitOverride={(graded, ms) => {
-          store.apply(submitBoss(store.save, boss.id, graded.passed, ms, failureDetailOf(graded)));
+          store.apply(submitBoss(store.save, boss.id, graded.passed, ms, failureDetailOf(graded), chosen?.id));
           setOutcome(graded.passed ? 'passed' : 'failed');
         }}
       />

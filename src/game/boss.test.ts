@@ -5,7 +5,7 @@ import { loadSave, migrate, newSave, sanitizeBosses, SAVE_VERSION, writeSave, ty
 import { summarizeSkill } from '../learning/mastery';
 import { getSkill } from '../content';
 import * as A from './actions';
-import { bossStatus, campaignProgress, currentBossChallenge, nextVersion, sealingWeakness, submitBoss } from './boss';
+import { bossLockReason, bossStatus, campaignProgress, currentBossChallenge, defaultRoute, nextVersion, openRoutes, sealingWeakness, submitBoss } from './boss';
 import { moduleFor } from '../content/training/modules';
 import { FAILURE_LEVELS } from './focus';
 import { activePlan, answerPrediction, beginStep, completeReadingStep, submitTrainingStep, weaknessOf } from './training';
@@ -43,11 +43,51 @@ describe('boss gates', () => {
     expect(bossStatus(started(), mini())).toBe('locked');
     expect(bossStatus(atGate(), mini())).toBe('ready');
   });
-  it('mastery bosses also need their mini-boss, and the summit needs all four mastery bosses', () => {
+  it('mastery bosses also need their mini-boss, and the summit needs any three mastery guardians and an open route', () => {
     const s = completeThrough(started(), 'py-28-independent-review-b');
     expect(bossStatus(s, getBoss('mastery-python')!)).toBe('locked');
-    expect(getBoss('summit')!.requiresBosses).toEqual(['mastery-python', 'mastery-sql', 'mastery-data-eng', 'mastery-web']);
+    expect(getBoss('summit')!.requiresBosses).toEqual([]);
+    expect(getBoss('summit')!.requiresAnyOf!.count).toBe(3);
     expect(bossStatus(s, getBoss('summit')!)).toBe('locked');
+  });
+});
+
+describe('the Summit is open-ended: any three guardians, then a route in a technology the player has mastered', () => {
+  const summit = () => getBoss('summit')!;
+  const beaten = (s: SaveData, ...ids: string[]): SaveData => { const out = structuredClone(s); for (const id of ids) out.bosses[id] = { attempts: [], passedAt: '2026-01-01T00:00:00.000Z' }; return out; };
+  it('three guardians are not enough without a route; the lock reason names what is missing', () => {
+    const s = beaten(started(), 'mastery-web', 'mastery-analytics', 'mastery-python'); // analytics gives a route
+    expect(bossStatus(s, summit())).toBe('ready');
+    const noRoute = beaten(started(), 'mastery-web', 'mastery-python', 'mastery-data-eng'); // python without sql opens no route
+    expect(openRoutes(noRoute, summit())).toEqual([]);
+    expect(bossStatus(noRoute, summit())).toBe('locked');
+    expect(bossLockReason(noRoute, summit())).toMatch(/route/i);
+    expect(bossLockReason(beaten(started(), 'mastery-web'), summit())).toMatch(/any 3 .*1 so far/);
+  });
+  it('a player who never touched Python can reach the Summit through spreadsheets, R and analytics', () => {
+    const s = beaten(started(), 'mastery-sheets', 'mastery-r', 'mastery-analytics');
+    expect(bossStatus(s, summit())).toBe('ready');
+    expect(openRoutes(s, summit()).map((r) => r.id).sort()).toEqual(['analytics', 'r', 'sheets']);
+  });
+  it('the route chosen decides the problem, a retry stays in the route with a NEW version, and the campaign ends on any route', () => {
+    const s = beaten(started(), 'mastery-sheets', 'mastery-r', 'mastery-analytics');
+    expect(currentBossChallenge(s, summit(), 'r')!.id).toBe('boss-r-summit-a');
+    expect(currentBossChallenge(s, summit(), 'sheets')!.language).toBe('sheet');
+    const failed = submitBoss(s, 'summit', false, 1000, { errorKind: 'wrong-output', failedChecks: ['Case 1'], visibleFailed: 0, hiddenFailed: 1, totalChecks: 4, constraintsFailed: 0 }, 'r').save;
+    expect(failed.bosses.summit!.attempts.at(-1)!.version).toBe('r-a');
+    expect(failed.stats.focus).toBeLessThan(100);
+    const back = finishPlan(failed);
+    expect(defaultRoute(back, summit())!.id).toBe('r'); // the route last attempted is offered again
+    expect(nextVersion(back, summit(), 'r')).toBe('r-b'); // never the same problem
+    expect(nextVersion(back, summit(), 'sheets')).toBe('sheets-a'); // another route is still fresh
+    const won = submitBoss(back, 'summit', true, 1000, undefined, 'sheets').save;
+    expect(won.campaign.completedAt).toBeDefined();
+    expect(won.bosses.summit!.attempts.at(-1)!.version).toBe('sheets-a');
+  });
+  it('a route the player has not earned cannot be chosen', () => {
+    const s = beaten(started(), 'mastery-sheets', 'mastery-web', 'mastery-python');
+    expect(currentBossChallenge(s, summit(), 'r')!.language).toBe('sheet'); // falls back to an open route
+    expect(nextVersion(s, summit(), 'data')).toBe('sheets-a');
   });
 });
 

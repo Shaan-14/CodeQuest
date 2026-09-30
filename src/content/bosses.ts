@@ -115,12 +115,36 @@ export const bosses: BossDef[] = [
     versions: ['a', 'b'], reward: { xp: 450, coins: 120 },
   },
   {
+    id: 'mastery-sheets', kind: 'mastery', title: 'The Guildmaster', icon: '📊', track: 'sheets',
+    requiresLessons: ['xl-08-modelling'], requiresBosses: [],
+    intro: 'The Guildmaster slides a workbook across the table: a ledger with dates as text, rates in another sheet, and a summary to fill. “No formulas are filled in. Next week the figures change and so must your answers.”',
+    victory: 'The Guildmaster changes every figure in the ledger and every answer follows. “That is a model,” they say.',
+    defeat: 'The Guildmaster points at the cell that stayed wrong when the data moved. “Train it, and I’ll bring you a different ledger.”',
+    versions: ['a', 'b'], reward: { xp: 450, coins: 120 },
+  },
+  {
+    id: 'mastery-r', kind: 'mastery', title: 'The Laboratory Director', icon: '🔬', track: 'r',
+    requiresLessons: ['r-06-analysis'], requiresBosses: [],
+    intro: 'The Director hands you a raw data file and a brief, and says nothing else. “Print exactly this. My file will not be the one you practised on.”',
+    victory: 'The Director runs your program on a file you have never seen. The output matches to the last decimal.',
+    defeat: 'The Director circles the line that differed. “Train what slipped, and I’ll run you on another dataset.”',
+    versions: ['a', 'b'], reward: { xp: 450, coins: 120 },
+  },
+  {
     id: 'summit', kind: 'summit', title: 'The Summit Trial', icon: '🏔️', track: 'summit',
-    requiresLessons: [], requiresBosses: ['mastery-python', 'mastery-sql', 'mastery-data-eng', 'mastery-web'],
-    intro: 'At the top, the Great Outage is waiting: the whole plant’s data is failing and no one has written the report that would show where. There is no structure, no starter, and no hint. There is only a brief, a database, and everything you have learned.',
-    victory: 'The report runs, the numbers hold, and the lights of Bytehaven come back on one district at a time. You climbed the whole mountain.',
-    defeat: 'The summit wind is cold, but you are not sent down. Diagnose, train, and come back to a new brief.',
-    versions: ['a', 'b'], reward: { xp: 1000, coins: 300, item: 'summit-flag' },
+    requiresLessons: [], requiresBosses: [],
+    // Open-ended and multi-technology: any three mastery guardians, and a route (a technology the player has mastered) to take the finale in.
+    requiresAnyOf: { count: 3, bosses: ['mastery-python', 'mastery-sql', 'mastery-data-eng', 'mastery-web', 'mastery-analytics', 'mastery-sheets', 'mastery-r'] },
+    routes: [
+      { id: 'data', title: 'Data route (Python and SQL)', blurb: 'Write the report in Python against the plant’s database.', versions: ['a', 'b'], needs: ['mastery-python', 'mastery-sql'] },
+      { id: 'analytics', title: 'Analytics route (SQL, Python and statistics)', blurb: 'Decide what the data supports: medians, outliers and relationships, straight from the database.', versions: ['analytics-a', 'analytics-b'], needs: ['mastery-analytics'] },
+      { id: 'sheets', title: 'Spreadsheet route', blurb: 'Build the outage ledger as a workbook that survives new data.', versions: ['sheets-a', 'sheets-b'], needs: ['mastery-sheets'] },
+      { id: 'r', title: 'R route', blurb: 'Analyse the outage logs in R and report the verdict.', versions: ['r-a', 'r-b'], needs: ['mastery-r'] },
+    ],
+    intro: 'At the top, the Great Outage is waiting: the whole plant’s data is failing and no one has written the report that would show where. There is no structure, no starter, and no hint. There is only a brief, the data, and everything you have learned. Choose the tools you trust.',
+    victory: 'The report runs, the numbers hold, and the lights of Bytehaven come back on one district at a time. You climbed the whole mountain, by your own path.',
+    defeat: 'The summit wind is cold, but you are not sent down. Diagnose, train, and come back to a new brief: in the same technology, or another you have mastered.',
+    versions: ['a', 'b', 'analytics-a', 'analytics-b', 'sheets-a', 'sheets-b', 'r-a', 'r-b'], reward: { xp: 1000, coins: 300, item: 'summit-flag' },
   },
 ];
 

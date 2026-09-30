@@ -1,6 +1,6 @@
 import { acts, ENDING } from '../../content/campaign';
 import { bosses } from '../../content/bosses';
-import { bossLockReason, bossStatus, campaignProgress, retryIsNewVersion, sealingWeakness } from '../../game/boss';
+import { bossLockReason, bossStatus, campaignProgress, isBossPassed, openRoutes, retryIsNewVersion, sealingWeakness } from '../../game/boss';
 import { useGame } from '../../game/store';
 import { DiagnosisCard } from '../components/DiagnosisCard';
 
@@ -46,6 +46,10 @@ export function BossHall({ onOpenBoss, onGoTraining }: { onOpenBoss: (id: string
                   <DiagnosisCard weakness={w} onGoTraining={onGoTraining} />
                 </div>
               )}
+              {boss.requiresAnyOf && status !== 'passed' && (
+                <p class="small" data-testid="boss-any-of">Guardians defeated toward this trial: {boss.requiresAnyOf.bosses.filter((id) => isBossPassed(save, id)).length} of {boss.requiresAnyOf.count} needed, from any of the technologies.</p>
+              )}
+              {boss.routes && status === 'ready' && <p class="small muted" data-testid="boss-open-routes">Routes open to you: {openRoutes(save, boss).map((r) => r.title).join(' · ')}</p>}
               {status === 'ready' && (
                 <button class="btn gold" onClick={() => onOpenBoss(boss.id)} data-testid={`boss-open-${boss.id}`}>{retryIsNewVersion(save, boss) ? 'Face a new version →' : 'Face it →'}</button>
               )}
