@@ -23,7 +23,6 @@ export function Shop() {
                 <button class="btn small" disabled={maxed || cant} onClick={() => game.apply(buyItem(save, item.id))} data-testid={`buy-${item.id}`}>
                   {maxed ? 'Owned' : `Buy for 🪙 ${item.price}`}
                 </button>
-                {owned > 0 && item.kind === 'consumable' && <span class="small muted">You have {owned}</span>}
               </div>
             );
           })}

@@ -52,7 +52,7 @@ export function dailyReward(difficulty: number, focus: 'current' | 'review'): Da
   const coins = [25, 40, 60, 90, 130][d - 1]!;
   const xp = [30, 50, 80, 120, 170][d - 1]!;
   const bonus = focus === 'review' ? 1.25 : 1;
-  return { coins: Math.round(coins * bonus), xp: Math.round(xp * bonus), focus: 15 };
+  return { coins: Math.round(coins * bonus), xp: Math.round(xp * bonus), focus: 0 }; // Focus is never a daily reward: a daily needs 100 Focus to attempt, and Focus is earned only by training
 }
 
 let ownerCache: Map<string, string> | null = null;

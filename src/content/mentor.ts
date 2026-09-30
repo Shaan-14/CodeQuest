@@ -13,7 +13,7 @@ export function introDialogue(name: string): DialogueLine[] {
   return [
     { who: 'Juno', text: `Welcome to Bytehaven Academy, ${name}! I am Mentor Juno. Around here, we learn to make computers do useful things by writing real code.` },
     { who: 'Juno', text: 'Look at the bar above. Your LEVEL and XP grow as you play. They measure how far you have adventured, not how skilled you are. Anyone can collect XP. Skill is something else, and we keep a separate, honest record of it.' },
-    { who: 'Juno', text: 'FOCUS is your mental energy. A failed submission costs some. Run your code as often as you like, that is free. When Focus is empty, come back to the Academy and rest. Coins buy tea, snacks, and a few fashionable things.' },
+    { who: 'Juno', text: 'FOCUS is your readiness to attempt hard work. A wrong answer on a real challenge costs Focus, and below 100 you are not ready to try again: you earn it back by training in the Training Grounds. Run your code as often as you like, that is free. Coins buy a few fashionable things.' },
     { who: 'Juno', text: 'This is not a quiz. There is no multiple choice. You will type real Python, and it will really run. When it breaks, you will read the error and fix it, just like people who do this for a living.' },
     { who: 'Juno', text: 'I will not hand you answers. Hints exist, but every hint you open lowers your reward and is written in your record. The best reward comes from working it out yourself.' },
     { who: 'Juno', text: 'Now, the Programming Hall. Our training robot, Bolt-7, cannot move. His control program is unfinished. Wake him up, and along the way you will learn to program. Will you help?' },

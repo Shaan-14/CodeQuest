@@ -6,7 +6,7 @@
  *   refresher : review -> proof
  *   targeted  : review -> example -> practice -> proof
  *   extended  : review -> example -> predict -> practice x2 -> proof
- *   deep      : prerequisite reviews -> review -> example -> predict -> practice x3 -> proof
+ *   deep      : prerequisite reviews -> review -> example -> predict -> practice x4 -> proof
  * The proof is ONE fresh problem, last. Practice problems come from authored training content (content/training/) or
  * from lessons OTHER than the one the player is stuck on, in different contexts.
  */
@@ -106,7 +106,7 @@ export function shapeFor(level: PlanLevel): (TrainingStepKind | 'prereq')[] {
     case 'refresher': return ['review', 'independent'];
     case 'targeted': return ['review', 'example', 'practice', 'independent'];
     case 'extended': return ['review', 'example', 'predict', 'practice', 'practice', 'independent'];
-    case 'deep': return ['prereq', 'review', 'example', 'predict', 'practice', 'practice', 'practice', 'independent'];
+    case 'deep': return ['prereq', 'review', 'example', 'predict', 'practice', 'practice', 'practice', 'practice', 'independent'];
   }
 }
 
@@ -142,6 +142,9 @@ export function buildSteps(save: SaveData, w: Weakness, level: PlanLevel, ctx: B
     if (!c && w.skillIds.length > 1) c = pickFresh(save, query(modes, target, true, true));
     if (!c) c = pickFresh(save, query(modes, target, false, true));
     if (!c) c = pickFresh(save, query(['learning', 'challenge', 'independent'], target, false, false));
+    // The weakness names a skill the player may not have been taught yet (a boss can test something new): train with the
+    // other skills the failed problem used, which they HAVE been taught, so a plan always has real practice and a proof.
+    if (!c && exposed) for (const notLesson of [true, false]) c ??= pickFresh(save, { ...query(modes, target, false, notLesson), skillIds: exposed.skillIds });
     return take(c);
   };
   for (const kind of kinds) {

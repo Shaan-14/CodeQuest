@@ -2,6 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { returnPointFor } from '../../game/returnPoint';
 import { getStore, useGame } from '../../game/store';
 import { activePlan, planFor, requiredTraining, startTraining } from '../../game/training';
+import { FocusMeter } from '../components/FocusGate';
 import { TrainingHub } from '../components/TrainingHub';
 import { weaknessNames } from '../components/DiagnosisCard';
 import { describeReturn } from './TrainingRun';
@@ -30,9 +31,10 @@ export function TrainingYard({ onOpenPlan, onBack }: { onOpenPlan: (planId: stri
         {w ? (
           <section class="panel required-training" data-testid="required-training">
             <p class="muted small">Where you are: the Training Grounds, a detour from the curriculum.</p>
-            <h2>Required training: {weaknessNames(w)}</h2>
+            <h2>Earn your Focus back: {weaknessNames(w)}</h2>
             {w.reasons.length > 0 && <ul class="small">{w.reasons.slice(0, 3).map((r, i) => <li key={i}>{r}</li>)}</ul>}
-            <p>What you will do: see the idea a different way, work through a different example and some practice, then solve <strong>one fresh problem on your own</strong>.</p>
+            <FocusMeter />
+            <p>What you will do: short training steps, each earning Focus, ending with <strong>one fresh problem on your own</strong>. At 100 Focus you are ready to try again.</p>
             {active && <p class="muted small" data-testid="yard-return">{describeReturn(active.returnTo)}. Progress: {active.steps.filter((x) => x.done).length} of {active.steps.length} steps done.</p>}
             <button class="btn gold" disabled={!active} onClick={() => active && onOpenPlan(active.id)} data-testid="start-training">{active && active.steps.some((x) => x.done) ? 'Continue training →' : 'Start training →'}</button>
           </section>

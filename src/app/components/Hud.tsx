@@ -32,9 +32,9 @@ export function Hud({ onMap, onPanel, onDaily }: Props) {
           <div class="bar-fill" style={{ width: `${(lp.into / lp.span) * 100}%` }} />
           <span data-testid="xp">{save.stats.xp} XP</span>
         </div>
-        <div class={`bar focus ${save.stats.focus === 0 ? 'empty' : ''}`} title="Focus: drops when a submission fails. Rest at the Academy.">
+        <div class={`bar focus ${save.stats.focus === 0 ? 'empty' : ''} ${save.stats.focus < MAX_FOCUS ? 'not-ready' : ''}`} title={save.stats.focus < MAX_FOCUS ? 'Not ready: you need 100 Focus to attempt a challenge. Earn it back in the Training Grounds.' : 'Focus 100: ready to attempt challenges. A wrong answer costs Focus; training earns it back.'}>
           <div class="bar-fill" style={{ width: `${(save.stats.focus / MAX_FOCUS) * 100}%` }} />
-          <span data-testid="focus">Focus {save.stats.focus}/{MAX_FOCUS}</span>
+          <span data-testid="focus">Focus {save.stats.focus}/{MAX_FOCUS}{save.stats.focus < MAX_FOCUS ? ' · not ready' : ''}</span>
         </div>
       </div>
       <div class="hud-coins" data-testid="coins" title="Coins">🪙 {save.stats.coins}</div>

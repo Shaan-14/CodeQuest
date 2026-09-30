@@ -8,7 +8,7 @@ export const areas: Area[] = [
   {
     id: 'academy', name: 'Bytehaven Academy', icon: '🏰', theme: 'academy', pos: { x: 44, y: 56 },
     tagline: 'Where every adventurer begins',
-    description: 'The old stone academy at the heart of Bytehaven. Mentor Juno teaches here, and you can rest to recover your Focus.',
+    description: 'The old stone academy at the heart of Bytehaven. Mentor Juno teaches here and sends you to the Training Grounds when you need to earn your Focus back.',
     lock: { type: 'none' },
   },
   {
@@ -67,10 +67,8 @@ export const areas: Area[] = [
   },
 ];
 
-/** Nothing here sells answers, hints, or XP. Items only restore Focus or decorate the avatar. */
+/** Nothing here sells answers, hints, XP or Focus. Items only decorate the avatar (Focus is earned in the Training Grounds). */
 export const items: Item[] = [
-  { id: 'study-snack', name: 'Study Snack', icon: '🍪', kind: 'consumable', price: 10, restoreFocus: 20, description: 'Restores 20 Focus.' },
-  { id: 'focus-tea', name: 'Focus Tea', icon: '🍵', kind: 'consumable', price: 25, restoreFocus: 50, description: 'Restores 50 Focus.' },
   { id: 'explorer-cape', name: 'Explorer’s Cape', icon: '🧣', kind: 'cosmetic', price: 80, description: 'A red cape. Purely stylish; worn automatically.' },
   { id: 'lucky-cap', name: 'Lucky Cap', icon: '🧢', kind: 'cosmetic', price: 60, description: 'A well-worn ball cap. Purely stylish; worn automatically.' },
   { id: 'daily-medal', name: 'Daily Medal', icon: '🎖️', kind: 'quest', price: null, description: 'Earned for solving 10 Daily Challenges. Cannot be bought.' },

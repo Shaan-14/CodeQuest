@@ -7,7 +7,8 @@
  *  - a solve pays coins/XP/Focus and is recorded as ordinary independent EVIDENCE: it never marks a skill mastered.
  */
 import { getAnyChallenge, getSkill } from '../content';
-import { DAILY_HISTORY_LIMIT, MAX_FOCUS, type DailyRecord, type SaveData } from '../core/save';
+import { DAILY_HISTORY_LIMIT, type DailyRecord, type SaveData } from '../core/save';
+import { focusReady, gainFocus } from './focus';
 import type { FailureDetail } from '../learning/mastery';
 import { buildEvidence } from './evidence';
 import { applyDiagnosis, resolveOnPass } from './weakness';
@@ -100,7 +101,7 @@ export function canSubmitDaily(save: SaveData, nowMs: number): boolean {
 export function submitDaily(save: SaveData, nowMs: number, passed: boolean, timeMs: number, detail?: FailureDetail): Result {
   const { s, events } = draft(save);
   const cur = s.daily.current;
-  if (!cur || !canSubmitDaily(s, nowMs)) return { save: s, events };
+  if (!cur || !canSubmitDaily(s, nowMs) || !focusReady(s)) return { save: s, events }; // not ready: Focus must be 100 to attempt
   const c = getAnyChallenge(cur.challengeId);
   if (!c) return { save: s, events };
   const now = effectiveNow(s, nowMs);
@@ -120,9 +121,7 @@ export function submitDaily(save: SaveData, nowMs: number, passed: boolean, time
 
   if (passed) {
     gain(s, events, cur.reward.xp, cur.reward.coins, 'Daily Challenge');
-    const before = s.stats.focus;
-    s.stats.focus = Math.min(MAX_FOCUS, s.stats.focus + cur.reward.focus);
-    if (s.stats.focus > before) events.push({ type: 'focusGained', amount: s.stats.focus - before });
+    gainFocus(s, events, cur.reward.focus);
     const item = DAILY_ITEM_MILESTONES[passedCount(s)];
     if (item) {
       s.inventory[item] = (s.inventory[item] ?? 0) + 1;

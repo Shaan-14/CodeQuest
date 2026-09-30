@@ -31,7 +31,7 @@ export function DailyCard({ onStart, compact = false }: { onStart: () => void; c
       <p class="daily-title"><strong data-testid="daily-title">{c?.title ?? cur.challengeId}</strong></p>
       <p class="muted small" data-testid="daily-meta">{cur.category} · {dailySkillTitle(cur.skillId)} · Difficulty: {difficultyName(cur.difficulty)} · {cur.focus === 'review' ? 'Review' : 'Current learning'}</p>
       {!compact && <p class="small" data-testid="daily-reason">{cur.reason}</p>}
-      <p class="small" data-testid="daily-reward">Reward for a solve: 🪙 +{cur.reward.coins} · ✨ +{cur.reward.xp} XP · 🍵 +{cur.reward.focus} Focus</p>
+      <p class="small" data-testid="daily-reward">Reward for a solve: 🪙 +{cur.reward.coins} · ✨ +{cur.reward.xp} XP</p>
       {cur.status === 'open' ? (
         <>
           <p class="small muted">No hints. One submission. If you do not solve it, nothing is lost and it simply expires.</p>

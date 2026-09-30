@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { items, quests, achievementDefs } from '../../content/world';
 import { getLesson } from '../../content';
 import { exportSave, importSave } from '../../core/save';
-import { resetAll, useItem } from '../../game/actions';
+import { resetAll } from '../../game/actions';
 import { backfillEvidence } from '../../game/backfill';
 import { getStore, useGame } from '../../game/store';
 import { Modal } from './Modal';
@@ -63,7 +63,6 @@ function Pack() {
           <div class="item-icon">{i.icon}</div>
           <strong>{i.name} ×{save.inventory[i.id]}</strong>
           <span class="muted small">{i.description}</span>
-          {i.kind === 'consumable' && <button class="btn small" onClick={() => game.apply(useItem(save, i.id))} data-testid={`use-${i.id}`}>Use</button>}
         </div>
       ))}
     </div>

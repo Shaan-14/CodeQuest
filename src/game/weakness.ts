@@ -7,7 +7,7 @@ import type { Challenge } from '../content/schema';
 import type { SaveData, Weakness, WeaknessKind, WeaknessSource } from '../core/save';
 import type { EvidenceRecord } from '../learning/mastery';
 import type { GameEvent } from './events';
-import { diagnose, maxSeverity, LEVEL_OF, type Diagnosis } from './diagnosis';
+import { diagnose, diagnoseBossFailure, maxSeverity, LEVEL_OF, type Diagnosis } from './diagnosis';
 
 export const nextTrainingId = (s: SaveData, prefix: string): string => `${prefix}${s.training.nextId++}`;
 
@@ -46,10 +46,11 @@ export function upsertWeakness(s: SaveData, events: GameEvent[], d: Diagnosis, r
 }
 
 /** Called by every submission path right after the evidence record is appended. */
-export function applyDiagnosis(s: SaveData, events: GameEvent[], challenge: Challenge, rec: EvidenceRecord): Weakness | null {
+export function applyDiagnosis(s: SaveData, events: GameEvent[], challenge: Challenge, rec: EvidenceRecord, force = false): Weakness | null {
   // A training step already lives inside a plan: it escalates that plan (training.ts), it does not spawn new weaknesses.
   if (rec.source === 'training') return null;
-  const d = diagnose(s, challenge);
+  // `force`: a setback that costs Focus must always leave a plan behind, even when the evidence alone would shrug at a first slip.
+  const d = diagnose(s, challenge) ?? (force ? diagnoseBossFailure(s, challenge) : null);
   if (!d) return null;
   const w = upsertWeakness(s, events, d, rec, rec.at);
   // A meaningful failure in the CURRICULUM (a lesson or a boss) must be trained before the player goes on. Guided

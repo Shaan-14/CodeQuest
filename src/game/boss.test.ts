@@ -7,6 +7,7 @@ import { getSkill } from '../content';
 import * as A from './actions';
 import { bossStatus, campaignProgress, currentBossChallenge, nextVersion, sealingWeakness, submitBoss } from './boss';
 import { moduleFor } from '../content/training/modules';
+import { FAILURE_LEVELS } from './focus';
 import { activePlan, answerPrediction, beginStep, completeReadingStep, submitTrainingStep, weaknessOf } from './training';
 
 const started = () => A.acceptQuest(A.createPlayer(newSave(), 'Ada', 'spellwright').save, 'wake-the-robot').save;
@@ -65,10 +66,10 @@ describe('boss remediation', () => {
     expect(last.support === 'independent' || last.support === 'transfer').toBe(true);
     expect(last.boss).toEqual({ bossId: mini().id, version: 'a' });
   });
-  it('a sealed boss cannot be attempted again and costs no Focus', () => {
+  it('a sealed boss cannot be attempted again: a failure costs Focus and the boss needs 100', () => {
     const before = atGate();
     const failed = fail(before, mini().id).save;
-    expect(failed.stats.focus).toBe(before.stats.focus);
+    expect(failed.stats.focus).toBe(before.stats.focus - FAILURE_LEVELS[4].loss);
     const again = fail(failed, mini().id).save;
     expect(again.bosses[mini().id]!.attempts).toHaveLength(1);
     expect(submitBoss(failed, mini().id, true, 1, undefined).save.bosses[mini().id]!.passedAt).toBeUndefined();

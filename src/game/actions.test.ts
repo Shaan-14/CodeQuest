@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { newSave, MAX_FOCUS, type SaveData } from '../core/save';
 import { areas, quests } from '../content/world';
 import { lessons } from '../content';
+import { items } from '../content/world';
+import { FAILURE_LEVELS } from './focus';
 import * as A from './actions';
 import { isAreaUnlocked, questOffered } from './world';
 import { newlyEarned } from './achievements';
@@ -68,7 +70,7 @@ describe('challenge submission, evidence and rewards', () => {
     expect(r.save.evidence).toHaveLength(1);
     expect(r.save.evidence[0]).toMatchObject({ passed: false, attemptNumber: 1, executed: true, support: 'independent' });
     expect(r.save.stats.xp).toBe(0);
-    expect(r.save.stats.focus).toBe(MAX_FOCUS - A.FOCUS_LOSS_PER_FAILED_SUBMIT);
+    expect(r.save.stats.focus).toBe(MAX_FOCUS - FAILURE_LEVELS[1].loss); // a small task costs a small setback
   });
   it('pays an independence bonus, and records support level', () => {
     const r = A.submitChallenge(started(), id, true, 1000, 'x');
@@ -139,21 +141,21 @@ describe('challenge submission, evidence and rewards', () => {
   });
 });
 
-describe('shop, items, rest', () => {
+describe('shop and items', () => {
   const rich = (): SaveData => {
     const s = started();
     s.stats.coins = 100;
     return s;
   };
   it('buys an item and spends coins', () => {
-    const s = A.buyItem(rich(), 'focus-tea').save;
-    expect(s.stats.coins).toBe(75);
-    expect(s.inventory['focus-tea']).toBe(1);
+    const s = A.buyItem(rich(), 'lucky-cap').save;
+    expect(s.stats.coins).toBe(40);
+    expect(s.inventory['lucky-cap']).toBe(1);
     expect(s.achievements['shopper']).toBeDefined();
   });
   it('refuses when too poor or not for sale', () => {
     const poor = started();
-    expect(A.buyItem(poor, 'focus-tea').save.inventory['focus-tea']).toBeUndefined();
+    expect(A.buyItem(poor, 'lucky-cap').save.inventory['lucky-cap']).toBeUndefined();
     expect(A.buyItem(rich(), 'robot-bolt').save.inventory['robot-bolt']).toBeUndefined();
   });
   it('sells cosmetics only once', () => {
@@ -162,21 +164,10 @@ describe('shop, items, rest', () => {
     expect(s.inventory['explorer-cape']).toBe(1);
     expect(s.stats.coins).toBe(20);
   });
-  it('uses consumables to restore focus and consumes them', () => {
-    let s = A.buyItem(rich(), 'focus-tea').save;
-    s.stats.focus = 10;
-    s = A.useItem(s, 'focus-tea').save;
-    expect(s.stats.focus).toBe(60);
-    expect(s.inventory['focus-tea']).toBeUndefined();
-  });
-  it('does not waste a consumable at full focus', () => {
-    const s = A.useItem(A.buyItem(rich(), 'focus-tea').save, 'focus-tea').save;
-    expect(s.inventory['focus-tea']).toBe(1);
-  });
-  it('rest restores focus', () => {
-    const s = started();
-    s.stats.focus = 0;
-    expect(A.rest(s).save.stats.focus).toBe(MAX_FOCUS);
+  it('has no shortcut back to full Focus: no Rest, no Focus items', () => {
+    expect((A as Record<string, unknown>).rest).toBeUndefined();
+    expect((A as Record<string, unknown>).useItem).toBeUndefined();
+    expect(items.some((i) => (i as { restoreFocus?: number }).restoreFocus !== undefined || i.id === 'focus-tea' || i.id === 'study-snack')).toBe(false);
   });
 });
 

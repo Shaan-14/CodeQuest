@@ -188,19 +188,16 @@ describe('training is a detour, not a step backwards', () => {
     expect(progressSnapshot(r).replace(/"xp":\d+/, '')).toBe(before.replace(/"xp":\d+/, ''));
     expect(r.learning.lessons['py-05-numbers']?.completed).toBeFalsy();
   });
-  it('training costs no Focus on failure and gives a little back on success', () => {
+  it('an optional training plan never costs Focus on a failed step and cannot push Focus past 100', () => {
     let s = withMastery(atLesson5(), 'py.numbers');
     s = fail(fail(s, a!.id), a!.id);
     let r = startTraining(s, s.training.weaknesses[0]!.id, { kind: 'lesson', lessonId: 'py-05-numbers' }).save;
     const plan = activePlan(r)!;
     const step = plan.steps.find((x) => x.challengeId)!;
-    const focus = r.stats.focus;
     r = submitTrainingStep(r, plan.id, step.id, false, 1, 'x', detail(1)).save;
-    expect(r.stats.focus).toBe(focus);
-    r = A.rest(r).save;
-    r = { ...r, stats: { ...r.stats, focus: 50 } };
+    expect(r.stats.focus).toBe(100);
     r = submitTrainingStep(r, plan.id, plan.steps.find((x) => x.challengeId && x.kind !== 'independent')?.id ?? step.id, true, 1, 'x').save;
-    expect(r.stats.focus).toBeGreaterThan(50);
+    expect(r.stats.focus).toBe(100);
   });
   it('a failed independent step makes the plan grow with fresh problems: there is no lockout', () => {
     let s = withMastery(atLesson5(), 'py.numbers');

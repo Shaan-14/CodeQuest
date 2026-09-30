@@ -182,13 +182,13 @@ describe('interface simplicity (static checks on the screens)', () => {
   });
 });
 
-describe('save migration v5 -> v6', () => {
+describe('save migration v5 -> current', () => {
   it('keeps existing weaknesses (as optional), plans and evidence, and stamps the new version', () => {
     let s = startTraining(atLesson5(), (() => { const t = A.submitChallenge(atLesson5(), a!.id, false, 1, 'x', { detail: detail(1), source: 'practice' }).save; return t.training.weaknesses[0]?.id ?? ''; })(), { kind: 'map' }).save;
     const v5 = { ...structuredClone(s), version: 5 } as Record<string, unknown>;
     const m = migrate(v5)!;
     expect(m.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(6);
+    expect(SAVE_VERSION).toBe(7);
     expect(m.player?.name).toBe('Ada');
     expect(requiredTraining(m)).toBeUndefined(); // nothing an old save had becomes a sudden block
     s = withMastery(s, 'py.numbers');

@@ -92,8 +92,8 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy, onGoTraining }: Pr
 
       {openedBlocked && blocker && !completed ? (
         <section class="panel blocked" data-testid="lesson-blocked">
-          <h2>🚧 Training comes first</h2>
-          <p class="muted small">This lesson is paused, not lost: {describeReturn({ kind: 'lesson', lessonId })}.</p>
+          <h2>⏳ Not ready</h2>
+          <p class="muted small">Your Focus is below 100, so you cannot attempt this lesson's challenge yet. The lesson is waiting, not lost: {describeReturn({ kind: 'lesson', lessonId })}.</p>
           <DiagnosisCard weakness={blocker} onGoTraining={onGoTraining} />
         </section>
       ) : (
@@ -115,7 +115,7 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy, onGoTraining }: Pr
         {!last ? (
           <button class="btn primary" disabled={!canContinue || (!!blocker && !completed)} onClick={() => go(index + 1)} data-testid="continue">{canContinue ? 'Continue →' : 'Complete this step to continue'}</button>
         ) : (
-          <button class="btn gold" disabled={!canContinue || (!!blocker && !completed)} onClick={finish} data-testid="finish">{completed ? 'Back' : blocker ? 'Training first' : canContinue ? 'Complete lesson ✔' : 'Solve the challenge to finish'}</button>
+          <button class="btn gold" disabled={!canContinue || (!!blocker && !completed)} onClick={finish} data-testid="finish">{completed ? 'Back' : blocker ? 'Not ready' : canContinue ? 'Complete lesson ✔' : 'Solve the challenge to finish'}</button>
         )}
       </div>
       </>

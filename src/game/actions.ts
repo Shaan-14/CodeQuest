@@ -6,7 +6,7 @@
 import { getChallenge, getLesson } from '../content';
 import { items, quests } from '../content/world';
 import { areas } from '../content/world';
-import { MAX_FOCUS, newSave, type ChallengeProgress, type SaveData } from '../core/save';
+import { newSave, type ChallengeProgress, type SaveData } from '../core/save';
 import { newlyEarned } from './achievements';
 import type { GameEvent } from './events';
 import { levelFromXp, rewardFor } from './progression';
@@ -14,6 +14,7 @@ import { isAreaUnlocked } from './world';
 import { buildEvidence, failuresSinceLastPass } from './evidence';
 import { applyDiagnosis } from './weakness';
 import { ensureRequiredPlan, requiredTraining, returnToFor } from './training';
+import { FAILURE_LEVELS, HINTED_PASS_LOSS, failureLevelOf, focusReady, loseFocus } from './focus';
 import { resolveOnPass } from './weakness';
 import type { EvidenceSource, FailureDetail } from '../learning/mastery';
 
@@ -24,7 +25,6 @@ export interface Result {
   events: GameEvent[];
 }
 
-export const FOCUS_LOSS_PER_FAILED_SUBMIT = 10;
 const now = () => new Date().toISOString();
 
 /** Copy so callers' saves are never mutated. */
@@ -99,6 +99,7 @@ export function recordRun(save: SaveData, challengeId?: string): Result {
 export function revealHint(save: SaveData, challengeId: string): Result {
   const { s, events } = draft(save);
   const c = getChallenge(challengeId);
+  if (!focusReady(s)) return { save: s, events }; // not ready: no attempt, so no hints either
   const p = progressFor(s, challengeId);
   if (c && c.mode !== 'independent' && p.hintsUsed < c.hints.length) p.hintsUsed++;
   return { save: s, events };
@@ -148,8 +149,9 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   const { s, events } = draft(save);
   const c = getChallenge(challengeId);
   if (!c) return { save: s, events };
-  // Required training blocks the curriculum: no retrying the challenge that went wrong until the training is done (enforced here, not only in the UI).
-  if (requiredTraining(s)) return { save: s, events };
+  // THE FOCUS GATE (enforced here, not only in the UI): below 100 Focus the player is not ready to attempt anything graded.
+  // Required training holds the curriculum too: the two always agree (training is what restores Focus).
+  if (!focusReady(s) || requiredTraining(s)) return { save: s, events };
   const p = progressFor(s, challengeId);
   p.attempts++;
   p.timeMs += timeMs;
@@ -168,15 +170,20 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
     p.passedAt ??= now();
     p.bestHintsUsed = Math.min(p.bestHintsUsed ?? Infinity, p.hintsUsed);
     gain(s, events, xp, coins, reward.note);
-  } else {
-    const lost = Math.min(s.stats.focus, FOCUS_LOSS_PER_FAILED_SUBMIT);
-    s.stats.focus -= lost;
-    if (lost) events.push({ type: 'focusLost', amount: lost });
   }
-  // Phase 4: resolve superseded weaknesses, then diagnose this attempt (records what to train; never blocks or rolls back).
+  // Phase 4: resolve superseded weaknesses, then diagnose this attempt.
   resolveOnPass(s, events, record);
-  const weakness = applyDiagnosis(s, events, c, record);
-  if (weakness?.required) ensureRequiredPlan(s, events, weakness, returnToFor(s, c));
+  // Only real attempts at lesson work cost Focus: guided (learning-mode) exercises just give feedback, and Practice Yard
+  // attempts are free. A failure, or a pass that needed hints, is a setback that only training repairs.
+  const setback = (opts.source ?? 'lesson') === 'lesson' && c.mode !== 'learning' && (!passed || p.hintsUsed > 0);
+  const level = failureLevelOf(c);
+  const weakness = applyDiagnosis(s, events, c, record, setback);
+  if (setback && weakness) {
+    weakness.required = true;
+    weakness.focusLevel = Math.max(weakness.focusLevel ?? 0, level);
+    loseFocus(s, events, passed ? HINTED_PASS_LOSS : FAILURE_LEVELS[level].loss);
+    ensureRequiredPlan(s, events, weakness, returnToFor(s, c));
+  }
   settle(s, events);
   return { save: s, events };
 }
@@ -232,23 +239,6 @@ export function buyItem(save: SaveData, itemId: string): Result {
   s.flags['bought-item'] = true;
   events.push({ type: 'item', id: itemId });
   settle(s, events);
-  return { save: s, events };
-}
-
-export function useItem(save: SaveData, itemId: string): Result {
-  const { s, events } = draft(save);
-  const item = items.find((i) => i.id === itemId);
-  if (!item || item.kind !== 'consumable' || !s.inventory[itemId] || s.stats.focus >= MAX_FOCUS) return { save: s, events };
-  s.inventory[itemId]!--;
-  if (s.inventory[itemId] === 0) delete s.inventory[itemId];
-  s.stats.focus = Math.min(MAX_FOCUS, s.stats.focus + (item.restoreFocus ?? 0));
-  return { save: s, events };
-}
-
-/** Free full recovery, available at the Academy. */
-export function rest(save: SaveData): Result {
-  const { s, events } = draft(save);
-  s.stats.focus = MAX_FOCUS;
   return { save: s, events };
 }
 

@@ -1,8 +1,7 @@
 import { useState } from 'preact/hooks';
 import { introDialogue, mentorAdvice } from '../../content/mentor';
 import { quests } from '../../content/world';
-import { MAX_FOCUS } from '../../core/save';
-import { acceptQuest, rest, setFlag } from '../../game/actions';
+import { acceptQuest, setFlag } from '../../game/actions';
 import { useGame, getStore } from '../../game/store';
 import { DailyCard } from '../components/DailyCard';
 import { QuestOffers } from '../components/NpcCards';
@@ -70,7 +69,7 @@ export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') =>
             </div>
             <DailyCard onStart={onDaily} compact />
             <QuestOffers giver="Mentor Juno" exclude={[quest.id]} />
-            <div class="grid-2">
+            <div>
               <section class="panel">
                 <h2>📜 Quest board</h2>
                 <div class="quest-line">
@@ -79,13 +78,6 @@ export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') =>
                 </div>
                 <p class="muted">{quest.summary}</p>
                 <button class="btn" onClick={() => onGo('grounds')}>Go to the Programming Hall →</button>
-              </section>
-              <section class="panel">
-                <h2>🛏️ Rest</h2>
-                <p class="muted">Focus is spent when a submission fails. Resting here is free and restores it fully.</p>
-                <button class="btn" disabled={save.stats.focus >= MAX_FOCUS} onClick={() => game.apply(rest(save))} data-testid="rest">
-                  {save.stats.focus >= MAX_FOCUS ? 'You are fully rested' : 'Rest and recover Focus'}
-                </button>
               </section>
             </div>
           </>

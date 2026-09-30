@@ -95,15 +95,14 @@ describe('Daily Challenge: issuing and the 12-hour timer', () => {
 });
 
 describe('Daily Challenge: one attempt, no retries, rewards only on success', () => {
-  it('a solve pays coins, XP and Focus, is recorded as independent evidence, and cannot be repeated', () => {
+  it('a solve pays coins and XP (never Focus), is recorded as independent evidence, and cannot be repeated', () => {
     let s = issued(started());
-    s = { ...s, stats: { ...s.stats, focus: 50 } };
     const cur = s.daily.current!;
     const r = submitDaily(s, T0 + H, true, 4000);
     expect(r.save.daily.current!.status).toBe('passed');
     expect(r.save.stats.coins).toBe(s.stats.coins + cur.reward.coins);
     expect(r.save.stats.xp).toBe(s.stats.xp + cur.reward.xp);
-    expect(r.save.stats.focus).toBe(65);
+    expect(r.save.stats.focus).toBe(100);
     const rec = r.save.evidence.at(-1)!;
     expect(rec).toMatchObject({ challengeId: cur.challengeId, passed: true, hintsUsed: 0, mode: 'independent', attemptNumber: 1, executed: true });
     expect(['independent', 'transfer']).toContain(rec.support);

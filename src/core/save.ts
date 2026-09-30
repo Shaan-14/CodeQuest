@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export interface PlayerProfile {
   name: string;
@@ -178,6 +178,8 @@ export interface Weakness {
    * until this weakness's training is complete. Absent/false for optional needs (practice, dailies, quiet skills).
    */
   required?: boolean;
+  /** Failure level (1-5) of the newest required failure: how much Focus it cost and how deep the training is. */
+  focusLevel?: number;
   resolvedAt?: string;
   resolvedBy?: string;
 }
@@ -194,14 +196,19 @@ export interface TrainingStep {
   done: boolean;
   passed?: boolean;
   attempts: number;
+  /** Focus this step earns when completed (set on required plans; see game/focus.ts). Absent = earns nothing. */
+  focus?: number;
 }
 
 export interface TrainingPlan {
   id: string;
   weaknessId: string;
   level: PlanLevel;
-  /** True only for major weaknesses: the exposing lesson waits until the plan is complete. Otherwise training is a choice. */
+  /** True when the plan restores Focus the player lost: the exposing challenge stays "not ready" until it is complete. */
   required: boolean;
+  /** Failure level (1-5, see game/focus.ts) that created the plan, and the Focus it cost. */
+  focusLevel?: number;
+  focusLost?: number;
   createdAt: string;
   returnTo: ReturnPoint;
   steps: TrainingStep[];
@@ -356,7 +363,30 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // v5 -> v6 (Phase 4 revision): weaknesses may be `required` (they block the curriculum until trained). Weaknesses recorded
   // by v5 stay optional, so nobody is blocked by an old save.
   5: (old) => ({ ...old }),
+  // v6 -> v7 (Focus gate): Focus is now only earned back by training, and the Rest button and Focus consumables are gone.
+  // Nobody is punished retroactively: an old save starts at full Focus, and consumables they bought are refunded in coins.
+  6: (old) => {
+    const inventory = { ...((old.inventory as Record<string, number> | undefined) ?? {}) };
+    const stats: Record<string, number> = { ...((old.stats as Record<string, number> | undefined) ?? {}), focus: MAX_FOCUS };
+    for (const [id, price] of Object.entries(REMOVED_CONSUMABLES)) {
+      if (inventory[id]) { stats.coins = (stats.coins ?? 0) + inventory[id]! * price; delete inventory[id]; }
+    }
+    return { ...old, inventory, stats };
+  },
 };
+/** Shop items that restored Focus directly. They no longer exist: Focus is earned through training. */
+const REMOVED_CONSUMABLES: Record<string, number> = { 'study-snack': 10, 'focus-tea': 25 };
+
+/**
+ * Focus below the maximum only makes sense while a required training plan is active (that plan is how it comes back).
+ * A save that says otherwise (hand-edited, or an interrupted older build) is repaired to full Focus rather than left stuck.
+ */
+function sanitizeFocus(d: SaveData): void {
+  const f = d.stats.focus;
+  d.stats.focus = typeof f === 'number' && Number.isFinite(f) ? Math.max(0, Math.min(MAX_FOCUS, Math.round(f))) : MAX_FOCUS;
+  const owed = d.training.plans.some((p) => p.status === 'active' && p.required);
+  if (d.stats.focus < MAX_FOCUS && !owed) d.stats.focus = MAX_FOCUS;
+}
 
 export function migrate(raw: unknown): SaveData | null {
   if (typeof raw !== 'object' || raw === null) return null;
@@ -373,6 +403,7 @@ export function migrate(raw: unknown): SaveData | null {
   data.daily = sanitizeDaily(data.daily);
   data.training = sanitizeTraining(data.training);
   data.bosses = sanitizeBosses(data.bosses);
+  sanitizeFocus(data);
   data.campaign = typeof data.campaign === 'object' && data.campaign !== null ? { completedAt: typeof (data.campaign as CampaignState).completedAt === 'string' ? (data.campaign as CampaignState).completedAt : undefined } : {};
   return data;
 }

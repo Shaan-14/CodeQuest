@@ -6,6 +6,8 @@ import { getRunner } from '../../learning/python/runner';
 import type { GradeResult } from '../../learning/runner';
 import { canSubmitDaily, formatRemaining, submitDaily, timeRemainingMs } from '../../game/daily';
 import { difficultyName } from '../../game/dailySelect';
+import { MAX_FOCUS } from '../../core/save';
+import { NotReadyPanel } from '../components/FocusGate';
 import { getStore, useGame } from '../../game/store';
 import { emptyConsole, type ConsoleState } from '../components/Console';
 import { Modal } from '../components/Modal';
@@ -21,9 +23,9 @@ import { useNow } from '../components/useDailyClock';
 /**
  * The Daily Challenge attempt. Deliberately different from a lesson challenge: NO hints, NO variants, NO Field
  * Manual, NO solution or expected-output reveal, and exactly ONE graded submission. Run is free (test as much as
- * you like); the single Submit is recorded whatever the outcome. Failing costs no Focus.
+ * you like); the single Submit is recorded whatever the outcome. Failing costs no Focus, but you need 100 Focus to attempt it.
  */
-export function DailyRun({ onBack }: { onBack: () => void }) {
+export function DailyRun({ onBack, onGoTraining }: { onBack: () => void; onGoTraining?: () => void }) {
   const game = useGame();
   const cur = game.save.daily.current;
   const c = cur ? getAnyChallenge(cur.challengeId) : undefined;
@@ -48,6 +50,15 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
       <main class="lesson" data-testid="daily-run">
         <div class="lesson-head"><button class="btn small ghost" onClick={onBack}>← Back</button><h1>Daily Challenge</h1></div>
         <p class="muted">There is no Daily Challenge on offer right now.</p>
+      </main>
+    );
+  }
+  // The Focus gate covers the Daily Challenge too: below 100 the player is not ready to attempt it.
+  if (game.save.stats.focus < MAX_FOCUS && !outcome && cur.status === 'open') {
+    return (
+      <main class="lesson" data-testid="daily-run">
+        <div class="lesson-head"><button class="btn small ghost" onClick={onBack}>← Back</button><h1>Daily Challenge</h1></div>
+        <NotReadyPanel onGoTraining={onGoTraining} />
       </main>
     );
   }
@@ -96,7 +107,7 @@ export function DailyRun({ onBack }: { onBack: () => void }) {
           {outcome === 'passed' && (
             <div class="result pass" data-testid="daily-result">
               <h3>✅ Solved!</h3>
-              <p>+{cur.reward.coins} coins, +{cur.reward.xp} XP, +{cur.reward.focus} Focus. This counts as independent evidence for {cur.category}, and mastery still needs varied evidence over time.</p>
+              <p>+{cur.reward.coins} coins, +{cur.reward.xp} XP. This counts as independent evidence for {cur.category}, and mastery still needs varied evidence over time.</p>
             </div>
           )}
           {outcome === 'failed' && (

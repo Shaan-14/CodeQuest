@@ -5,10 +5,11 @@ import { sourcesFor } from '../../content/databases';
 import { getRunner } from '../../learning/python/runner';
 import type { GradeResult } from '../../learning/runner';
 import { failureDetailOf } from '../../learning/failure';
-import { FOCUS_LOSS_PER_FAILED_SUBMIT, recordLookup, recordRun, revealHint, saveDraftCode, startReplay, submitChallenge } from '../../game/actions';
+import { recordLookup, recordRun, revealHint, saveDraftCode, startReplay, submitChallenge } from '../../game/actions';
 import { rewardFor } from '../../game/progression';
 import { getStore, useGame } from '../../game/store';
-import { requiredTraining } from '../../game/training';
+import { MAX_FOCUS } from '../../core/save';
+import { NotReadyPanel } from './FocusGate';
 import { RichText } from './RichText';
 import { DiagnosisCard } from './DiagnosisCard';
 import { emptyConsole, type ConsoleState } from './Console';
@@ -59,7 +60,7 @@ export function explainFailure(result: GradeResult): string {
   return parts.join(' ');
 }
 
-export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitchVariant, variantInfo, source = 'lesson', submitOverride, noHints = false, onGoTraining, failureNote }: Props) {
+export function ChallengeStepView({ challenge: c, onReady, onSwitchVariant, variantInfo, source = 'lesson', submitOverride, noHints = false, onGoTraining, failureNote }: Props) {
   const game = useGame();
   const progress = game.save.learning.challenges[c.id];
   const startCode = c.language === 'web' ? JSON.stringify(c.starterFiles ?? { html: '', css: '', js: '' }) : c.starterCode;
@@ -148,14 +149,13 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
   };
 
   // Required training holds the curriculum: nothing here can be submitted or hinted until it is done (training/boss runs use submitOverride and stay open).
-  const held = !submitOverride && !!requiredTraining(game.save);
-  const exhausted = focus < 1 && !submitOverride;
+  const held = !submitOverride && focus < MAX_FOCUS;
   const failedChecks = result?.checks.filter((k) => !k.passed) ?? [];
   const failedConstraints = result?.constraints.filter((k) => !k.passed) ?? [];
 
   const tools = (
     <>
-        <button class="btn gold" onClick={submit} disabled={busy || exhausted || held} data-testid="submit" title={held ? 'Training comes first' : exhausted ? 'Out of Focus' : 'Check your solution'}>✔ Submit</button>
+        <button class="btn gold" onClick={submit} disabled={busy || held} data-testid="submit" title={held ? '100 Focus required: train first' : 'Check your solution'}>✔ Submit</button>
         {!independent && c.hints.length > 0 && (
           <button class="btn" onClick={hint} disabled={hintsUsed >= c.hints.length || held} data-testid="hint" title="Hints lower your reward and are recorded in your evidence">
             💡 Hint ({hintsUsed}/{c.hints.length})
@@ -169,12 +169,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
 
   return (
     <div class="two-col">
-      {exhausted && (
-        <div class="focus-warning panel" role="alert" data-testid="focus-warning">
-          You are out of <strong>Focus</strong>, so you cannot submit right now. You can still Run code and think. Rest at the Academy, or use a snack or tea from your pack.
-          <button class="btn small" onClick={onGoAcademy}>Go to the Academy</button>
-        </div>
-      )}
+      {held && !result && <NotReadyPanel onGoTraining={onGoTraining} />}
       <section class="briefing panel" data-testid="briefing" data-challenge={c.id}>
         <div class="brief-head">
           <span class={`mode-badge ${c.mode}`} data-testid="mode-badge">{MODE_LABEL[c.mode]}</span>
@@ -227,7 +222,7 @@ export function ChallengeStepView({ challenge: c, onReady, onGoAcademy, onSwitch
               <>
                 <h3>❌ Not quite yet</h3>
                 {result.error && <pre class="console-error">{result.error}</pre>}
-                <p class="small" data-testid="failure-explanation">{explainFailure(result)} {!submitOverride && <span class="muted">(−{FOCUS_LOSS_PER_FAILED_SUBMIT} Focus)</span>}</p>
+                <p class="small" data-testid="failure-explanation">{explainFailure(result)}</p>
                 {failureNote && <p class="small">{failureNote}</p>}
                 {!submitOverride && held && onGoTraining && <DiagnosisCard onGoTraining={onGoTraining} />}
                 {!submitOverride && !held && (

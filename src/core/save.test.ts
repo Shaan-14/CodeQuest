@@ -24,7 +24,7 @@ describe('save v2 -> v3 migration (Phase 2)', () => {
     expect(r.status).toBe('loaded');
     expect(r.save.version).toBe(SAVE_VERSION);
     expect(r.save.player?.name).toBe('Old');
-    expect(r.save.stats).toEqual({ xp: 500, coins: 40, focus: 60 });
+    expect(r.save.stats).toEqual({ xp: 500, coins: 40, focus: 100 }); // v6 -> v7: old saves start at full Focus
     expect(r.save.evidence).toHaveLength(2);
   });
   it('adds the new evidence fields, computing priorFailures from history', () => {
@@ -54,7 +54,7 @@ describe('save', () => {
     const data = newSave();
     data.player = { name: 'Ada', avatar: 'a', createdAt: 'x' };
     data.stats.xp = 250;
-    data.inventory['focus-tea'] = 2;
+    data.inventory['lucky-cap'] = 1;
     writeSave(s, data);
     const r = loadSave(s);
     expect(r.status).toBe('loaded');

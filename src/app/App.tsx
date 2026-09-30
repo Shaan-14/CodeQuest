@@ -64,10 +64,10 @@ export function App() {
   let screen;
   if (route.name === 'map') screen = <WorldMap current={lastArea} onOpen={open} />;
   else if (route.name === 'daily') screen = <DailyScreen onStart={() => setRoute({ name: 'daily-run' })} />;
-  else if (route.name === 'daily-run') screen = <DailyRun onBack={() => setRoute({ name: 'daily' })} />;
+  else if (route.name === 'daily-run') screen = <DailyRun onBack={() => setRoute({ name: 'daily' })} onGoTraining={goTraining} />;
   else if (required && (route.name === 'practice' || route.name === 'practice-run')) screen = <TrainingYard onOpenPlan={(planId) => setRoute({ name: 'training-run', planId })} onBack={() => open('academy')} />;
   else if (route.name === 'practice') screen = <Practice onPractice={(id) => setRoute({ name: 'practice-run', challengeId: id })} onOpenLesson={(id) => setRoute({ name: 'lesson', id })} onBack={() => open('training-grounds')} />;
-  else if (route.name === 'training-run') screen = <TrainingRun planId={route.planId} onLeave={() => open('training-yard')} onReturn={(r) => (r.kind === 'lesson' && r.lessonId ? setRoute({ name: 'lesson', id: r.lessonId }) : r.kind === 'area' && r.areaId ? open(r.areaId) : r.kind === 'boss' ? open('summit') : toMap())} />;
+  else if (route.name === 'training-run') screen = <TrainingRun planId={route.planId} onLeave={() => open('training-yard')} onReturn={(r) => (r.kind === 'lesson' && r.lessonId ? setRoute({ name: 'lesson', id: r.lessonId }) : r.kind === 'area' && r.areaId ? open(r.areaId) : r.kind === 'boss' && r.bossId ? setRoute({ name: 'boss', id: r.bossId }) : r.kind === 'boss' ? open('summit') : toMap())} />;
   else if (route.name === 'boss') screen = <BossRun bossId={route.id} onBack={() => open('summit')} onGoTraining={goTraining} />;
   else if (route.name === 'practice-run') screen = <PracticeRun challengeId={route.challengeId} onBack={() => setRoute({ name: 'practice' })} onGoAcademy={() => open('academy')} />;
   else if (route.name === 'lesson') screen = <LessonScreen lessonId={route.id} onExit={() => open(areaForLesson(route.id))} onGoAcademy={() => open('academy')} onGoTraining={goTraining} />;
@@ -91,7 +91,7 @@ export function App() {
       <Hud onMap={toMap} onPanel={setPanel} onDaily={() => { setPanel(null); setRoute({ name: 'daily' }); }} />
       {required && route.name !== 'lesson' && route.name !== 'training-run' && route.name !== 'boss' && !(route.name === 'area' && route.id === 'training-yard') && (
         <div class="banner required-banner" role="alert" data-testid="required-banner">
-          <span>🎯 Training needed: <strong>{weaknessNames(required)}</strong>. The curriculum is paused until you finish it.</span>
+          <span>⏳ Not ready: Focus {save.stats.focus}/100. Train <strong>{weaknessNames(required)}</strong> to regain it before your next attempt.</span>
           <button class="btn small gold" onClick={goTraining} data-testid="banner-go-training">Go to the Training Grounds</button>
         </div>
       )}

@@ -419,9 +419,7 @@ export interface Item {
   icon: string;
   description: string;
   price: number | null; // null = not sold
-  kind: 'consumable' | 'cosmetic' | 'quest';
-  /** Focus restored when used (consumables). */
-  restoreFocus?: number;
+  kind: 'cosmetic' | 'quest';
 }
 
 export interface QuestObjective {

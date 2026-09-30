@@ -11,7 +11,7 @@
  */
 import { getAnyChallenge, lessonOfChallenge } from '../content';
 import type { Challenge } from '../content/schema';
-import { MAX_FOCUS, type PlanLevel, type ReturnPoint, type SaveData, type TrainingPlan, type TrainingStep, type Weakness } from '../core/save';
+import { type PlanLevel, type ReturnPoint, type SaveData, type TrainingPlan, type TrainingStep, type Weakness } from '../core/save';
 import type { FailureDetail } from '../learning/mastery';
 import { draft, progressFor, settle, type Result } from './actions';
 import { LEVEL_OF, maxSeverity, SEVERITY_ORDER } from './diagnosis';
@@ -19,9 +19,9 @@ import { buildEvidence, independentPassesOn } from './evidence';
 import { buildSteps, shakyPrerequisites } from './trainingPlan';
 import { moduleFor } from '../content/training/modules';
 import { nextTrainingId } from './weakness';
+import { FAILURE_LEVELS, assignStepFocus, focusNeeded, gainFocus, maxPlan, type FailureLevel } from './focus';
 
 const now = () => new Date().toISOString();
-export const TRAINING_FOCUS_REWARD = 8;
 
 export const weaknessOf = (s: SaveData, id: string): Weakness | undefined => s.training.weaknesses.find((w) => w.id === id);
 export const planOf = (s: SaveData, id: string): TrainingPlan | undefined => s.training.plans.find((p) => p.id === id);
@@ -51,12 +51,15 @@ const countBefore = (s: SaveData, w: Weakness) => ({ independentPasses: independ
 
 /** Creates the plan for a weakness on a DRAFT save (no other plan may be active). */
 function beginPlan(s: SaveData, events: Result['events'], w: Weakness, returnTo: ReturnPoint): TrainingPlan {
-  const level = levelFor(w);
+  // Training is never lighter than the failure deserves: a failed independent challenge or boss always gets a deeper plan.
+  const fl = (w.focusLevel ?? 0) as FailureLevel | 0;
+  const level = w.required && fl ? maxPlan(levelFor(w), FAILURE_LEVELS[fl].minPlan) : levelFor(w);
   const plan: TrainingPlan = {
-    id: nextTrainingId(s, 'p'), weaknessId: w.id, level, required: !!w.required, createdAt: now(), returnTo,
+    id: nextTrainingId(s, 'p'), weaknessId: w.id, level, required: !!w.required, createdAt: now(), returnTo, focusLevel: fl || undefined, focusLost: w.required ? focusNeeded(s) : undefined,
     steps: [], status: 'active', escalations: 0, before: countBefore(s, w),
   };
   plan.steps = buildSteps(s, w, level);
+  assignStepFocus(s, plan);
   s.training.plans.push(plan);
   s.training.activePlanId = plan.id;
   w.status = 'training';
@@ -108,6 +111,7 @@ export function completeReadingStep(save: SaveData, planId: string, stepId: stri
   const st = p?.steps.find((x) => x.id === stepId);
   if (!p || p.status !== 'active' || !st || (st.kind !== 'review' && st.kind !== 'example') || st.done) return { save: s, events };
   st.done = true;
+  gainFocus(s, events, st.focus ?? 0);
   events.push({ type: 'trainingStep', planId });
   finishIfDone(s, events, p);
   return { save: s, events };
@@ -150,9 +154,7 @@ export function submitTrainingStep(save: SaveData, planId: string, stepId: strin
     if (!isDemonstration(st) || pr.hintsUsed === 0) {
       st.done = true;
       st.passed = true;
-      const before = s.stats.focus;
-      s.stats.focus = Math.min(MAX_FOCUS, s.stats.focus + TRAINING_FOCUS_REWARD);
-      if (s.stats.focus > before) events.push({ type: 'focusGained', amount: s.stats.focus - before });
+      gainFocus(s, events, st.focus ?? 0);
       events.push({ type: 'trainingStep', planId });
     }
   } else if (isDemonstration(st)) escalate(s, p);
@@ -177,6 +179,7 @@ function escalate(s: SaveData, p: TrainingPlan): void {
   if (p.escalations >= 2) for (const pre of shakyPrerequisites(s, w.skillIds)) if (!p.steps.some((x) => x.kind === 'review' && x.skillId === pre)) p.steps.push({ id: nextTrainingId(s, 't'), kind: 'review', skillId: pre, done: false, attempts: 0 });
   const extra: ('practice' | 'predict' | 'independent')[] = [...(p.escalations >= 2 ? (['predict'] as const) : []), 'practice', ...(p.escalations >= 2 ? (['practice'] as const) : []), 'independent'];
   p.steps.push(...buildSteps(s, w, p.level, undefined, extra));
+  assignStepFocus(s, p);
   if (SEVERITY_ORDER.indexOf(LEVEL_TO_SEV[target]) > SEVERITY_ORDER.indexOf(LEVEL_TO_SEV[p.level])) p.level = target;
 }
 const LEVEL_TO_SEV: Record<PlanLevel, Weakness['severity']> = { refresher: 'minor', targeted: 'moderate', extended: 'serious', deep: 'major' };
@@ -191,7 +194,7 @@ export function answerPrediction(save: SaveData, planId: string, stepId: string,
   if (!p || p.status !== 'active' || !st || st.kind !== 'predict' || st.done || !q) return { save: s, events };
   st.attempts++;
   const correct = choice === q.correct;
-  if (correct) { st.done = true; st.passed = true; events.push({ type: 'trainingStep', planId }); finishIfDone(s, events, p); }
+  if (correct) { st.done = true; st.passed = true; gainFocus(s, events, st.focus ?? 0); events.push({ type: 'trainingStep', planId }); finishIfDone(s, events, p); }
   return { save: s, events, correct };
 }
 
@@ -202,6 +205,7 @@ function finishIfDone(s: SaveData, events: Result['events'], p: TrainingPlan): v
   if (!p.steps.every((x) => x.done) || (lastDemo && !lastDemo.passed)) return;
   p.status = 'complete';
   p.completedAt = now();
+  if (p.required) gainFocus(s, events, focusNeeded(s)); // the shares add up to exactly what was lost; this only absorbs rounding
   const w = weaknessOf(s, p.weaknessId);
   if (w) {
     w.status = 'resolved';

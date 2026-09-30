@@ -11,13 +11,15 @@ import { ChallengeStepView, explainFailure } from '../components/ChallengeStep';
 import { DemoStepView } from '../components/DemoStep';
 import { RichText } from '../components/RichText';
 import { weaknessNames } from '../components/DiagnosisCard';
+import { FocusMeter } from '../components/FocusGate';
+import { getBoss } from '../../content/bosses';
 
 const KIND_LABEL: Record<string, string> = { review: 'A different way to see it', example: 'A different example', predict: 'Predict', guided: 'Guided practice', practice: 'Practice', combined: 'Fresh problem (final step)', independent: 'Fresh problem (final step)' };
 const LEVEL_LABEL: Record<string, string> = { refresher: 'Quick refresher', targeted: 'Targeted training', extended: 'Extended training', deep: 'Deep training path' };
 
 export function describeReturn(r: ReturnPoint): string {
   if (r.kind === 'lesson' && r.lessonId) return `Back to “${getLesson(r.lessonId)?.title ?? r.lessonId}”, exactly where you left off`;
-  if (r.kind === 'boss') return 'Back to the boss gate';
+  if (r.kind === 'boss') return r.bossId && getBoss(r.bossId) ? `Back to ${getBoss(r.bossId)!.title} in the Boss Hall` : 'Back to the boss gate';
   if (r.kind === 'daily') return 'Back to the Daily Challenge';
   return 'Back to the map';
 }
@@ -44,6 +46,7 @@ export function TrainingRun({ planId, onReturn, onLeave }: { planId: string; onR
       <button class="btn small ghost" onClick={onLeave} data-testid="training-leave">← Leave for now (your plan is saved)</button>
       <h1>🏋️ Training Grounds: {names}</h1>
       <ol class="dots" aria-label="Training progress">{plan.steps.map((x) => <li key={x.id} class={x.done ? 'done' : x.id === step?.id ? 'current' : ''} title={KIND_LABEL[x.kind]} />)}</ol>
+      {plan.required && <FocusMeter />}
       <p class="muted small" data-testid="training-return">{LEVEL_LABEL[plan.level]}. A detour from your lesson: {describeReturn(plan.returnTo)}. Nothing you did before is erased.</p>
     </div>
   );
@@ -53,9 +56,9 @@ export function TrainingRun({ planId, onReturn, onLeave }: { planId: string; onR
       <main class="lesson" data-testid="training-run" data-status="complete">
         {head}
         <section class="panel" data-testid="training-complete">
-          <h2>💪 Training complete</h2>
-          <p>You solved a fresh {names} problem on your own. That evidence sits on your record next to everything you had before.</p>
-          <button class="btn gold" onClick={() => onReturn(plan.returnTo)} data-testid="training-return-btn">{describeReturn(plan.returnTo)} →</button>
+          <h2>💪 Focus restored</h2>
+          <p data-testid="focus-restored">{plan.required ? 'Training complete. You are ready to attempt the challenge again: you will get a new version, not the same problem.' : 'Training complete.'} You solved a fresh {names} problem on your own, and that evidence sits on your record next to everything you had before.</p>
+          <button class="btn gold" onClick={() => onReturn(plan.returnTo)} data-testid="training-return-btn">{plan.required ? 'Return to the challenge' : describeReturn(plan.returnTo)} →</button>
         </section>
       </main>
     );
@@ -68,7 +71,7 @@ export function TrainingRun({ planId, onReturn, onLeave }: { planId: string; onR
   return (
     <main class="lesson" data-testid="training-run" data-status="active" data-step-kind={step.kind}>
       {head}
-      <p class="muted small" data-testid="training-progress">Step {doneCount + 1} of {plan.steps.length}: {KIND_LABEL[step.kind]}</p>
+      <p class="muted small" data-testid="training-progress">Step {doneCount + 1} of {plan.steps.length}: {KIND_LABEL[step.kind]}{plan.required && step.focus ? ` · completing it earns +${step.focus} Focus` : ''}</p>
       {step.kind === 'review' && (() => {
         const m = step.skillId && !(w?.skillIds ?? []).includes(step.skillId) ? moduleFor([step.skillId]) : mod;
         const n = noteFor(step.skillId);

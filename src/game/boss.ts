@@ -8,7 +8,8 @@
  *  - after that the boss offers a NEW version (a different problem and different data), never the same problem again;
  *  - beating a boss earns rewards and story progress, and it is recorded as independent evidence. It never sets a skill
  *    to "mastered": only the evidence does (learning/mastery.ts).
- * A failure has no Focus cost and no lockout timer: the only gate is doing the training the evidence asks for.
+ * A failure costs Focus (a mini-boss level 4, a mastery boss or the Summit level 5: see game/focus.ts) and the boss cannot
+ * be attempted below 100 Focus; training earns it back. There is no lockout timer and no Rest.
  */
 import { bossChallengeFor, bosses, getBoss, type BossDef } from '../content/bosses';
 import type { Challenge } from '../content/schema';
@@ -18,6 +19,7 @@ import type { FailureDetail } from '../learning/mastery';
 import { draft, gain, settle, type Result } from './actions';
 import { buildEvidence } from './evidence';
 import { ensureRequiredPlan } from './training';
+import { FAILURE_LEVELS, failureLevelOf, focusReady, loseFocus } from './focus';
 import { applyDiagnosis, resolveOnPass, upsertWeakness } from './weakness';
 import { diagnoseBossFailure, maxSeverity, SEVERITY_ORDER } from './diagnosis';
 
@@ -86,7 +88,7 @@ export const bossSkillTitles = (boss: BossDef): string[] => {
 export function submitBoss(save: SaveData, bossId: string, passed: boolean, timeMs: number, detail?: FailureDetail): Result {
   const { s, events } = draft(save);
   const boss = getBoss(bossId);
-  if (!boss || bossStatus(s, boss) !== 'ready') return { save: s, events };
+  if (!boss || bossStatus(s, boss) !== 'ready' || !focusReady(s)) return { save: s, events };
   const version = nextVersion(s, boss);
   const c = bossChallengeFor(boss.id, version);
   if (!c) return { save: s, events };
@@ -123,6 +125,9 @@ export function submitBoss(save: SaveData, bossId: string, passed: boolean, time
     attempt.weaknessIds.push(w.id);
     st.remediationWeaknessId = w.id;
     w.required = true;
+    const level = failureLevelOf(c, boss.kind);
+    w.focusLevel = Math.max(w.focusLevel ?? 0, level);
+    loseFocus(s, events, FAILURE_LEVELS[level].loss);
     ensureRequiredPlan(s, events, w, { kind: 'boss', bossId });
     const plan = s.training.plans.find((p) => p.weaknessId === w.id && p.status === 'active');
     if (plan) s.bosses[bossId]!.remediationPlanId = plan.id;
