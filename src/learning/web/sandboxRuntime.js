@@ -281,8 +281,11 @@
       text: function (s) { return norm(needEl(s).textContent); },
       attr: function (s, name) { return needEl(s).getAttribute(name); },
       value: function (s) { return needEl(s).value; },
-      style: function (s, prop) { return getComputedStyle(needEl(s)).getPropertyValue(prop); },
-      rect: function (s) { var r = needEl(s).getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, top: r.top, left: r.left, right: r.right, bottom: r.bottom }; },
+      /** Computed style of an element (or of a pseudo-element, e.g. '::before'). Colours come back as rgb(...). */
+      style: function (s, prop, pseudo) { return getComputedStyle(needEl(s), pseudo || null).getPropertyValue(prop); },
+      /** Bounding box of an element's TEXT (not its box): where the words actually are. */
+      textRect: function (s) { var e = needEl(s); var r = document.createRange(); r.selectNodeContents(e); var b = r.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height, top: b.top, left: b.left, right: b.right, bottom: b.bottom }; },
+      rect: function (s) { var r = needEl(s).getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, width: r.width, height: r.height, top: r.top, left: r.left, right: r.right, bottom: r.bottom }; },
       norm: norm,
       viewport: { w: window.innerWidth, h: window.innerHeight },
       click: function (s) { var e = needEl(s); e.click(); return e; },

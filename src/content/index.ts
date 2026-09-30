@@ -53,8 +53,14 @@ import { bundle as w02 } from './web/02-links-lists';
 import { bundle as w03 } from './web/03-tables';
 import { bundle as w04 } from './web/04-semantics';
 import { bundle as w05 } from './web/05-forms';
+import { bundle as w06 } from './web/06-html-debugging';
+import { bundle as w07 } from './web/07-html-trial';
+import { bundle as w08 } from './web/08-css-selectors';
+import { bundle as w09 } from './web/09-box-model';
+import { bundle as w10 } from './web/10-flexbox';
+import { bundle as w11 } from './web/11-grid';
 
-export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, d01, d02, d03, w01, w02, w03, w04, w05];
+export const bundles: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, l17, l18, l19, l20, l21, l22, l23, l24, l25, l26, s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, d01, d02, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11];
 
 import { dailyChallenges } from './daily';
 export { dailyChallenges };
