@@ -10,7 +10,7 @@ const script = (name: string, code: string, fixtures?: { databases: string[] }, 
 export const bundle: LessonBundle = {
   lesson: {
     id: 'de-03-independent', title: 'Trial: The Overnight Feed', language: 'python', skillId: 'de.pipelines',
-    blurb: 'Two open problems that combine cleaning, databases and analysis. No hints.', prerequisites: ['de-02-python-sql'], xpReward: 0,
+    blurb: 'Two open problems that combine cleaning, databases and analysis. No hints.', prerequisites: ['de-09-reporting'], xpReward: 0,
     reference: { title: 'Independent trials', body: 'An independent trial gives you a problem and nothing else. Use your notes and the Field Manual, and test with Run as often as you like. Hidden checks use different data from the examples.' },
     steps: [
       { kind: 'challenge', challengeId: 'de-03-nightly-downtime' },

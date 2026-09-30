@@ -161,6 +161,28 @@ def _check_fixtures(spec, check):
 # ---------------------------------------------------------------- executing player code
 
 
+def _reset_logging():
+    """
+    Each run is a fresh program, so logging state must not leak from an earlier run (levels, handlers and named
+    loggers live in the shared interpreter). Without this, a program that forgot `setLevel` could pass because a previous
+    run had set it.
+    """
+    import logging
+
+    loggers = [logging.getLogger()] + [x for x in logging.Logger.manager.loggerDict.values() if isinstance(x, logging.Logger)]
+    for lg in loggers:
+        for h in list(lg.handlers):
+            lg.removeHandler(h)
+            try:
+                h.close()
+            except Exception:  # noqa: BLE001
+                pass
+        lg.setLevel(logging.WARNING if lg is logging.getLogger() else logging.NOTSET)
+        lg.propagate = True
+        lg.disabled = False
+    logging.Logger.manager.loggerDict.clear()
+
+
 def _execute(code, stdin, echo, compiled=None, fixtures=None, after=None):
     """
     Run the code inside a fresh workspace. `after(ns)` (optional) runs in the same workspace after the code
@@ -173,6 +195,7 @@ def _execute(code, stdin, echo, compiled=None, fixtures=None, after=None):
     env_builtins["input"] = _make_input(stdin, out, echo)
     ns = {"__name__": "__main__", "__builtins__": env_builtins}
     error, line, after_result = "", None, None
+    _reset_logging()
     with _workspace(fixtures):
         try:
             if compiled is None:
