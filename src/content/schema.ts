@@ -15,6 +15,8 @@
  * evaluates), and `Lesson`, `Quest`, `Item`, `Area` etc. were added.
  */
 import type { Language } from '../learning/runner';
+import type { CellValue, ChartSpec, WorkbookData } from '../learning/sheet/types';
+import type { RepoSnapshot } from '../learning/git/types';
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
@@ -202,7 +204,78 @@ export interface SqlPlanCheck extends SqlBase {
 
 export type SqlCheck = SqlResultCheck | SqlStateCheck | SqlScriptCheck | SqlSchemaCheck | SqlPlanCheck;
 
-export type Check = PythonCheck | SqlCheck | WebCheck;
+/* ---- spreadsheet checks (language 'sheet'; see learning/sheet/grade.ts) */
+interface SheetCheckBase {
+  name: string;
+  visible?: boolean;
+  feedback?: string;
+  /** Sheet the check reads (default: the workbook's active sheet). */
+  sheet?: string;
+  /** Replace input cells before computing: a formula that only works for the visible numbers fails. `Sheet!A1` or `A1`. */
+  with?: Record<string, CellValue>;
+}
+export type SheetCheck =
+  | (SheetCheckBase & { kind: 'cell'; cell: string; expect: CellValue | null; approx?: number })
+  | (SheetCheckBase & { kind: 'cells'; expect: Record<string, CellValue | null>; approx?: number })
+  | (SheetCheckBase & { kind: 'formula'; cell: string; matches?: string; hint?: string })
+  | (SheetCheckBase & { kind: 'noErrors' })
+  | (SheetCheckBase & { kind: 'pivot'; index?: number; expect: (string | number)[][] })
+  | (SheetCheckBase & { kind: 'chart'; index?: number; type?: ChartSpec['type']; types?: ChartSpec['type'][]; categories?: string; series?: string[]; hint?: string });
+
+/** What a spreadsheet challenge gives the player. */
+export interface SheetSpec {
+  /** The workbook the player starts from (input data plus any starter formulas). */
+  start: WorkbookData;
+  /** Cells/ranges the player may edit (`B2:B10`, `Summary!A1`); everything else is locked so the data cannot be changed. Omit to allow every cell. */
+  editable?: string[];
+  /** Offer the pivot-table builder / chart builder. */
+  pivot?: boolean;
+  chart?: boolean;
+}
+
+/* ---- git checks (language 'git'; see learning/git/grade.ts): the player's commands are replayed, the repository STATE is graded */
+export interface GitBranchExpect {
+  files?: Record<string, string | { includes?: string[]; excludes?: string[] } | null>;
+  commits?: number;
+  minCommits?: number;
+  /** Regexes; each must match the message of some commit reachable from the branch. */
+  messages?: string[];
+}
+export interface GitExpect {
+  branch?: string;
+  branches?: string[];
+  noBranches?: string[];
+  clean?: boolean;
+  noMergeInProgress?: boolean;
+  /** Content of the latest commit (HEAD). `null` = the file must not exist. */
+  files?: Record<string, string | { includes?: string[]; excludes?: string[] } | null>;
+  /** Content of the working files. */
+  working?: Record<string, string | { includes?: string[]; excludes?: string[] } | null>;
+  onBranch?: Record<string, GitBranchExpect>;
+  merged?: { branch: string; into: string }[];
+  notMerged?: { branch: string; into: string }[];
+  mergeCommitOn?: string;
+  noMergeCommitOn?: string;
+  noConflictMarkers?: boolean;
+  tags?: string[];
+  /** Every commit the player made has a message that says what changed (`'required'`: and they must make at least one). */
+  meaningfulMessages?: boolean | 'required';
+  /** Branch -> `true` (pushed), `'synced'` (origin equals local) or `false` (must NOT be on origin). */
+  remote?: Record<string, boolean | 'synced'>;
+  prs?: { count?: number; onlyNew?: boolean; after?: number; any?: { head?: string; base?: string; state?: 'open' | 'merged' | 'closed'; title?: string; reviewed?: boolean }[] };
+  /** Regexes over the typed commands: one must match each of `used`, none may match `notUsed`. */
+  used?: string[];
+  notUsed?: string[];
+  headMessage?: string;
+  headParents?: number;
+  commitCount?: number;
+}
+export interface GitCheck { kind: 'git'; name: string; visible?: boolean; feedback?: string; expect: GitExpect }
+
+/** What a Git challenge gives the player: a starting repository (see learning/git/types.ts). */
+export interface GitSpec { start: RepoSnapshot }
+
+export type Check = PythonCheck | SqlCheck | WebCheck | SheetCheck | GitCheck;
 
 /** Structural rule on the player's source, so a loop lesson cannot be passed by copy-pasting print(). */
 export interface Constraint {
@@ -282,6 +355,10 @@ export interface Challenge {
   starterCode: string;
   /** Web challenges (language 'web'): the starting HTML/CSS/JS. `starterCode` is then ''. */
   starterFiles?: WebFiles;
+  /** Git challenges (language 'git'): the starting repository. The player types commands; `starterCode` is then ''. */
+  git?: GitSpec;
+  /** Spreadsheet challenges (language 'sheet'): the starting workbook and what the player may edit. `starterCode` is then ''. */
+  sheet?: SheetSpec;
   /** Web challenges: which files the player edits, and which in-game API (dataset variant 'a') is available. */
   web?: { tabs: ('html' | 'css' | 'js')[]; api?: boolean };
   /** Files/databases available to the player's code (Run and Submit). Checks may add to these. */
