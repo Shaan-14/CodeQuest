@@ -234,6 +234,7 @@ async function main() {
     const playTraining = async (page) => {
       for (let guard = 0; guard < 120; guard++) {
         if (await tid(page, 'training-complete').count()) return;
+        if (await tid(page, 'training-predict').count()) { for (let i = 0; i < 4 && !(await tid(page, 'predict-right').count()); i++) await tid(page, `predict-${i}`).click(); await tid(page, 'training-read').click(); continue; }
         if (await tid(page, 'training-read').count()) { await tid(page, 'training-read').click(); continue; }
         if (await tid(page, 'training-start-step').count()) await tid(page, 'training-start-step').click();
         await tid(page, 'briefing').waitFor({ timeout: 15000 });
@@ -1019,7 +1020,7 @@ async function main() {
       // The Mentor diagnoses and directs: ONE button, no retry, no second training interface.
       await tid(page, 'diagnosis').waitFor();
       const mentor = await tid(page, 'diagnosis').innerText();
-      assert(/You struggled with/.test(mentor) && /train this skill before continuing/.test(mentor), 'mentor wording: ' + mentor);
+      assert(/You struggled with/.test(mentor) && /lost some Focus/.test(mentor), 'mentor wording: ' + mentor);
       eq(await tid(page, 'diagnosis').locator('button').count(), 1, 'the Mentor has exactly one action');
       eq(await tid(page, 'go-training').count(), 1, 'the single action is Go to the Training Grounds');
       eq(await tid(page, 'train-now').count(), 0, 'no duplicate train button');
@@ -1178,7 +1179,7 @@ async function main() {
       await tid(page, 'training-yard').waitFor();
       await tid(page, 'start-training').click();
       await tid(page, 'training-run').waitFor();
-      assert((await tid(page, 'training-return').innerText()).includes('boss gate'), 'the return point is the boss gate');
+      assert((await tid(page, 'training-return').innerText()).includes('Boss Hall'), 'the return point is the boss');
       await playTraining(page);
       assert((await tid(page, 'focus').innerText()).includes('100/100'), 'substantial training brought Focus back to 100');
       await tid(page, 'training-return-btn').click();
