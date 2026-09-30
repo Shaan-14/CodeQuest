@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect } from 'preact/hooks';
 import { getAnyChallenge } from '../../content';
 import { databasesUsedBy } from '../../content/helpers';
 import { sourcesFor } from '../../content/databases';
-import { getRunner } from '../../learning/python/runner';
+import { gradeChallenge } from '../../learning/gradeAny';
 import type { GradeResult } from '../../learning/runner';
 import { canSubmitDaily, formatRemaining, submitDaily, timeRemainingMs } from '../../game/daily';
 import { difficultyName } from '../../game/dailySelect';
@@ -15,7 +15,10 @@ import { RichText } from '../components/RichText';
 import { SchemaBrowser } from '../components/SchemaBrowser';
 import { Workbench } from '../components/Workbench';
 import { WebWorkbench } from '../components/WebWorkbench';
-import { gradeWeb, parseWebFiles } from '../../learning/web/WebRunner';
+import { parseWebFiles } from '../../learning/web/WebRunner';
+import { SheetWorkbench } from '../components/SheetWorkbench';
+import { GitWorkbench } from '../components/GitWorkbench';
+import { startCodeOf } from '../components/ChallengeStep';
 import { failureDetailOf } from '../../learning/failure';
 import { GRADE_TIMEOUT_MS, runCode, useRunnerStatus } from '../components/useRunner';
 import { useNow } from '../components/useDailyClock';
@@ -30,8 +33,8 @@ export function DailyRun({ onBack, onGoTraining }: { onBack: () => void; onGoTra
   const cur = game.save.daily.current;
   const c = cur ? getAnyChallenge(cur.challengeId) : undefined;
   const now = useNow(15_000);
-  const status = useRunnerStatus(c?.language !== 'web');
-  const startCode = c?.language === 'web' ? JSON.stringify(c.starterFiles ?? { html: '', css: '', js: '' }) : (c?.starterCode ?? '');
+  const status = useRunnerStatus(c?.language === 'python' || c?.language === 'sql');
+  const startCode = c ? startCodeOf(c) : '';
   const [code, setCode] = useState(startCode);
   const [stdin, setStdin] = useState((c?.sampleInput ?? []).join('\n'));
   const [cons, setCons] = useState<ConsoleState>(emptyConsole);
@@ -77,7 +80,7 @@ export function DailyRun({ onBack, onGoTraining }: { onBack: () => void; onGoTra
     setBusy(true);
     let graded: GradeResult;
     try {
-      graded = isWeb ? await gradeWeb(parseWebFiles(code), c.checks) : await getRunner().grade({ language: c.language, code, checks: c.checks, constraints: c.constraints, fixtures: c.fixtures, sources, db: c.db, timeoutMs: GRADE_TIMEOUT_MS });
+      graded = await gradeChallenge(c, code, GRADE_TIMEOUT_MS);
     } catch (e) {
       graded = { passed: false, error: String(e), timedOut: false, checks: [], constraints: [] };
     }
@@ -100,7 +103,7 @@ export function DailyRun({ onBack, onGoTraining }: { onBack: () => void; onGoTra
             <span class="difficulty" title={`Difficulty ${c.difficulty} of 5`}>{difficultyName(c.difficulty)}</span>
           </div>
           <h2>{c.title}</h2>
-          <p class="muted small">{cur.category} · {cur.focus === 'review' ? 'Review of an earlier skill' : 'Reinforces what you are learning'} · resets in {formatRemaining(timeRemainingMs(game.save, now))}</p>
+          <p class="muted small">{cur.category} · {cur.focus === 'review' ? 'Review of an earlier skill' : cur.focus === 'mixed' ? 'Skills combined across worlds' : 'Reinforces what you are learning'} · resets in {formatRemaining(timeRemainingMs(game.save, now))}</p>
           <RichText text={c.prompt} />
           {isSql && c.db && <SchemaBrowser dbId={c.db} />}
           {open && <p class="callout small">You can Run as often as you like. When you Submit, that is your one attempt: it cannot be repeated and no solution is shown.</p>}
@@ -122,8 +125,16 @@ export function DailyRun({ onBack, onGoTraining }: { onBack: () => void; onGoTra
           <WebWorkbench files={parseWebFiles(code)} onFiles={(f) => setCode(JSON.stringify(f))} tabs={c.web?.tabs ?? ['html', 'css', 'js']} api={!!c.web?.api} readOnly={!open} onReset={() => setCode(startCode)} busy={busy}>
           <button class="btn gold" onClick={() => setConfirm(true)} disabled={busy || !open} data-testid="daily-submit">✔ Submit (one attempt)</button>
           </WebWorkbench>
+        ) : c.language === 'sheet' && c.sheet ? (
+          <SheetWorkbench spec={c.sheet} code={code} onCode={setCode} onReset={() => setCode(startCode)}>
+            <button class="btn gold" onClick={() => setConfirm(true)} disabled={busy || !open} data-testid="daily-submit">✔ Submit (one attempt)</button>
+          </SheetWorkbench>
+        ) : c.language === 'git' && c.git ? (
+          <GitWorkbench spec={c.git} code={code} onCode={setCode} onReset={() => setCode(startCode)}>
+            <button class="btn gold" onClick={() => setConfirm(true)} disabled={busy || !open} data-testid="daily-submit">✔ Submit (one attempt)</button>
+          </GitWorkbench>
         ) : (
-          <Workbench language={isSql ? 'sql' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={!isSql && (!!c.sampleInput || code.includes('input('))} console={cons} status={status} busy={busy} onRun={run} onReset={() => setCode(startCode)} readOnly={!open}>
+          <Workbench language={isSql ? 'sql' : c.language === 'r' ? 'r' : 'python'} code={code} onCode={setCode} stdin={stdin} onStdin={setStdin} showInput={!isSql && (!!c.sampleInput || code.includes('input('))} console={cons} status={status} busy={busy} onRun={run} onReset={() => setCode(startCode)} readOnly={!open}>
             <button class="btn gold" onClick={() => setConfirm(true)} disabled={busy || !open} data-testid="daily-submit">✔ Submit (one attempt)</button>
           </Workbench>
         )}

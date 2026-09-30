@@ -4,17 +4,18 @@
  *
  * Rules (documented in ARCHITECTURE.md, "Daily Challenge selection"):
  *  1. Nothing is offered until something has been learned (a completed lesson or a passed challenge).
- *  2. KIND rotates with the number of dailies issued so far: even -> reinforce CURRENT learning,
- *     odd -> REVIEW an older skill. If the preferred kind has nothing eligible, the other kind is used.
+ *  2. KIND rotates with the number of dailies issued so far: current -> review -> mixed. CURRENT reinforces what is being
+ *     learned, REVIEW revisits an older skill, MIXED (Phase 5) draws a cross-world combination or a transfer problem. If the
+ *     preferred kind has nothing eligible, the next kind is used.
  *  3. SKILL weights (higher wins, ties by skill id):
  *       current: 10 + weakness(status) - 4 per use in the last 4 dailies
  *       review : min(10, days since practised / 3) + need(status) + 2 if review failures exceed successes
  *                - 4 per use in the last 4 dailies
  *     weakness/need: guided or attempted 3, developing 2, demonstrated 1 (review) or 0 (current).
  *     So a long-neglected skill becomes steadily more likely, and a demonstrated skill is still eligible.
- *  4. CHALLENGE pool for that skill: authored Daily challenges whose required lessons are complete, plus
- *     challenge/independent-mode lesson challenges from COMPLETED lessons. The player is never asked for a
- *     concept they have not been taught.
+ *  4. CHALLENGE pool for that skill (Phase 5): authored Daily challenges plus challenge/independent-mode challenges from ANY world
+ *     whose skills have all been taught (graph.challengeEligible), not only from completed lessons. The player is never asked
+ *     for a concept they have not been taught, and never restricted to one world.
  *  5. TARGET DIFFICULTY: current learning -> 2 (guided/attempted), 3 (developing), 4 (demonstrated), never more
  *     than one above the best difficulty already passed; review -> the top of demonstrated ability
  *     (max passed difficulty, +1 if demonstrated, at least 3 for demonstrated skills, at most 5).
@@ -26,9 +27,11 @@
  *     bonus on the difficulty distance, and one that exercises a weak COMBINATION (a composite the player has
  *     struggled with) gets 1.25. The reason says so. Nothing here ever changes mastery: a daily is evidence.
  */
-import { challenges, dailyChallenges, getChallenge, getSkill, lessons } from '../content';
+import { challenges, dailyChallenges, getChallenge, getSkill } from '../content';
 import type { Challenge } from '../content/schema';
-import type { DailyReward, SaveData } from '../core/save';
+import { trackOfSkillId, worldOfTrack } from '../content/worlds';
+import type { DailyFocus, DailyReward, SaveData } from '../core/save';
+import { challengeEligible } from './graph';
 import { skillReviews, type SkillReview } from './retention';
 
 export const RECENT_SKILL_WINDOW = 4;
@@ -36,7 +39,7 @@ export const RECENT_CHALLENGE_WINDOW = 12;
 
 export interface DailyPick {
   challenge: Challenge;
-  focus: 'current' | 'review';
+  focus: DailyFocus;
   skill: SkillReview;
   target: number;
   reason: string;
@@ -47,22 +50,12 @@ const DIFFICULTY_NAME = ['', 'Starter', 'Easy', 'Standard', 'Hard', 'Expert'] as
 export const difficultyName = (d: number): string => DIFFICULTY_NAME[Math.min(5, Math.max(1, Math.round(d)))]!;
 
 /** Rewards scale with difficulty; review dailies pay 25% more. Coins/XP/Focus only: never hints, never mastery. */
-export function dailyReward(difficulty: number, focus: 'current' | 'review'): DailyReward {
+export function dailyReward(difficulty: number, focus: DailyFocus): DailyReward {
   const d = Math.min(5, Math.max(1, Math.round(difficulty)));
   const coins = [25, 40, 60, 90, 130][d - 1]!;
   const xp = [30, 50, 80, 120, 170][d - 1]!;
-  const bonus = focus === 'review' ? 1.25 : 1;
+  const bonus = focus === 'review' ? 1.25 : focus === 'mixed' ? 1.4 : 1;
   return { coins: Math.round(coins * bonus), xp: Math.round(xp * bonus), focus: 0 }; // Focus is never a daily reward: a daily needs 100 Focus to attempt, and Focus is earned only by training
-}
-
-let ownerCache: Map<string, string> | null = null;
-/** challenge id -> id of the lesson that contains it. */
-function owningLesson(id: string): string | undefined {
-  if (!ownerCache) {
-    ownerCache = new Map();
-    for (const l of lessons) for (const s of l.steps) if (s.kind === 'challenge') ownerCache.set(s.challengeId, l.id);
-  }
-  return ownerCache.get(id);
 }
 
 interface Candidate {
@@ -70,18 +63,24 @@ interface Candidate {
   authored: boolean;
 }
 
+/** The worlds (tracks) a challenge touches, through its skills. */
+export const tracksOf = (c: Challenge): Set<string> => new Set(c.skillIds.map((k) => trackOfSkillId(k)));
+
+/**
+ * Every challenge the player may meet today: authored dailies whose lessons are done, and ALL challenge/independent-mode
+ * problems from ANY world whose skills the player has been taught (game/graph.ts `challengeEligible`). So a daily can come from a
+ * recent lesson, an old one, a skill already shown, a review that is due, or a cross-world combination: but never a concept the
+ * player has not met. Boss versions and training problems live elsewhere and never appear here.
+ */
 function candidatePool(save: SaveData): Candidate[] {
   const done = (id: string) => !!save.learning.lessons[id]?.completed;
-  const authored = dailyChallenges.filter((c) => c.daily!.requires.every(done)).map((c) => ({ c, authored: true }));
-  const fromLessons = challenges
-    .filter((c) => c.mode !== 'learning')
-    .filter((c) => {
-      const owner = owningLesson(c.id);
-      return owner !== undefined && done(owner);
-    })
-    .map((c) => ({ c, authored: false }));
+  const authored = dailyChallenges.filter((c) => c.daily!.requires.every(done) && challengeEligible(save, c)).map((c) => ({ c, authored: true }));
+  const fromLessons = challenges.filter((c) => c.mode !== 'learning' && challengeEligible(save, c)).map((c) => ({ c, authored: false }));
   return [...authored, ...fromLessons];
 }
+
+/** A "mixed" challenge combines skills from more than one world, or asks the player to transfer a skill to an unfamiliar setting. */
+export const isMixed = (c: Challenge): boolean => tracksOf(c).size > 1 || !!c.transfer;
 
 const need = (r: SkillReview, review: boolean): number => {
   switch (r.status) {
@@ -93,7 +92,7 @@ const need = (r: SkillReview, review: boolean): number => {
   }
 };
 
-export function targetDifficulty(r: SkillReview, focus: 'current' | 'review'): number {
+export function targetDifficulty(r: SkillReview, focus: DailyFocus): number {
   if (focus === 'current') {
     const base = r.status === 'demonstrated' ? 4 : r.status === 'developing' ? 3 : 2;
     return Math.min(base, Math.max(r.maxPassedDifficulty, 2) + 1);
@@ -102,7 +101,7 @@ export function targetDifficulty(r: SkillReview, focus: 'current' | 'review'): n
   return Math.min(5, r.status === 'demonstrated' ? Math.max(3, top) : top);
 }
 
-const usable = (c: Candidate, focus: 'current' | 'review'): boolean => !c.c.daily || c.c.daily.focus === 'either' || c.c.daily.focus === focus;
+const usable = (c: Candidate, focus: DailyFocus): boolean => !c.c.daily || c.c.daily.focus === 'either' || focus === 'mixed' || c.c.daily.focus === focus;
 
 /** What the player has learned and where it is weak: used to prefer challenges that combine old and new skills. */
 interface Mix {
@@ -123,11 +122,11 @@ function comboOf(c: Challenge, r: SkillReview, mix: Mix): 'weak' | 'mix' | null 
 }
 
 /** The best challenge for a skill, or null. `recent` = ids to avoid; `everUsed` = tie-break towards unseen. */
-function bestChallenge(pool: Candidate[], r: SkillReview, focus: 'current' | 'review', recent: Set<string>, everUsed: Set<string>, allowRecent: boolean, mix: Mix): { c: Challenge; target: number; combo: 'weak' | 'mix' | null } | null {
+function bestChallenge(pool: Candidate[], r: SkillReview, focus: DailyFocus, recent: Set<string>, everUsed: Set<string>, allowRecent: boolean, mix: Mix): { c: Challenge; target: number; combo: 'weak' | 'mix' | null } | null {
   const mine = pool.filter((p) => p.c.skillIds.includes(r.skill.id) && usable(p, focus) && (allowRecent || !recent.has(p.c.id)));
   if (!mine.length) return null;
   const target = targetDifficulty(r, focus);
-  const cap = focus === 'review' && r.status === 'demonstrated' ? 5 : Math.max(r.maxPassedDifficulty, 2) + 1;
+  const cap = focus !== 'current' && r.status === 'demonstrated' ? 5 : Math.max(r.maxPassedDifficulty, 2) + 1;
   const capped = mine.filter((p) => p.c.difficulty <= cap);
   const base = capped.length ? capped : mine;
   const bonus = (p: Candidate) => { const k = comboOf(p.c, r, mix); return k === 'weak' ? 1.25 : k === 'mix' ? 0.75 : 0; };
@@ -141,9 +140,14 @@ function bestChallenge(pool: Candidate[], r: SkillReview, focus: 'current' | 're
   return { c: best.c, target, combo: comboOf(best.c, r, mix) };
 }
 
-function reasonFor(r: SkillReview, focus: 'current' | 'review', c: Challenge, combo: 'weak' | 'mix' | null): string {
+function reasonFor(r: SkillReview, focus: DailyFocus, c: Challenge, combo: 'weak' | 'mix' | null): string {
   const title = r.skill.title;
   const together = combo ? ` It brings ${c.skillIds.map((k) => getSkill(k)?.title ?? k).join(' and ')} together${combo === 'weak' ? ', a combination you have been finding tricky' : ', so old and new skills work as one'}.` : '';
+  if (focus === 'mixed') {
+    const worlds = [...tracksOf(c)].map((t) => worldOfTrack(t as never).name.split(':')[0]);
+    const span = worlds.length > 1 ? `It brings ${worlds.join(' and ')} together, the way a real task does.` : 'It puts a skill you have shown into a setting you have not seen before.';
+    return `${span} It needs “${title}”, among other things, at difficulty ${c.difficulty}. Nothing in it was taught in exactly this form.${together}`;
+  }
   if (focus === 'current') return `You are working on “${title}” right now, so today’s challenge reinforces it at difficulty ${c.difficulty}.${together}`;
   const ago = r.daysSince >= 1 ? `You have not practised “${title}” for ${r.daysSince} day${r.daysSince === 1 ? '' : 's'}.` : `“${title}” is worth keeping sharp.`;
   const level = r.status === 'demonstrated' ? 'near the top of what you have shown' : 'at the level you have reached';
@@ -168,26 +172,35 @@ export function pickDaily(save: SaveData, nowMs: number): DailyPick | null {
     weakSkills: new Set(openWeaknesses.flatMap((w) => w.skillIds)),
   };
 
-  const weight = (r: SkillReview, focus: 'current' | 'review'): number =>
+  const weight = (r: SkillReview, focus: DailyFocus): number =>
     (mix.weakSkills.has(r.skill.id) ? 3 : 0) +
     (focus === 'current'
       ? 10 + need(r, false) - 4 * uses(r.skill.id)
       : Math.min(10, r.daysSince / 3) + need(r, true) + (r.dailyFailures > r.dailySuccesses ? 2 : 0) - 4 * uses(r.skill.id));
 
-  const attempt = (focus: 'current' | 'review'): DailyPick | null => {
-    let pool2 = reviews.filter((r) => (focus === 'current' ? r.current : !r.current));
+  const mixedPool = pool.filter((p) => isMixed(p.c));
+  const attempt = (focus: DailyFocus): DailyPick | null => {
+    const source = focus === 'mixed' ? mixedPool : pool;
+    let pool2 = focus === 'mixed' ? reviews : reviews.filter((r) => (focus === 'current' ? r.current : !r.current));
     if (!pool2.length && focus === 'review') pool2 = reviews; // nothing old yet: any learned skill may be reviewed
-    const ranked = [...pool2].sort((a, b) => weight(b, focus) - weight(a, focus) || (a.skill.id < b.skill.id ? -1 : 1));
+    const ranked = [...pool2].sort((a, b) => weight(b, focus === 'mixed' ? 'review' : focus) - weight(a, focus === 'mixed' ? 'review' : focus) || (a.skill.id < b.skill.id ? -1 : 1));
     // First choice: a skill with a challenge not used in the recent window; only if none exists may a recent one repeat.
     for (const allowRecent of [false, true]) {
       for (const r of ranked) {
-        const found = bestChallenge(pool, r, focus, recent, everUsed, allowRecent, mix);
+        const found = bestChallenge(source, r, focus, recent, everUsed, allowRecent, mix);
         if (found) return { challenge: found.c, focus, skill: r, target: found.target, reason: reasonFor(r, focus, found.c, found.combo), reward: dailyReward(found.c.difficulty, focus) };
       }
     }
     return null;
   };
 
-  const preferred: 'current' | 'review' = history.length % 2 === 0 ? 'current' : 'review';
-  return attempt(preferred) ?? attempt(preferred === 'current' ? 'review' : 'current');
+  // The kind rotates current -> review -> mixed, so over time a player meets new work, old work and cross-world work. A kind with
+  // nothing eligible hands over to the next one (a player with one world and no transfer problems simply never gets 'mixed').
+  const ORDER: DailyFocus[] = ['current', 'review', 'mixed'];
+  const start = history.length % ORDER.length;
+  for (let k = 0; k < ORDER.length; k++) {
+    const found = attempt(ORDER[(start + k) % ORDER.length]!);
+    if (found) return found;
+  }
+  return null;
 }

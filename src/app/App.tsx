@@ -2,7 +2,8 @@ import { lazy, Suspense } from 'preact/compat';
 import { useEffect, useState } from 'preact/hooks';
 import { areas } from '../content/world';
 import { trackOfLessonId, worldOfArea, worldOfTrack } from '../content/worlds';
-import { useGame } from '../game/store';
+import { getStore, useGame } from '../game/store';
+import { visitArea } from '../game/explore';
 import { requiredTraining } from '../game/training';
 import { isAreaUnlocked } from '../game/world';
 import { Hud, type PanelTab } from './components/Hud';
@@ -47,7 +48,13 @@ export function App() {
   useDailyClock();
   useEffect(() => { document.title = save.player ? `CodeQuest — ${save.player.name}` : 'CodeQuest'; }, [save.player]);
 
-  const open = (id: string) => { setLastArea(id); setRoute({ name: 'area', id }); };
+  const open = (id: string) => {
+    setLastArea(id);
+    setRoute({ name: 'area', id });
+    const w = worldOfArea(id);
+    const st = getStore();
+    if (w && (st.save.explore.last !== w.track || !st.save.explore.visited.includes(w.track))) st.apply(visitArea(st.save, id)); // navigation memory only: never affects access or mastery
+  };
   const toMap = () => { setPanel(null); setRoute({ name: 'map' }); };
 
   if (!save.player) {

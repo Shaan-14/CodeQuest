@@ -94,4 +94,26 @@ describe('save', () => {
     expect(importSave(exportSave(data))?.stats.coins).toBe(42);
     expect(importSave('garbage')).toBeNull();
   });
+  it('migrates a v7 (Focus gate) save to v8 without touching progress, and adds the explore block', () => {
+    const v7 = structuredClone(newSave()) as unknown as Record<string, unknown>;
+    delete v7.explore;
+    v7.version = 7;
+    (v7.stats as Record<string, number>).xp = 640;
+    (v7.learning as { lessons: Record<string, unknown> }).lessons['py-01-first-program'] = { stepIndex: 9, completed: true, completedAt: '2026-01-01T00:00:00.000Z' };
+    (v7.evidence as unknown[]).push({ at: '2026-01-01T00:00:00.000Z', challengeId: 'py-01-hello', objectiveId: 'py-01-hello', context: 'games', skillIds: ['py.output'], concepts: [], mode: 'learning', difficulty: 1, passed: true, support: 'guided', hintsUsed: 0, lookups: 0, attemptNumber: 1, priorFailures: 0, project: false, timeMs: 1, executed: true });
+    const m = migrate(v7)!;
+    expect(m.version).toBe(SAVE_VERSION);
+    expect(m.explore).toEqual({ visited: [], last: null });
+    expect(m.stats.xp).toBe(640);
+    expect(m.learning.lessons['py-01-first-program']!.completed).toBe(true);
+    expect(m.evidence).toHaveLength(1);
+    expect(migrate({ ...v7, daily: { current: { challengeId: 'x', focus: 'mixed', skillId: 'a', category: 'c', difficulty: 3, issuedAt: '2026-01-01T00:00:00Z', expiresAt: '2026-01-01T12:00:00Z', status: 'open', attempts: 0, reason: 'r', reward: { coins: 1, xp: 1, focus: 0 } }, history: [], lastSeenAt: null } })!.daily.current?.focus).toBe('mixed');
+  });
+  it('repairs a hand-edited explore block instead of failing the save', () => {
+    const d = structuredClone(newSave()) as unknown as Record<string, unknown>;
+    d.explore = { visited: ['sql', 7, 'sql', null], last: 12 };
+    expect(migrate(d)!.explore).toEqual({ visited: ['sql'], last: null });
+    d.explore = 'nonsense';
+    expect(migrate(d)!.explore).toEqual({ visited: [], last: null });
+  });
 });

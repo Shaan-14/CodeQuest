@@ -24,7 +24,7 @@ export function WorldChooser({ onEnter }: { onEnter: (areaId: string) => void })
           const gaps = open ? [] : areaGaps(save, area);
           return (
             <div class={`world-card ${open ? 'open' : 'needs-skills'}`} key={w.track} data-testid={`world-${w.track}`} data-state={!open ? 'needs-skills' : started ? 'started' : 'start'}>
-              <div class="world-head"><span class="world-icon">{w.icon}</span><strong>{w.name}</strong></div>
+              <div class="world-head"><span class="world-icon">{w.icon}</span><strong>{w.name}</strong>{save.explore.last === w.track && <span class="pill here" data-testid={`here-${w.track}`}>you were here</span>}</div>
               <p class="small muted">{w.blurb}</p>
               {open ? (
                 <p class="small">{started ? `${done} of ${list.length} lessons complete` : w.foundation ? 'Open to everyone: start here.' : 'Ready when you are.'}</p>

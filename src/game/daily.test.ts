@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { challenges, getChallenge, lessons } from '../content';
+import { challenges, getAnyChallenge, getChallenge, lessons } from '../content';
 import { newSave, loadSave, migrate, sanitizeDaily, writeSave, SAVE_KEY, SAVE_VERSION, type SaveData } from '../core/save';
 import { summarizeSkill, type EvidenceRecord } from '../learning/mastery';
 import { getSkill } from '../content';
 import * as A from './actions';
 import { DAILY_ITEM_MILESTONES, DAILY_PERIOD_MS, canSubmitDaily, effectiveNow, formatRemaining, passedCount, refreshDaily, submitDaily, timeRemainingMs } from './daily';
-import { dailyReward, pickDaily, RECENT_CHALLENGE_WINDOW } from './dailySelect';
+import { dailyReward, isMixed, pickDaily, RECENT_CHALLENGE_WINDOW } from './dailySelect';
 import { skillReviews } from './retention';
 
 const T0 = Date.parse('2026-01-10T08:00:00Z');
@@ -200,19 +200,43 @@ describe('Daily Challenge: selection and retention', () => {
     }
   });
 
-  it('alternates current learning and review as dailies are issued', () => {
+  it('rotates current learning, review and mixed (cross-world or transfer) dailies as they are issued', () => {
     let s = allPython();
     s = pyEvidence(s, T0 - 30 * 24 * H, ['py-16-stock-lookup', 'py-15-over-limit']);
     const kinds: string[] = [];
     let t = T0;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) {
       s = refreshDaily(s, t).save;
       kinds.push(s.daily.current!.focus);
       t += 13 * H;
     }
-    expect(kinds[0]).toBe('current');
-    expect(kinds[1]).toBe('review');
-    expect(kinds.filter((k) => k === 'review').length).toBeGreaterThanOrEqual(2);
+    expect(kinds.slice(0, 3)).toEqual(['current', 'review', 'mixed']);
+    expect(kinds.slice(3, 6)).toEqual(['current', 'review', 'mixed']);
+  });
+
+  it('a mixed daily combines worlds or transfers a skill, and says so', () => {
+    let s = allPython();
+    s = pyEvidence(s, T0 - 30 * 24 * H, ['py-16-stock-lookup', 'py-15-over-limit']);
+    s.daily.history.push(
+      { challengeId: 'x', focus: 'current', skillIds: [], category: 'Python', difficulty: 2, issuedAt: new Date(T0 - 30 * H).toISOString(), outcome: 'missed', coins: 0, xp: 0 },
+      { challengeId: 'y', focus: 'review', skillIds: [], category: 'Python', difficulty: 2, issuedAt: new Date(T0 - 20 * H).toISOString(), outcome: 'missed', coins: 0, xp: 0 },
+    );
+    const p = pickDaily(s, T0)!;
+    expect(p.focus).toBe('mixed');
+    expect(isMixed(p.challenge)).toBe(true);
+    expect(p.reason).toMatch(/together|setting you have not seen/i);
+  });
+
+  it('draws from every world the player has been taught, not only the one they are in', () => {
+    const s = allPython();
+    for (const l of lessons.filter((x) => x.id.startsWith('xl-0') && Number(x.id.slice(3, 5)) <= 4)) s.learning.lessons[l.id] = { completed: true, stepIndex: 0, completedAt: new Date(T0 - 40 * H).toISOString() } as never;
+    s.evidence.push(...challenges.filter((c) => c.language === 'sheet' && c.mode !== 'learning' && Number(c.id.slice(3, 5)) <= 4).map((c) => evidence(c.id, T0 - 30 * 24 * H)));
+    const seen = new Set<string>();
+    let t = T0;
+    let cur = s;
+    for (let i = 0; i < 12; i++) { cur = refreshDaily(cur, t).save; seen.add(getAnyChallenge(cur.daily.current!.challengeId)!.language); t += 13 * H; }
+    expect(seen.has('sheet')).toBe(true);
+    expect(seen.has('python')).toBe(true);
   });
 
   it('a finished-Python player who moved on can still get old-skill review at high difficulty', () => {

@@ -325,6 +325,7 @@ pre.console-error { background: #0a0c1a; padding: .5rem; border-radius: 6px; whi
 .world-card { border: 2px solid var(--line); border-radius: 10px; padding: .7rem; display: grid; gap: .3rem; background: var(--panel2); align-content: start; }
 .world-card.needs-skills { border-color: #ffd16677; }
 .world-head { display: flex; gap: .5rem; align-items: center; }
+.pill.here { margin-left: auto; font-size: .7rem; padding: .1rem .5rem; border-radius: 999px; background: #3a4f8f; color: #fff; }
 .world-icon { font-size: 1.5rem; }
 /* ---------- spreadsheet + git workbenches ---------- */
 .sheet-tabs { display: flex; gap: .3rem; margin-bottom: .3rem; }

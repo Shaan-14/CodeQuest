@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export interface PlayerProfile {
   name: string;
@@ -61,11 +61,17 @@ export interface DailyReward {
   focus: number;
 }
 
+/**
+ * Why a Daily was chosen. 'current' reinforces what the player is learning now; 'review' revisits an older skill;
+ * 'mixed' (Phase 5) combines skills across worlds or transfers them to an unfamiliar setting.
+ */
+export type DailyFocus = 'current' | 'review' | 'mixed';
+export const isDailyFocus = (v: unknown): v is DailyFocus => v === 'current' || v === 'review' || v === 'mixed';
+
 /** The challenge currently on offer. Persisted, so reload / closing the browser cannot re-roll it. */
 export interface DailyCurrent {
   challengeId: string;
-  /** 'current' reinforces what the player is learning now; 'review' revisits an older skill. */
-  focus: 'current' | 'review';
+  focus: DailyFocus;
   skillId: string;
   category: string;
   difficulty: number;
@@ -84,7 +90,7 @@ export interface DailyCurrent {
 /** One finished (or missed) daily. Kept for retention memory and achievements; never deleted by a reset of the timer. */
 export interface DailyRecord {
   challengeId: string;
-  focus: 'current' | 'review';
+  focus: DailyFocus;
   skillIds: string[];
   category: string;
   difficulty: number;
@@ -115,7 +121,7 @@ export function sanitizeDaily(raw: unknown): DailyState {
   const cur = r.current as Record<string, unknown> | null;
   const okCur =
     !!cur && typeof cur === 'object' && typeof cur.challengeId === 'string' && iso(cur.issuedAt) && iso(cur.expiresAt) &&
-    (cur.status === 'open' || cur.status === 'passed' || cur.status === 'failed') && (cur.focus === 'current' || cur.focus === 'review') &&
+    (cur.status === 'open' || cur.status === 'passed' || cur.status === 'failed') && isDailyFocus(cur.focus) &&
     num(cur.difficulty) && num(cur.attempts) && typeof cur.skillId === 'string' && typeof cur.reward === 'object' && cur.reward !== null;
   const history = (Array.isArray(r.history) ? r.history : []).filter(
     (h): h is DailyRecord => !!h && typeof h === 'object' && typeof h.challengeId === 'string' && iso(h.issuedAt) && ['passed', 'failed', 'missed'].includes(h.outcome) && Array.isArray(h.skillIds) && num(h.difficulty),
@@ -291,6 +297,23 @@ export function sanitizeBosses(raw: unknown): Record<string, BossState> {
   return out;
 }
 
+/* ------------------------------------------------------------------ Phase 5: where the player has been */
+
+/** Which learning worlds the player has entered and where they were last: so the map can say "you are here" and "continue". */
+export interface ExploreState {
+  /** Track ids (content/worlds.ts) in the order first visited. */
+  visited: string[];
+  /** The world last entered, or null. */
+  last: string | null;
+}
+export const emptyExplore = (): ExploreState => ({ visited: [], last: null });
+export function sanitizeExplore(raw: unknown): ExploreState {
+  if (typeof raw !== 'object' || raw === null) return emptyExplore();
+  const r = raw as Record<string, unknown>;
+  const visited = Array.isArray(r.visited) ? [...new Set(r.visited.filter((v): v is string => typeof v === 'string'))].slice(0, 32) : [];
+  return { visited, last: typeof r.last === 'string' ? r.last : null };
+}
+
 export interface SaveData {
   version: number;
   player: PlayerProfile | null;
@@ -314,6 +337,8 @@ export interface SaveData {
   bosses: Record<string, BossState>;
   /** Phase 4: the campaign ending. */
   campaign: CampaignState;
+  /** Phase 5: which worlds the player has visited (navigation only, never progress). */
+  explore: ExploreState;
 }
 
 export const MAX_FOCUS = 100;
@@ -334,6 +359,7 @@ export function newSave(): SaveData {
     training: emptyTraining(),
     bosses: emptyBosses(),
     campaign: {},
+    explore: emptyExplore(),
   };
 }
 
@@ -373,6 +399,10 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
     }
     return { ...old, inventory, stats };
   },
+  // v7 -> v8 (Phase 5): the nonlinear skill graph. Progress is unchanged (evidence, lessons and quests carry over as they were);
+  // saves gain an `explore` block (which worlds were visited) and Daily records may carry the new 'mixed' kind.
+  // Nothing is lost or re-locked: access is now computed from demonstrated skills, and a player who had finished a lesson keeps it.
+  7: (old) => ({ ...old, explore: emptyExplore() }),
 };
 /** Shop items that restored Focus directly. They no longer exist: Focus is earned through training. */
 const REMOVED_CONSUMABLES: Record<string, number> = { 'study-snack': 10, 'focus-tea': 25 };
@@ -404,6 +434,7 @@ export function migrate(raw: unknown): SaveData | null {
   data.training = sanitizeTraining(data.training);
   data.bosses = sanitizeBosses(data.bosses);
   sanitizeFocus(data);
+  data.explore = sanitizeExplore(data.explore);
   data.campaign = typeof data.campaign === 'object' && data.campaign !== null ? { completedAt: typeof (data.campaign as CampaignState).completedAt === 'string' ? (data.campaign as CampaignState).completedAt : undefined } : {};
   return data;
 }
