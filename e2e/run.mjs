@@ -478,7 +478,7 @@ async function main() {
       eq(save.quests['wake-the-robot'].status, 'complete', 'quest complete');
       assert(save.inventory['robot-bolt'] === 1, 'quest item');
       for (const a of ['first-run', 'first-pass', 'bug-squasher', 'own-two-feet', 'hat-trick', 'robot-awake', 'blank-page', 'level-5']) assert(save.achievements[a], 'achievement ' + a);
-      assert(!save.unlockedAreas.includes('data-center') && !save.unlockedAreas.includes('web-workshop'), 'future areas remain locked');
+      assert(!save.unlockedAreas.includes('observatory') && !save.unlockedAreas.includes('pipeline-works'), 'skill-gated areas stay closed until their prerequisites are shown');
       assert(save.evidence.length >= 30, 'evidence recorded for every submission');
       assert(save.evidence.every((r) => r.executed), 'all evidence executed');
       // Skills view: shows evidence, not XP
