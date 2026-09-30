@@ -68,6 +68,11 @@ import { bundle as s17 } from './sql/17-sets-self-joins';
 import { bundle as s18 } from './sql/18-debugging-queries';
 import { bundle as s19 } from './sql/19-investigations';
 import { bundle as s20 } from './sql/20-migrations';
+import { bundle as w27 } from './web/27-closures';
+import { bundle as w28 } from './web/28-testing-js';
+import { bundle as w29 } from './web/29-positioning';
+import { bundle as w30 } from './web/30-render-from-state';
+import { bundle as w31 } from './web/31-web-addresses';
 import { bundle as d04 } from './dataeng/04-validation';
 import { bundle as d05 } from './dataeng/05-quality';
 import { bundle as d06 } from './dataeng/06-logging';
@@ -96,7 +101,7 @@ import { bundle as w24 } from './web/24-fetch-write';
 import { bundle as w25 } from './web/25-web-projects';
 import { bundle as w26 } from './web/26-web-trial';
 
-const base: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, p29, l17, p30, p31, l18, l19, p32, l20, l21, p33, l22, p34, l23, l24, l25, l26, p27, p28, s01, s02, s03, s04, s05, s06, s07, s08, s16, s09, s10, s17, s18, s11, s19, s12, s13, s20, s14, s15, d01, d02, d04, d05, d06, d07, d08, d09, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w12, w13, w14, w15, w16, w17, w18, w19, w20, w21, w22, w23, w24, w25, w26];
+const base: LessonBundle[] = [l01, l02, l03, l04, l05, l06, l07, l08, l09, l10, l11, l12, l13, l14, l15, l16, p29, l17, p30, p31, l18, l19, p32, l20, l21, p33, l22, p34, l23, l24, l25, l26, p27, p28, s01, s02, s03, s04, s05, s06, s07, s08, s16, s09, s10, s17, s18, s11, s19, s12, s13, s20, s14, s15, d01, d02, d04, d05, d06, d07, d08, d09, d03, w01, w02, w03, w04, w05, w06, w07, w08, w09, w10, w11, w29, w12, w13, w14, w15, w16, w17, w27, w28, w18, w19, w30, w20, w21, w22, w31, w23, w24, w25, w26];
 
 /** Phase 3 variants are authored separately (data) and attached to the lesson that teaches their objective. */
 export const bundles: LessonBundle[] = base.map((b) => (phase3Variants[b.lesson.id] ? { ...b, challenges: [...b.challenges, ...phase3Variants[b.lesson.id]!] } : b));

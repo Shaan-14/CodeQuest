@@ -26,7 +26,8 @@ export const npcs: Npc[] = [
     lines: [
       { until: 'sql-06-joins', text: 'A database is not one big table. It is many small tables that point at each other. Ask it a question with SELECT, and describe only the rows you want. You do not tell it HOW to find them.' },
       { after: 'sql-06-joins', until: 'sql-12-design', text: 'Joins are why the tables are separate: each fact lives in one place. Before you write a query, say out loud which tables hold the pieces, and how they connect.' },
-      { after: 'sql-12-design', text: 'Design is where you decide what the database will REFUSE. Keys, constraints and clean tables are cheaper than any clever query later.' },
+      { after: 'sql-12-design', until: 'sql-18-debugging-queries', text: 'Design is where you decide what the database will REFUSE. Keys, constraints and clean tables are cheaper than any clever query later.' },
+      { after: 'sql-18-debugging-queries', text: 'The dangerous query is the one that runs and lies. Shrink the problem to one customer, look at the joined rows before you add them up, and never trust a number you have not checked by hand.' },
     ],
   },
   {

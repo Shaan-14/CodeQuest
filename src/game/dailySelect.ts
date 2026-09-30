@@ -21,8 +21,12 @@
  *  6. Among the pool: not used in the last 12 dailies (a skill with only recent challenges is skipped unless
  *     nothing else is eligible), then closest to the target (authored gets a 0.5 bonus),
  *     then never used before, then id order.
+ *  7. (Phase 4) COMBINATIONS: a skill that is part of an open weakness gets +3. Among a skill's challenges, one that
+ *     also needs a skill of the OTHER kind (an older skill together with what is being learned now) gets a 0.75
+ *     bonus on the difficulty distance, and one that exercises a weak COMBINATION (a composite the player has
+ *     struggled with) gets 1.25. The reason says so. Nothing here ever changes mastery: a daily is evidence.
  */
-import { challenges, dailyChallenges, getChallenge, lessons } from '../content';
+import { challenges, dailyChallenges, getChallenge, getSkill, lessons } from '../content';
 import type { Challenge } from '../content/schema';
 import type { DailyReward, SaveData } from '../core/save';
 import { skillReviews, type SkillReview } from './retention';
@@ -100,30 +104,50 @@ export function targetDifficulty(r: SkillReview, focus: 'current' | 'review'): n
 
 const usable = (c: Candidate, focus: 'current' | 'review'): boolean => !c.c.daily || c.c.daily.focus === 'either' || c.c.daily.focus === focus;
 
+/** What the player has learned and where it is weak: used to prefer challenges that combine old and new skills. */
+interface Mix {
+  currentIds: Set<string>;
+  learnedIds: Set<string>;
+  /** Skill sets of open weaknesses that are combinations. */
+  weakCombos: string[][];
+  weakSkills: Set<string>;
+}
+
+/** How a candidate combines skills relative to `r`: 'weak' (a weak composite), 'mix' (old + new), or none. */
+function comboOf(c: Challenge, r: SkillReview, mix: Mix): 'weak' | 'mix' | null {
+  if (!c.skillIds.includes(r.skill.id)) return null;
+  if (mix.weakCombos.some((combo) => combo.length > 1 && combo.every((k) => c.skillIds.includes(k)))) return 'weak';
+  const others = c.skillIds.filter((k) => k !== r.skill.id && mix.learnedIds.has(k));
+  const rIsCurrent = mix.currentIds.has(r.skill.id);
+  return others.some((k) => mix.currentIds.has(k) !== rIsCurrent) ? 'mix' : null;
+}
+
 /** The best challenge for a skill, or null. `recent` = ids to avoid; `everUsed` = tie-break towards unseen. */
-function bestChallenge(pool: Candidate[], r: SkillReview, focus: 'current' | 'review', recent: Set<string>, everUsed: Set<string>, allowRecent: boolean): { c: Challenge; target: number } | null {
+function bestChallenge(pool: Candidate[], r: SkillReview, focus: 'current' | 'review', recent: Set<string>, everUsed: Set<string>, allowRecent: boolean, mix: Mix): { c: Challenge; target: number; combo: 'weak' | 'mix' | null } | null {
   const mine = pool.filter((p) => p.c.skillIds.includes(r.skill.id) && usable(p, focus) && (allowRecent || !recent.has(p.c.id)));
   if (!mine.length) return null;
   const target = targetDifficulty(r, focus);
   const cap = focus === 'review' && r.status === 'demonstrated' ? 5 : Math.max(r.maxPassedDifficulty, 2) + 1;
   const capped = mine.filter((p) => p.c.difficulty <= cap);
   const base = capped.length ? capped : mine;
-  const key = (p: Candidate) => [recent.has(p.c.id) ? 1 : 0, Math.abs(p.c.difficulty - target) - (p.authored ? 0.5 : 0), everUsed.has(p.c.id) ? 1 : 0] as const;
+  const bonus = (p: Candidate) => { const k = comboOf(p.c, r, mix); return k === 'weak' ? 1.25 : k === 'mix' ? 0.75 : 0; };
+  const key = (p: Candidate) => [recent.has(p.c.id) ? 1 : 0, Math.abs(p.c.difficulty - target) - (p.authored ? 0.5 : 0) - bonus(p), everUsed.has(p.c.id) ? 1 : 0] as const;
   const best = [...base].sort((a, b) => {
     const ka = key(a);
     const kb = key(b);
     for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return ka[i]! - kb[i]!;
     return a.c.id < b.c.id ? -1 : 1;
   })[0]!;
-  return { c: best.c, target };
+  return { c: best.c, target, combo: comboOf(best.c, r, mix) };
 }
 
-function reasonFor(r: SkillReview, focus: 'current' | 'review', c: Challenge): string {
+function reasonFor(r: SkillReview, focus: 'current' | 'review', c: Challenge, combo: 'weak' | 'mix' | null): string {
   const title = r.skill.title;
-  if (focus === 'current') return `You are working on “${title}” right now, so today’s challenge reinforces it at difficulty ${c.difficulty}.`;
+  const together = combo ? ` It brings ${c.skillIds.map((k) => getSkill(k)?.title ?? k).join(' and ')} together${combo === 'weak' ? ', a combination you have been finding tricky' : ', so old and new skills work as one'}.` : '';
+  if (focus === 'current') return `You are working on “${title}” right now, so today’s challenge reinforces it at difficulty ${c.difficulty}.${together}`;
   const ago = r.daysSince >= 1 ? `You have not practised “${title}” for ${r.daysSince} day${r.daysSince === 1 ? '' : 's'}.` : `“${title}” is worth keeping sharp.`;
   const level = r.status === 'demonstrated' ? 'near the top of what you have shown' : 'at the level you have reached';
-  return `${ago} This one sits ${level} (difficulty ${c.difficulty}). Can you still do it without being taught again?`;
+  return `${ago} This one sits ${level} (difficulty ${c.difficulty}). Can you still do it without being taught again?${together}`;
 }
 
 export function pickDaily(save: SaveData, nowMs: number): DailyPick | null {
@@ -136,10 +160,19 @@ export function pickDaily(save: SaveData, nowMs: number): DailyPick | null {
   const everUsed = new Set(history.map((h) => h.challengeId));
   const uses = (id: string) => recentSkills.filter((h) => h.skillIds.includes(id)).length;
 
+  const openWeaknesses = save.training.weaknesses.filter((w) => w.status !== 'resolved');
+  const mix: Mix = {
+    currentIds: new Set(reviews.filter((r) => r.current).map((r) => r.skill.id)),
+    learnedIds: new Set(reviews.map((r) => r.skill.id)),
+    weakCombos: openWeaknesses.filter((w) => w.kind === 'combination').map((w) => w.skillIds),
+    weakSkills: new Set(openWeaknesses.flatMap((w) => w.skillIds)),
+  };
+
   const weight = (r: SkillReview, focus: 'current' | 'review'): number =>
-    focus === 'current'
+    (mix.weakSkills.has(r.skill.id) ? 3 : 0) +
+    (focus === 'current'
       ? 10 + need(r, false) - 4 * uses(r.skill.id)
-      : Math.min(10, r.daysSince / 3) + need(r, true) + (r.dailyFailures > r.dailySuccesses ? 2 : 0) - 4 * uses(r.skill.id);
+      : Math.min(10, r.daysSince / 3) + need(r, true) + (r.dailyFailures > r.dailySuccesses ? 2 : 0) - 4 * uses(r.skill.id));
 
   const attempt = (focus: 'current' | 'review'): DailyPick | null => {
     let pool2 = reviews.filter((r) => (focus === 'current' ? r.current : !r.current));
@@ -148,8 +181,8 @@ export function pickDaily(save: SaveData, nowMs: number): DailyPick | null {
     // First choice: a skill with a challenge not used in the recent window; only if none exists may a recent one repeat.
     for (const allowRecent of [false, true]) {
       for (const r of ranked) {
-        const found = bestChallenge(pool, r, focus, recent, everUsed, allowRecent);
-        if (found) return { challenge: found.c, focus, skill: r, target: found.target, reason: reasonFor(r, focus, found.c), reward: dailyReward(found.c.difficulty, focus) };
+        const found = bestChallenge(pool, r, focus, recent, everUsed, allowRecent, mix);
+        if (found) return { challenge: found.c, focus, skill: r, target: found.target, reason: reasonFor(r, focus, found.c, found.combo), reward: dailyReward(found.c.difficulty, focus) };
       }
     }
     return null;

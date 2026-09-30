@@ -69,7 +69,7 @@ export const bundle: LessonBundle = {
       xpReward: 90, coinReward: 13,
     },
     {
-      id: 'sql-17-paid-and-returned', objectiveId: 'sql-obj-set-ops', title: 'Paid and Returned', mode: 'challenge', language: 'sql', db: 'market', skillIds: ['sql.sets', 'sql.advanced'], concepts: ['INTERSECT', 'set-operations', 'IN'], difficulty: 3, context: 'retail',
+      id: 'sql-17-paid-and-returned', objectiveId: 'sql-obj-set-ops', title: 'Paid and Returned', mode: 'challenge', language: 'sql', db: 'market', skillIds: ['sql.sets', 'sql.advanced'], concepts: ['set-operations', 'IN', 'membership'], difficulty: 3, context: 'retail',
       prompt: text('Customer service wants to talk to customers who have **both** a `paid` order **and** a `returned` order. List their `name` values, A to Z.'),
       expectedBehavior: 'Names of customers who have at least one paid order and at least one returned order, alphabetically.',
       starterCode: '',
@@ -78,7 +78,7 @@ export const bundle: LessonBundle = {
       xpReward: 90, coinReward: 13,
     },
     {
-      id: 'sql-17-inspected-never-repaired', objectiveId: 'sql-obj-set-ops', title: 'Inspected but Never Repaired', mode: 'challenge', language: 'sql', db: 'works', skillIds: ['sql.sets', 'sql.advanced'], concepts: ['EXCEPT', 'set-operations', 'IN'], difficulty: 3, context: 'manufacturing',
+      id: 'sql-17-inspected-never-repaired', objectiveId: 'sql-obj-set-ops', title: 'Inspected but Never Repaired', mode: 'challenge', language: 'sql', db: 'works', skillIds: ['sql.sets', 'sql.advanced'], concepts: ['set-operations', 'IN', 'membership'], difficulty: 3, context: 'manufacturing',
       prompt: text('Maintenance wants a list of machines that have been **inspected at least once** but have **never needed a repair**. List their `name` values, A to Z. (An event’s `kind` is `routine`, `inspection` or `repair`.)'),
       expectedBehavior: 'Names of machines with an inspection event and no repair event, alphabetically.',
       starterCode: '',

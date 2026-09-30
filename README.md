@@ -3,11 +3,19 @@
 A long-term, browser-based educational RPG that builds **independent technical problem-solving**, not just familiarity with syntax. The goal is a player who can face an unfamiliar problem, research it, write and test code from a blank file, debug it, and ship original projects, without an AI supplying the answer.
 
 ## Learning areas
-Programming fundamentals · Python · SQL & databases · data engineering · **HTML · CSS · JavaScript · the DOM · APIs (built in Phase 3)** · data analysis & statistics · R · Excel · Git/GitHub · debugging · testing & verification · research · multi-technology projects.
+Programming fundamentals · Python · SQL & databases · **data engineering (deepened in Phase 4)** · **HTML · CSS · JavaScript · the DOM · APIs (built in Phase 3)** · data analysis & statistics · R · Excel · Git/GitHub · debugging · testing & verification · research · multi-technology projects.
 
 The world is an RPG with baseball as an occasional theme; examples span engineering, manufacturing, business, finance, science, data, automation and games.
 
-## What exists today (Phase 3)
+## What exists today (Phase 4)
+**Phase 4 makes the game adaptive, deeper and finite** (94 lessons, 424 challenges, 60 skills, 52 Daily Challenges, 8 bosses): *you do not redo old lessons; you train the weakness, prove improvement, and return to where you were.*
+- **Adaptive training.** When your evidence shows trouble (a failure, a hint, skills that fail only together, a skill gone quiet) the game diagnoses *what* and offers a training plan sized to it: a small refresher after a slip, reinforcement plus a fresh problem plus an independent attempt after a hint, a longer path for a real gap. Training is a **detour**: your lessons, quests and unlocks never move, it costs no Focus, there is no lockout, and it returns you to the exact step you left. Training and retries always use **different problems, contexts and data**.
+- **Mastery is never erased.** A later mistake adds a note to your history; it never removes what you demonstrated. The Skills view shows earlier independent performance next to recent trouble, and skills used **together** (loops + dictionaries, files + dictionaries, API + JSON + errors, …). The **Training Board** lists what to work on, in order, with the reason.
+- **Bosses and an ending.** Three gate guardians, four mastery trials (Python, SQL, data engineering, web) and the **Summit Trial**: unfamiliar problems, no hints, no starter, one attempt each. Fail one and you get a diagnosis and training, then a **new version**, never the same problem. The Summit Trial ends the campaign (the story of the Great Outage).
+- **Deeper curriculum**: data engineering grew from 3 to 9 lessons (validation, data quality, logging, failing safely, incremental loads, reporting); Python +6 (text, nested data, searching/sorting with measured efficiency, custom exceptions, parsing, learning from documentation); SQL +5 (dates and text, self-joins and sets, debugging queries, investigations, migrations); web +5 (closures, writing tests, CSS positioning, rendering from state, web addresses). See [docs/CURRICULUM_AUDIT.md](docs/CURRICULUM_AUDIT.md).
+- **Daily Challenges** now often combine an older skill with what you are learning, and prefer combinations you have found tricky.
+
+## Phase 3 (still here)
 **Phase 3 adds the web, a Daily Challenge and a stronger memory of what you have learned** (72 lessons, 348 challenges, 46 skills, 52 Daily Challenges, 33 independent trials):
 - **The Web District**: 26 lessons from a first HTML page to complete web apps: semantic HTML and accessibility, forms, CSS selectors/cascade/box model/flexbox/grid/responsive design, JavaScript, the DOM and events, validation, `localStorage` and JSON, timers/promises/async, `fetch` and HTTP against a safe **in-game API** (methods, status codes, auth, retries, rate limits). Your HTML/CSS/JS runs in a **sandboxed iframe** and is graded in the browser by what it actually does (structure, computed styles at several screen widths, real clicks and typing, virtual time, hidden API data). Quests: *Build the Web*, *Style the City*, *Bring It to Life*, *The Interactive Dashboard*, *The API Gate*, *The Web Workshop*.
 - **Daily Challenge** (🌅 in the HUD): one problem every 12 hours, chosen from what you are learning now and what you learned earlier (a skill you mastered can return as a hard review), with the reason shown. **One attempt, no hints, no retry.** Rewards only on success and never touch your skill record; missing a day costs nothing.
@@ -52,6 +60,7 @@ Python is downloaded/started the first time you open a coding screen (a few seco
 - [ARCHITECTURE.md](ARCHITECTURE.md): technical design, security model, data flow
 - [PROGRESS.md](PROGRESS.md): what's built, what isn't, known issues, roadmap
 - [docs/WEB_SANDBOX.md](docs/WEB_SANDBOX.md): the web sandbox, the in-game API and their security model
+- [docs/CURRICULUM_AUDIT.md](docs/CURRICULUM_AUDIT.md): what the curriculum lacked, what Phase 4 added, known gaps
 - [docs/FUTURE_WORLDS.md](docs/FUTURE_WORLDS.md): the roadmap of worlds and the future 3D layer (design notes only)
 
 ## Development approach

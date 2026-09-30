@@ -25,8 +25,10 @@ import { jsSolutions } from './solutions.js';
 import { htmlSolutions } from './solutions.html';
 import { appSolutions } from './solutions.app';
 import { projectSolutions } from './solutions.projects';
+import { phase4WebSolutions } from './solutions.phase4';
 
 export const webSolutions: Record<string, Sol> = {
+  ...phase4WebSolutions,
   ...htmlSolutions,
   ...cssSolutions,
   ...jsSolutions,

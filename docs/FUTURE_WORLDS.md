@@ -1,6 +1,6 @@
 # Future worlds and the 3D presentation layer
 
-**Status: design notes only. Nothing in this file is built.** Phase 3 deliberately did not build 3D, Baseball World, Racing World or the Magical Academy; it only makes sure the architecture can carry them. Build a world only when the user asks for that phase.
+**Status: design notes only. Nothing in this file is built.** Phases 3 and 4 deliberately did not build 3D, Baseball World, Racing World or the Magical Academy; they only make sure the architecture can carry them. Build a world only when the user asks for that phase.
 
 ## The roadmap of worlds
 CodeQuest's long-term map is a set of *worlds* (areas with their own theme, NPCs and quests). Each one is a **presentation** of curriculum that already lives in `src/content/`; a world never owns curriculum.
@@ -55,6 +55,11 @@ A 3D layer is **only a renderer and controller**. It must not contain, duplicate
 - New curriculum still goes through the normal pipeline (data + validated solutions + wrong attempts + hidden checks); a world is not an excuse to skip it.
 - 3D assets load lazily and never block the 2D game; the 2D UI stays fully functional (accessibility, low-end devices, phone layout).
 - Keep the layer swappable: a `WorldPresenter`-style interface (`enterArea`, `showChallenge`, `playEvents`) is enough; do not build it until a 3D world is actually requested.
+
+## What Phase 4 added for future worlds
+- **A finite campaign spine.** `content/campaign.ts` defines acts, each closed by a boss (`content/bosses.ts`); the Summit Trial ends the story. A future world adds an *act* (story text + the boss that closes it) and an *area* (`Area.lock` rule) without touching the learning engine; it may also add its own mastery boss whose versions live in `content/boss/`.
+- **World-agnostic adaptive training.** The learning engine (`learning/`, `game/diagnosis.ts`, `game/training*.ts`, `game/boss.ts`) knows only skills, challenges, evidence, weaknesses and return points (`ReturnPoint { kind: 'lesson' | 'area' | 'boss' | 'daily' | 'map' }`). A world's job is to *present* a training plan or a boss (a 3D arena is just another renderer for `TrainingRun`/`BossRun`); it never decides what to train. A world that wants its own return place adds a `ReturnPoint` kind and a handler in the UI, nothing else.
+- **Contexts as flavour.** Each challenge carries a `context`; a Baseball, Racing or Engineering world re-skins problems by contributing new *variants* (same skills, same difficulty, new context and data) to existing objectives, which the training and boss selectors already prefer ("different context").
 
 ## What Phase 3 did to prepare
 - Curriculum, grading and rules are already independent of the UI (pure `game/` functions; content as data).

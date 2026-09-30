@@ -22,7 +22,7 @@ scripts/copy-pyodide.mjs   copies the Pyodide runtime from node_modules → publ
 e2e/run.mjs                real-browser end-to-end tests (+ screenshots to e2e/screenshots, gitignored)
 src/
   main.tsx                 mounts <App/>
-  core/save.ts             SaveData (v4), migrations, load/write/export/import
+  core/save.ts             SaveData (v5), migrations, load/write/export/import
   learning/                the learning ENGINE (language-agnostic contracts + Python implementation)
     runner.ts              CodeRunner interface: run() and grade()
     mastery.ts             EvidenceRecord, SupportLevel, summarizeSkill, unmetRequirements, detectPatterns
@@ -41,6 +41,9 @@ src/
     databases/             the game's SQLite databases as data (deterministic seeded generators) + hidden twins
     web/NN-*.ts            web lessons 01-26 (HTML, CSS, JavaScript, DOM, events, forms, storage, async, fetch, projects, trials)
     daily/                 authored Daily Challenges (Python, SQL, data-eng, web) + test-only solutions
+    boss/                  boss problems (Python, SQL, data engineering, web, summit): versions per boss + test-only solutions
+    bosses.ts, campaign.ts boss definitions (gates, story, rewards) and the finite campaign spine (acts, ending)
+    composites.ts, diagnostics.ts, trainingNotes.ts   composite skills, diagnostic metadata defaults, refresher notes
     python/variants-phase3.ts extra variants attached to older lessons (appended by index.ts); python/27-28, sql/15 review trials
     reference.ts, reference.web.ts  the Field Manual (in-game documentation; every example executed by a test)
     **/solutions*.testdata.ts  TEST-ONLY reference solutions + wrong attempts (never imported by the app)
@@ -51,6 +54,7 @@ src/
     selection.ts           pure, deterministic variant picking + practice recommendations
     backfill.ts            fills evidence fields missing from older saves at load
     daily.ts, dailySelect.ts, retention.ts   the Daily Challenge, its deterministic selection, and retention memory
+    evidence.ts, diagnosis.ts, weakness.ts, training.ts, trainingPlan.ts, trainingNeeds.ts, skillHistory.ts, returnPoint.ts, boss.ts   Phase 4: adaptive training, bosses (see "Phase 4 systems")
     achievements.ts, world.ts (unlock rules, quest offers), lessons.ts (status helpers, tracks), events.ts
     store.ts               reactive store: applies action results, persists, queues toasts
   app/                     UI: App.tsx (routing), screens/, components/, styles.css
@@ -169,6 +173,38 @@ A deterministic REST/JSON simulation (`apiServer.js`; data in `apiData.ts`): col
 ### Bundle size and code splitting
 Measured at the end of Phase 3 (`npm run build`): total JS 1.65 MB minified. First load is ~980 KB minified (index 55 KB + preact 19 KB + **curriculum data 881 KB (~249 KB gzip)** + game rules 26 KB); the **editor (CodeMirror, 523 KB) and every rarely used screen load on demand** (lesson/challenge screens, Library, Shop, Daily, Practice, SQL sandbox, Field Manual, language modes), so title/map/academy no longer wait for the editor. Phase 2 shipped ~900 KB in one chunk; the curriculum roughly doubled and the first load grew only ~9%. The remaining weight is data: the next step is to load challenge payloads (checks, prompts) per track/lesson on demand (needs an async content registry: not done in Phase 3).
 
+## Phase 4 systems: adaptive training, bosses and the campaign
+The idea: **you do not redo old lessons; you train the weakness, prove improvement, and return to where you were.** Everything is deterministic and authored (no LLM); it reads the append-only evidence log.
+
+### Evidence, diagnosis, weaknesses (`game/evidence.ts`, `diagnosis.ts`, `weakness.ts`)
+- Every graded attempt (lesson, practice, daily, training, boss) goes through `buildEvidence`, which records the source, the structured failure (`FailureDetail`: error kind, failed check names, hidden vs visible, constraints), hint levels and, for training/boss, their ids. Daily and boss attempts are always independent-style evidence.
+- `diagnose(save, challenge)` reads the latest record and returns `null` (a clean pass, or a first ordinary slip by a brand-new learner) or a `Diagnosis`: **severity** (minor / moderate / serious / major, explicit rules over failures on this objective, hints used, the share of checks passed, hidden-only failures, error kind, earlier independent strength and how many different objectives failed recently), **kind** (`concept`, `application` (a new context), `combination` (skills known separately, failing together), `hint-reliance`), the skills involved (attributed from the failed checks via `Challenge.diagnostics`), and reasons in plain language.
+- `applyDiagnosis` creates or merges a **`Weakness`** (`save.training.weaknesses`; merged by key, severity escalates). `resolveOnPass` resolves minor/moderate weaknesses when the player later passes a *different* problem independently; bigger ones need their plan. Weaknesses are history: never deleted, never lower a skill's status.
+
+### Training (`game/training.ts`, `trainingPlan.ts`, `trainingNeeds.ts`)
+- `startTraining(save, weaknessId, returnTo)` builds a **`TrainingPlan`** sized to the weakness (`refresher` / `targeted` / `extended` / `deep`): `review` (a note), `example` (a runnable demo), `guided` and `practice` (hints allowed), `combined` (skills together), `independent` (no hints). `pickFresh` draws each problem from **taught** content plus eligible dailies, ranking by objective penalty (the failed objective, then already-used ones), context, not-yet-passed, difficulty distance and skill focus. The exposing lesson's return challenge is a different variant.
+- A failed independent step **escalates** the plan (fresh steps; from the second time prerequisite reviews and possibly a deeper level). There is no failure limit and no lockout; training costs no Focus (+8 Focus per passed step). A hinted pass on a demonstration does not complete it.
+- **Return points** (`ReturnPoint`): the plan remembers where the player was (lesson + step, boss gate, area). Training never changes `learning.lessons`, quests or areas; only a major weakness that arose in a lesson gates that lesson's *completion* (`lessonBlockedBy`), never earlier lessons.
+- The **Training Board** (`trainingNeeds`) lists, in priority order: demonstrated weaknesses, weak combinations, quiet/rusty skills, prerequisites for the next lesson, older skills worth proving, each with a reason.
+- `skillHistory` shows previous independent performance next to recent trouble (contexts demonstrated vs struggled, recent attempts, training, later independent solves) and derives **composite** skills from evidence on challenges that used all component skills (`content/composites.ts`, 20 of them).
+
+### Bosses and the campaign (`game/boss.ts`, `content/bosses.ts`, `content/boss/`, `content/campaign.ts`)
+- 3 mini-bosses (gate guardians: Python functions, SQL joins, JavaScript), 4 **mastery bosses** (Python, SQL, data engineering, web) and the **Summit Trial**. Each has several *versions* (different problems and data), all independent-style: no hints, no starter, hidden checks, one attempt per version. Gates are data: lessons completed and earlier bosses beaten.
+- A failed attempt records evidence, diagnoses (a boss failure is always a weakness) and starts training whose return point is the boss; the boss is **sealed** until that training is complete (or the weakness is resolved), then `nextVersion` offers a version never attempted; repeated misses raise the weakness severity (deeper training). Winning pays rewards and records evidence; it is never a mastery mark. `campaign.completedAt` is set once when the Summit Trial is passed.
+- Bosses are not lesson content: `getAnyChallenge` finds them, but lessons, dailies, the Practice Yard and training never draw them.
+
+### Save v5
+`SAVE_VERSION = 5` adds `training` (weaknesses, plans, active plan, id counter), `bosses` (attempts and remediation per boss) and `campaign`. Migration 4 → 5 adds empty blocks; `sanitizeTraining`/`sanitizeBosses` repair corrupt blocks instead of rejecting the save. Evidence records gained optional `failure`, `hintLevels`, `source`, `training`, `boss` (older records load unchanged).
+
+### UI added
+`DiagnosisCard` (after a failure: what to work on and why, size of the plan, "Train this now"), `TrainingHub` (board, active plan, history; in the Training Grounds and each track area), `TrainingRun` (plan runner; the header always says where you will return to), `BossHall` (the Summit area) and `BossRun`, composites and history notes in the Skills view, blocked-lesson banner. Lazy chunks keep the first load small.
+
+### Bundle note
+The curriculum is still one chunk (~1.14 MB minified, ~329 KB gzip); rarely used screens, the editor and the boss/training screens load lazily. Per-track loading is the recommended next step.
+
+### Harness note
+`harness.py` resets logging state before every run so a program cannot pass because of `logging` configuration left by an earlier run.
+
 ## Security model (what is and isn't guaranteed)
 Player code is untrusted and runs only inside a Web Worker running WebAssembly CPython:
 - No DOM, no `localStorage`/`document.cookie` (workers don't have them), no host filesystem or OS access (Emscripten virtual FS only), no subprocess/socket access from Python itself.
@@ -180,16 +216,17 @@ Player code is untrusted and runs only inside a Web Worker running WebAssembly C
 - `harness.py` is trusted code and runs inside the same interpreter as the player's code: player code can in principle tamper with the harness's globals. Acceptable under the threat model above.
 
 ## Save data
-`core/save.ts`, version **4** (Phase 3 added `daily: { current, history, lastSeenAt }`; migration 3->4 starts with no daily and repairs a corrupt daily block instead of rejecting the save; Phase 2 added evidence fields, migration 2->3; v1 -> fresh). Contains player profile, stats (xp, coins, focus), inventory, quests, achievements, unlocked areas, lesson progress, challenge progress (attempts, runs, hints, time, draft code, XP already awarded), one-off flags, and the full evidence log. Level is derived from XP, not stored. Migrations are a table keyed by "from version"; v1 (Phase 0 shell, no player data) → fresh; v2 → v3 adds evidence fields without losing progress (tested). A save that can't be read (corrupt or from a *newer* version) is copied to `codequest.save.backup` and never silently destroyed; the UI shows a notice.
+`core/save.ts`, version **5** (Phase 4 added `training`, `bosses`, `campaign`; migration 4->5 adds empty blocks; Phase 3 added `daily: { current, history, lastSeenAt }`; migration 3->4 starts with no daily and repairs a corrupt daily block instead of rejecting the save; Phase 2 added evidence fields, migration 2->3; v1 -> fresh). Contains player profile, stats (xp, coins, focus), inventory, quests, achievements, unlocked areas, lesson progress, challenge progress (attempts, runs, hints, time, draft code, XP already awarded), one-off flags, and the full evidence log. Level is derived from XP, not stored. Migrations are a table keyed by "from version"; v1 (Phase 0 shell, no player data) → fresh; v2 → v3 adds evidence fields without losing progress (tested). A save that can't be read (corrupt or from a *newer* version) is copied to `codequest.save.backup` and never silently destroyed; the UI shows a notice.
 
 ## UI
 `App.tsx` holds a `route` (map | area | lesson) and an optional journal panel; there are no URL routes. Screens: Title (character creation), WorldMap, Academy (mentor + intro dialogue + quest board + rest), TrainingGrounds (robot + Python lessons + Practice Yard), TrackArea (Database District with SQL Sandbox; Data Pipeline Works), Library (notebook, Field Manual, training log), Shop, Locked/future areas, LessonScreen (steps). The journal (Hud buttons) has quests, pack, skills, trophies, menu (export/import/reset). Toasts/level-up overlay are driven by `GameEvent`s returned from actions. `prefers-reduced-motion` is honoured. Layout is responsive (single column under 900px).
 
 ## Testing layers
 1. **Unit** (Vitest): save/migrations (incl. 2->3, 3->4 and corrupt saves), the Daily Challenge (timer, clock rollback, selection, one attempt, rewards, achievements, persistence), retention recommendations, progression, mastery, selection/retry, backfill, actions (XP, unlocks, quests, achievements, evidence, shop, reset).
-2. **Content in real Python and real SQLite** (Vitest + Pyodide in Node): every challenge's starter fails, every reference solution passes, every wrong attempt fails, hints don't contain solutions, demos run, structure/mode rules, mastery requirements achievable.
-3. **Web content in real Chromium** (Vitest + Playwright harness): every web challenge and web Daily: starter fails, reference solutions pass, wrong attempts fail, hints do not leak solutions, Field Manual web examples run without errors, sandbox isolation and API server unit tests.
-4. **End-to-end** (`npm run e2e`): the built game in Chromium (Phase 2 adds SQL lesson flow, failing -> different-problem retry with evidence, Field Manual lookup, sandbox persistence/reset, the pipeline lesson, phone layout): character creation, mentor, map/locks, lessons, real Python errors, hints/evidence, infinite-loop handling, focus/rest, shop, save/load/export/reset, corrupt saves, a full playthrough of all lessons plus the independent trial, and a phone-width overflow check. Screenshots are written to `e2e/screenshots/`.
+2. **Adaptive training (unit)**: `game/training.test.ts`, `boss.test.ts`, `dailyCombo.test.ts`: diagnosis scales with evidence, fresh problems, composites, detour semantics, no Focus loss, escalation without lockout, mastery retained, guided vs independent evidence, the Training Board, boss remediation and a new version after training, the ending, save round-trips, v4 -> v5 migration and corrupt-block repair.
+3. **Content in real Python and real SQLite** (Vitest + Pyodide in Node): every challenge's starter fails, every reference solution passes, every wrong attempt fails, hints don't contain solutions, demos run, structure/mode rules, mastery requirements achievable.
+4. **Web content in real Chromium** (Vitest + Playwright harness): every web challenge and web Daily: starter fails, reference solutions pass, wrong attempts fail, hints do not leak solutions, Field Manual web examples run without errors, sandbox isolation and API server unit tests.
+5. **End-to-end** (`npm run e2e`): the built game in Chromium (Phase 2 adds SQL lesson flow, failing -> different-problem retry with evidence, Field Manual lookup, sandbox persistence/reset, the pipeline lesson, phone layout): character creation, mentor, map/locks, lessons, real Python errors, hints/evidence, infinite-loop handling, focus/rest, shop, save/load/export/reset, corrupt saves, a full playthrough of all lessons plus the independent trial, and a phone-width overflow check. Screenshots are written to `e2e/screenshots/`.
 
 ## Known open questions
 - Exploration model (UI-driven now; canvas later if movement-based exploration is wanted).
