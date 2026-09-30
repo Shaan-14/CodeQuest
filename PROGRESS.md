@@ -1,10 +1,16 @@
 # PROGRESS.md
 
-_Last updated: Phase 4 revision (required training and the Training Grounds)._
+_Last updated: Phase 4 final correction (the Focus gate)._
 
 ## Current phase
 **Phase 4 (adaptive mastery, deep curriculum, bosses and a finite campaign): COMPLETE.** Phase 5 has not been started; wait for explicit instruction.
 (Phases 0-3 are preserved: same repo, same architecture. Save format v1 → v2 → v3 → v4 → v5 → **v6**, migrations tested; older saves load unchanged and gain empty `training`, `bosses` and `campaign` blocks.)
+
+## Phase 4 final correction: Focus is readiness (no Rest, no free retry)
+- **Rule**: a challenge can only be attempted at 100 Focus. A wrong answer on real work costs Focus (level 1 small -50, 2 difficult -75, 3 independent / 4 mini-boss / 5 mastery boss -100; a hinted pass -25); guided exercises and the Practice Yard cost nothing. Below 100 the player is "Not ready": Submit, hints, Daily and boss attempts refuse in the game layer, reload changes nothing, and the only way back is training: each step of the required plan earns a share of the lost Focus (the fresh proof earns the rest), finishing the plan lands on exactly 100, and the player returns to the exact challenge/boss with a NEW variant.
+- **Removed**: the Rest button/action, Focus consumables (Study Snack, Focus Tea), `useItem`, and daily Focus rewards. Save v7 migration sets old saves to full Focus and refunds owned consumables. Deeper failures get deeper plans (`deep` = 4 practice steps), repeated failure still escalates.
+- **Tests**: `game/focus.test.ts` (gate, 99/50/0 refusals, reload, repair, guided exemption, cap at 100, levels, small/major/boss flows, proof required, hint loss), updated actions/training/boss/daily/save tests, e2e "Focus gate" scenario plus boss and independent-trial flows.
+- **Limitations**: the Focus losses/steps/weights are first-pass balance numbers (all in `game/focus.ts`); training problems still draw on taught content only, so a boss that tests an untaught skill trains with the failed problem's other (taught) skills.
 
 ## Phase 4 revision: required training in a place of its own (after playtesting)
 Playtesting showed the first version of adaptive training was optional, duplicated (Mentor, lesson, area, Training Board all offered "train" or "fresh problem"), replayed lesson-like content and did not enforce the loop. The architecture stayed; the experience and content changed (see ARCHITECTURE.md, "Required training and the Training Grounds"):

@@ -7,7 +7,7 @@ CodeQuest's long-term map is a set of *worlds* (areas with their own theme, NPCs
 
 | # | World | Status | What it teaches (curriculum it presents) |
 |---|---|---|---|
-| 1 | **Bytehaven Academy** | built | the hub; mentor; Daily Challenge; rest; shop entry |
+| 1 | **Bytehaven Academy** | built | the hub; mentor; Daily Challenge; shop entry |
 | 2 | **Training Grounds** | built (Phase 1-2) | Python from first program to projects, review trials |
 | 3 | **Database District** | built (Phase 2) | SQL, database design, integrity, performance |
 | 4 | **Data Pipeline Works** | built (Phase 2) | ETL/ELT, idempotent loads, Python + SQL |

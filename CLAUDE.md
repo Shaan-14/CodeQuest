@@ -59,10 +59,16 @@ Baseball is a recurring *theme* and source of examples, never the limit of the c
 - **Check helpers can leak state between runs.** The Python harness resets logging (handlers, levels, named loggers) before every run so a program that forgets `setLevel` cannot pass because an earlier run set it. Keep the harness's "fresh program" promise when adding standard-library-heavy lessons.
 
 ## Educational design rules added in the Phase 4 revision (keep them)
-- **Required training is enforced in the game layer, not just the UI.** After a meaningful lesson failure or any failed boss attempt, `requiredTraining(save)` holds `submitChallenge`, `advanceStep`, `completeLesson` and practice until the plan is complete. Never add a second route around it (no retry buttons, no "try a fresh problem", no skip) and never let a screen start training on its own: the Mentor has ONE button, "Go to the Training Grounds".
+- **Required training is enforced in the game layer, not just the UI.** After a meaningful lesson failure or any failed boss attempt, `requiredTraining(save)` holds `submitChallenge`, `advanceStep`, `completeLesson` and practice until the plan is complete. Never add a second route around it (no retry buttons, no Rest, no "try a fresh problem", no skip) and never let a screen start training on its own: the Mentor has ONE button, "Go to the Training Grounds".
 - **Training is a separate place** (`TrainingYard`, area `training-yard`). The lessons area (`training-grounds`, shown as "Programming Hall") must not host training UI.
 - **Training content is authored, not replayed** (`content/training/`): a reframing, a different-context example, a prediction, practice, and exactly ONE independent, hint-free proof at the end of a plan (a failed proof adds targeted practice and a NEW proof). Every module/problem needs tests and wrong attempts; test-only solutions run under plain Node.
 - **Optional vs required**: lesson/boss sources create required weaknesses; practice, daily and quiet-skill weaknesses are optional and appear only on the Training Board. A hinted pass in a learning-mode exercise is never required.
+
+## Focus rules (keep them)
+- **100 Focus = ready to attempt; below 100 = train first.** Enforced in the game layer (`submitChallenge`, `submitBoss`, `submitDaily`, `revealHint` refuse below 100), never only in the UI. There is **no Rest, no Focus item and no other shortcut**: Focus is earned back only by completing steps of a required training plan (`game/focus.ts`). Never add a way to restore Focus outside training; never let Focus exceed 100.
+- **Failure levels are data** (`FAILURE_LEVELS`, `HINTED_PASS_LOSS`, `STEP_WEIGHT` in `game/focus.ts`): 1 small task, 2 difficult task, 3 independent challenge, 4 mini-boss, 5 mastery boss/Summit. Guided (learning-mode) exercises and Practice Yard attempts cost nothing. A required plan's steps share exactly the Focus that was lost (the last step, the proof, takes the remainder), so the plan is sized to the Focus needed and ends at 100.
+- **Language**: say "Not ready" and "100 Focus required", never "locked", for the Focus gate.
+- **Retry is a new variant** after the return; the return point is the exact challenge (or boss).
 
 ## Development guidelines
 - Stack: Vite + TypeScript (strict) + Preact + CodeMirror 6 + Pyodide + Vitest (+ playwright-core for e2e). See ARCHITECTURE.md.
