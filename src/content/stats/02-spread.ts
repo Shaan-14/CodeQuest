@@ -5,9 +5,9 @@ import { statCalls } from './helpers';
 const RANGE = 'def _ref(values):\n    return max(values) - min(values) if values else None';
 const POP = 'import math\ndef _ref(values):\n    n = len(values)\n    if n == 0:\n        return None\n    m = sum(values) / n\n    return round(math.sqrt(sum((v - m) ** 2 for v in values) / n), 3)';
 const SAMPLE = 'import math\ndef _ref(values):\n    n = len(values)\n    if n < 2:\n        return None\n    m = sum(values) / n\n    return round(math.sqrt(sum((v - m) ** 2 for v in values) / (n - 1)), 3)';
-const QUARTILES = 'def _med(s):\n    n = len(s)\n    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2\ndef _fences(values):\n    s = sorted(values)\n    n = len(s)\n    q1 = _med(s[: n // 2])\n    q3 = _med(s[n // 2 + n % 2 :])\n    iqr = q3 - q1\n    return q1 - 1.5 * iqr, q3 + 1.5 * iqr\n';
-const OUT = `${QUARTILES}def _ref(values):\n    if len(values) < 4:\n        return []\n    lo, hi = _fences(values)\n    return sorted(v for v in values if v < lo or v > hi)`;
-const POS = `${QUARTILES}def _ref(readings):\n    if len(readings) < 4:\n        return []\n    lo, hi = _fences(readings)\n    return [i for i, v in enumerate(readings) if v < lo or v > hi]`;
+const QUARTILES = 'def _rf_med(s):\n    n = len(s)\n    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2\ndef _rf_fences(values):\n    s = sorted(values)\n    n = len(s)\n    q1 = _rf_med(s[: n // 2])\n    q3 = _rf_med(s[n // 2 + n % 2 :])\n    iqr = q3 - q1\n    return q1 - 1.5 * iqr, q3 + 1.5 * iqr\n';
+const OUT = `${QUARTILES}def _ref(values):\n    if len(values) < 4:\n        return []\n    lo, hi = _rf_fences(values)\n    return sorted(v for v in values if v < lo or v > hi)`;
+const POS = `${QUARTILES}def _ref(readings):\n    if len(readings) < 4:\n        return []\n    lo, hi = _rf_fences(readings)\n    return [i for i, v in enumerate(readings) if v < lo or v > hi]`;
 
 export const bundle: LessonBundle = {
   lesson: {

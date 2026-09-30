@@ -3,7 +3,7 @@ import type { LessonBundle } from '../schema';
 import { statCalls } from './helpers';
 
 const PEARSON = 'import math\ndef _ref(xs, ys):\n    n = len(xs)\n    if n < 2 or n != len(ys):\n        return None\n    mx, my = sum(xs) / n, sum(ys) / n\n    sx = math.sqrt(sum((x - mx) ** 2 for x in xs))\n    sy = math.sqrt(sum((y - my) ** 2 for y in ys))\n    if sx == 0 or sy == 0:\n        return None\n    return round(sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sx * sy), 3)';
-const STRONG = `${PEARSON.replace('_ref(xs, ys)', '_r(xs, ys)')}\nimport itertools\ndef _ref(table):\n    best = None\n    for a, b in itertools.combinations(sorted(table), 2):\n        r = _r(table[a], table[b])\n        if r is None:\n            continue\n        if best is None or abs(r) > best[0] + 1e-12:\n            best = (abs(r), (a, b))\n    return best[1] if best else None`;
+const STRONG = `${PEARSON.replace('_ref(xs, ys)', '_rf_r(xs, ys)')}\nimport itertools\ndef _ref(table):\n    best = None\n    for a, b in itertools.combinations(sorted(table), 2):\n        r = _rf_r(table[a], table[b])\n        if r is None:\n            continue\n        if best is None or abs(r) > best[0] + 1e-12:\n            best = (abs(r), (a, b))\n    return best[1] if best else None`;
 
 export const bundle: LessonBundle = {
   lesson: {
