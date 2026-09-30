@@ -5,7 +5,7 @@ import { statCalls } from './helpers';
 const AXIS = 'import math\ndef _ref(values):\n    top = max(values) if values else 0\n    return (0, max(10, math.ceil(top / 10) * 10))';
 const BAR = "def _ref(spec):\n    found = []\n    if not spec.get('title', '').strip():\n        found.append('no-title')\n    if spec['type'] != 'pie' and not spec.get('y_label', '').strip():\n        found.append('no-units')\n    if spec['type'] == 'bar' and spec.get('y_min', 0) != 0:\n        found.append('truncated-axis')\n    if spec['type'] == 'pie' and spec.get('slices', 0) > 5:\n        found.append('too-many-slices')\n    return sorted(found)";
 const LINE = "def _ref(spec):\n    found = []\n    if not spec.get('title', '').strip():\n        found.append('no-title')\n    if not spec.get('y_label', '').strip():\n        found.append('no-units')\n    if not spec.get('x_label', '').strip():\n        found.append('no-x-label')\n    if spec.get('points', 0) < 3:\n        found.append('too-few-points')\n    if spec.get('trendline') and spec.get('points', 0) < 10:\n        found.append('trendline-on-few-points')\n    if spec.get('dual_axis'):\n        found.append('dual-axis-misleads')\n    return sorted(found)";
-
+const CHART = 'def _ref(values, width):\n    if not values:\n        return []\n    counts = [0] * (max(values) // width + 1)\n    for v in values:\n        counts[v // width] += 1\n    return ["%d-%d: %s" % (i * width, i * width + width - 1, "#" * c) for i, c in enumerate(counts)]';
 export const bundle: LessonBundle = {
   lesson: {
     id: 'st-04-charts', title: 'Honest Charts', language: 'python', skillId: 'stat.visualization',
@@ -29,9 +29,13 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'st-04-axis' },
       { kind: 'challenge', challengeId: 'st-04-bar-problems' },
       { kind: 'challenge', challengeId: 'st-04-line-problems' },
+      { kind: 'challenge', challengeId: 'st-04-hist-lines' },
+      { kind: 'challenge', challengeId: 'st-04-hist-lines-b' },
     ],
   },
   objectives: [
+
+    { id: 'st-obj-text-chart', title: 'Drawing a histogram as text', summary: 'Bin values and render each bin as a labelled bar, empty bins included.' },
     { id: 'st-obj-chart-review', title: 'Reviewing a chart specification', summary: 'Decide from a chart’s design whether it misleads, and say why, using rules.' },
   ],
   challenges: [
@@ -75,5 +79,24 @@ export const bundle: LessonBundle = {
       ], 2),
       xpReward: 75, coinReward: 11,
     },
+    {
+      id: 'st-04-hist-lines', objectiveId: 'st-obj-text-chart', title: 'A Histogram in Text', mode: 'challenge', language: 'python', skillIds: ['stat.visualization', 'stat.distributions', 'py.strings'], concepts: ['histogram', 'text chart'], difficulty: 3, context: 'education',
+      prompt: text('A terminal report draws a histogram. Write `score_chart(scores, width)` returning a **list of lines**, one per bin of the given `width` from bin 0 up to the bin of the largest score (bins start at 0; empty bins **must still appear**). Each line looks like `"0-9: ###"`: the bin start, a dash, the bin end (start + width − 1), a colon and a space, then one `#` per score in that bin. An empty bin is the label followed by `": "`. No scores gives `[]`. Scores are whole non-negative numbers.'),
+      expectedBehavior: 'One labelled line per bin, with one # per score; empty bins included.',
+      starterCode: 'def score_chart(scores, width):\n    pass\n',
+      hints: ['You already know how to count scores per bin.', 'The label needs the bin start and end; work them out from the bin number.', 'Multiplying a string by a number repeats it; by 0 gives an empty string.'],
+      checks: statCalls('score_chart', CHART.replace('_ref(values, width)', '_ref(scores, width)').replace(/values/g, 'scores'), ['[45, 52, 58, 61, 67, 69, 88, 91, 95], 10', '[0, 5, 10], 5', '[], 10', '[3, 3, 3], 1', '[99], 50', '[9, 10, 19, 20], 10', '[14], 7'], 2),
+      xpReward: 75, coinReward: 11,
+    },
+    {
+      id: 'st-04-hist-lines-b', objectiveId: 'st-obj-text-chart', title: 'Response Times in Text', mode: 'challenge', language: 'python', skillIds: ['stat.visualization', 'stat.distributions', 'py.strings'], concepts: ['histogram', 'text chart'], difficulty: 3, context: 'software',
+      prompt: text('A service dashboard prints a histogram of response times in whole milliseconds. Write `latency_chart(times, size)` returning a **list of lines**, one per bucket of `size` ms from bucket 0 up to the bucket of the slowest request (empty buckets **must still appear**). A line looks like `"0-99: ##"`: the bucket start, a dash, the bucket end (start + size − 1), a colon and a space, then one `#` per request in that bucket. No requests gives `[]`.'),
+      expectedBehavior: 'One labelled line per bucket, with one # per request; empty buckets included.',
+      starterCode: 'def latency_chart(times, size):\n    pass\n',
+      hints: ['Count per bucket first, then format each count.', 'The end of a bucket is one less than the start of the next.', 'Empty buckets are lines too.'],
+      checks: statCalls('latency_chart', CHART.replace('_ref(values, width)', '_ref(times, width)').replace(/values/g, 'times'), ['[12, 48, 55, 210, 230, 15], 100', '[0, 99, 100], 100', '[], 50', '[499], 250', '[5, 5, 5, 5], 5', '[1, 2], 1'], 2),
+      xpReward: 75, coinReward: 11,
+    },
+
   ],
 };

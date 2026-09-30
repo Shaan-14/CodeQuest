@@ -7,7 +7,7 @@ const MEDIAN = 'def _ref(values):\n    s = sorted(values)\n    n = len(s)\n    i
 const MEDIAN_SKIP = 'def _ref(values):\n    s = sorted(v for v in values if v is not None)\n    n = len(s)\n    if n == 0:\n        return None\n    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2';
 const MODES = 'def _ref(values):\n    counts = {}\n    for v in values:\n        counts[v] = counts.get(v, 0) + 1\n    if not counts:\n        return []\n    top = max(counts.values())\n    return sorted(v for v, c in counts.items() if c == top)';
 const HOURS = 'def _ref(times):\n    counts = {}\n    for t in times:\n        h = t.split(":")[0]\n        counts[h] = counts.get(h, 0) + 1\n    if not counts:\n        return []\n    top = max(counts.values())\n    return sorted(h for h, c in counts.items() if c == top)';
-
+const DESCRIBE = 'def _ref(values):\n    if not values:\n        return {}\n    s = sorted(values)\n    n = len(s)\n    med = s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2\n    counts = {}\n    for v in values:\n        counts[v] = counts.get(v, 0) + 1\n    top = max(counts.values())\n    return {"count": n, "mean": round(sum(values) / n, 2), "median": med, "modes": sorted(v for v, c in counts.items() if c == top)}';
 export const bundle: LessonBundle = {
   lesson: {
     id: 'st-01-describing', title: 'Describing Data: Mean, Median, Mode', language: 'python', skillId: 'stat.descriptive',
@@ -33,9 +33,11 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'st-01-median-b' },
       { kind: 'challenge', challengeId: 'st-01-modes' },
       { kind: 'challenge', challengeId: 'st-01-modes-b' },
+      { kind: 'challenge', challengeId: 'st-01-describe' },
     ],
   },
   objectives: [
+    { id: 'st-obj-describe', title: 'A complete data summary', summary: 'Combine centre measures into one honest summary of a dataset.' },
     { id: 'st-obj-median', title: 'Median of messy data', summary: 'Compute the middle value correctly for even/odd counts, unsorted input and missing values.' },
     { id: 'st-obj-modes', title: 'Most frequent values', summary: 'Find every value tied for most frequent.' },
   ],
@@ -91,6 +93,18 @@ export const bundle: LessonBundle = {
       hints: ['Turn each time into the thing you are counting first.', 'Count, then find the top count, then collect every hour with it.', 'Keep the hours as text so "09" stays "09".'],
       checks: statCalls('busiest_hours', HOURS, ["['09:41', '09:05', '10:15']", "['08:00', '09:10']", '[]', "['23:59']", "['13:01', '13:59', '14:02', '14:30', '15:00']", "['00:10', '00:20', '01:00', '01:30', '02:00']"], 2),
       xpReward: 60, coinReward: 9,
+    },
+    {
+      id: 'st-01-describe', objectiveId: 'st-obj-describe', title: 'The Data Sheet', mode: 'challenge', language: 'python', skillIds: ['stat.descriptive', 'py.dicts'], concepts: ['mean', 'median', 'mode', 'summary'], difficulty: 3, context: 'research',
+      prompt: text('A lab wants a one-glance summary of a list of measurements. Write `describe(values)` returning a dictionary with the keys `"count"` (how many), `"mean"` (**rounded to 2 decimals**), `"median"` and `"modes"` (a **sorted list** of every most-frequent value). For an empty list return `{}`. Do not change the list you are given.'),
+      expectedBehavior: 'A dict with count, mean (2 dp), median and modes; {} for an empty list.',
+      starterCode: 'def describe(values):\n    pass\n',
+      hints: ['Three of these you have built before; combine them.', 'Keep the input in its original order when you sort.', 'A list with no values has nothing to describe.'],
+      checks: [
+        ...statCalls('describe', DESCRIBE, ['[4, 8, 6, 5, 3, 50]', '[2, 2, 3, 3]', '[]', '[7]', '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]', '[0.5, 0.5, 1.5]', '[5, 1, 5, 2, 2]'], 2),
+        { kind: 'script', name: 'The input list is left alone', visible: false, code: 'd = [3, 1, 2, 2]\ndescribe(d)\nassert d == [3, 1, 2, 2], "Do not reorder the list you were given."' },
+      ],
+      xpReward: 80, coinReward: 12,
     },
   ],
 };

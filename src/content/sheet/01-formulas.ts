@@ -38,6 +38,7 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'xl-01-line-total' },
       { kind: 'challenge', challengeId: 'xl-01-sales-tax' },
       { kind: 'challenge', challengeId: 'xl-01-budget' },
+      { kind: 'challenge', challengeId: 'xl-01-margin' },
     ],
   },
   challenges: [
@@ -97,6 +98,20 @@ export const bundle: LessonBundle = {
         cells('Totals for this month', { B6: 2050, B7: 1150, B8: 0.359375 }, { approx: 1e-9 }),
         cells('Still right for different numbers', { B6: 1100, B7: 900, B8: 0.45 }, { with: { B1: 2000, B3: 500, B4: 400, B5: 200 }, approx: 1e-9, visible: false }),
         isFormula('B8 is a formula', 'B8'),
+      ],
+      xpReward: 60, coinReward: 10,
+    },
+    {
+      id: 'xl-01-margin', title: 'Profit and Margin', mode: 'challenge', language: 'sheet', skillIds: ['xl.formulas'], concepts: ['formula', 'ratio'], difficulty: 3, context: 'manufacturing',
+      prompt: text('Each row lists what a part costs to make (column B) and what it sells for (column C). In column D show the **profit** per part and in column E the **margin**: the profit as a fraction of the **selling price**.'),
+      expectedBehavior: 'D2:D4 hold price minus cost; E2:E4 hold profit divided by price.',
+      starterCode: '',
+      sheet: { start: book(grid('A1', [['Part', 'Cost', 'Price', 'Profit', 'Margin'], ['Widget', 6, 10], ['Gadget', 15, 20], ['Gizmo', 8, 8]])), editable: ['D2:E4'] },
+      hints: ['Profit is one subtraction; the order matters.', 'A margin divides by something specific: read the prompt for what.', 'Margin can use the profit cell you just built.'],
+      checks: [
+        cells('Profit and margin', { D2: 4, E2: 0.4, D3: 5, E3: 0.25, D4: 0, E4: 0 }, { approx: 1e-9 }),
+        cells('Losses and other prices', { D2: 3, E2: 0.25, D3: -10, E3: -0.25, D4: 3, E4: 0.75 }, { with: { B2: 9, C2: 12, B3: 50, C3: 40, B4: 1, C4: 4 }, approx: 1e-9, visible: false }),
+        isFormula('E2 is a formula', 'E2'),
       ],
       xpReward: 60, coinReward: 10,
     },

@@ -4,7 +4,7 @@ import { statCalls } from './helpers';
 
 const PEARSON = 'import math\ndef _ref(xs, ys):\n    n = len(xs)\n    if n < 2 or n != len(ys):\n        return None\n    mx, my = sum(xs) / n, sum(ys) / n\n    sx = math.sqrt(sum((x - mx) ** 2 for x in xs))\n    sy = math.sqrt(sum((y - my) ** 2 for y in ys))\n    if sx == 0 or sy == 0:\n        return None\n    return round(sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sx * sy), 3)';
 const STRONG = `${PEARSON.replace('_ref(xs, ys)', '_rf_r(xs, ys)')}\nimport itertools\ndef _ref(table):\n    best = None\n    for a, b in itertools.combinations(sorted(table), 2):\n        r = _rf_r(table[a], table[b])\n        if r is None:\n            continue\n        if best is None or abs(r) > best[0] + 1e-12:\n            best = (abs(r), (a, b))\n    return best[1] if best else None`;
-
+const INTERPRET = 'def _ref(r):\n    if r is None:\n        return "undefined"\n    if r == 0:\n        return "none"\n    a = abs(r)\n    strength = "weak" if a < 0.3 else "moderate" if a < 0.7 else "strong"\n    return strength + " " + ("positive" if r > 0 else "negative")';
 export const bundle: LessonBundle = {
   lesson: {
     id: 'st-05-correlation', title: 'Correlation: Do Two Things Move Together?', language: 'python', skillId: 'stat.correlation',
@@ -28,9 +28,12 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'st-05-pearson' },
       { kind: 'challenge', challengeId: 'st-05-strongest' },
       { kind: 'challenge', challengeId: 'st-05-strongest-b' },
+      { kind: 'challenge', challengeId: 'st-05-interpret' },
+      { kind: 'challenge', challengeId: 'st-05-interpret-b' },
     ],
   },
   objectives: [
+    { id: 'st-obj-interpret', title: 'Reading a correlation in words', summary: 'Turn r into strength and direction, handling boundaries and undefined values.' },
     { id: 'st-obj-strongest', title: 'Finding the strongest relationship', summary: 'Compare correlations across many measurements and report the strongest pair.' },
   ],
   challenges: [
@@ -67,6 +70,24 @@ export const bundle: LessonBundle = {
         "{'only': [1, 2]}", "{'a': [1, 2, 3, 4, 5, 6], 'b': [2, 1, 2, 1, 2, 1], 'c': [6, 5, 4, 3, 2, 1.5]}",
       ], 2),
       xpReward: 85, coinReward: 12,
+    },
+    {
+      id: 'st-05-interpret', objectiveId: 'st-obj-interpret', title: 'Put Words to the Number', mode: 'challenge', language: 'python', skillIds: ['stat.correlation'], concepts: ['interpreting r'], difficulty: 2, context: 'research',
+      prompt: text('A report generator must describe a correlation `r` in words. Write `describe_r(r)` returning a string `"<strength> <direction>"`: the strength is `"weak"` when `abs(r)` is **below 0.3**, `"moderate"` when it is **below 0.7** and `"strong"` otherwise; the direction is `"positive"` when `r` is above 0, `"negative"` when below 0. When `r` is exactly 0 return `"none"`, and when `r` is `None` (undefined) return `"undefined"`.'),
+      expectedBehavior: 'Strength and direction words; none for 0; undefined for None.',
+      starterCode: 'def describe_r(r):\n    pass\n',
+      hints: ['Handle the special values first.', 'The strength only depends on the size of r, the direction on its sign.', 'A value exactly on a threshold goes to the higher group (check the boundaries given).'],
+      checks: statCalls('describe_r', INTERPRET, ['0.85', '-0.5', '0.1', '0', 'None', '0.3', '0.7', '-0.3', '-0.7', '-0.05', '1', '-1', '0.6999'], 3),
+      xpReward: 50, coinReward: 8,
+    },
+    {
+      id: 'st-05-interpret-b', objectiveId: 'st-obj-interpret', title: 'Explain the Relationship', mode: 'challenge', language: 'python', skillIds: ['stat.correlation'], concepts: ['interpreting r'], difficulty: 2, context: 'engineering',
+      prompt: text('A maintenance tool phrases how two sensors move together. Write `explain_pair(r)` returning `"<strength> <direction>"`: strength is `"weak"` when `abs(r)` is **below 0.3**, `"moderate"` when **below 0.7**, otherwise `"strong"`; direction is `"positive"` for `r` above 0 and `"negative"` for `r` below 0. Return `"none"` when `r` is exactly 0 and `"undefined"` when `r` is `None`.'),
+      expectedBehavior: 'Strength and direction words; none for 0; undefined for None.',
+      starterCode: 'def explain_pair(r):\n    pass\n',
+      hints: ['Special values before the general rule.', 'Split strength from direction.', 'Test the exact values on the boundaries.'],
+      checks: statCalls('explain_pair', INTERPRET, ['0.92', '-0.41', '0.05', '0', 'None', '0.3', '0.7', '-0.3', '-0.7', '-0.29', '0.999', '-0.6999'], 3),
+      xpReward: 50, coinReward: 8,
     },
   ],
 };

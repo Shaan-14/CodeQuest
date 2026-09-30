@@ -36,6 +36,7 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'xl-02-stats-block' },
       { kind: 'challenge', challengeId: 'xl-02-weekly-report' },
       { kind: 'challenge', challengeId: 'xl-02-badge' },
+      { kind: 'challenge', challengeId: 'xl-02-rank-report' },
     ],
   },
   challenges: [
@@ -97,7 +98,7 @@ export const bundle: LessonBundle = {
       xpReward: 65, coinReward: 10,
     },
     {
-      id: 'xl-02-badge-b', objectiveId: 'xl-obj-text', title: 'Product Codes', mode: 'challenge', language: 'sheet', skillIds: ['xl.functions'], concepts: ['TEXT', 'UPPER', 'text join'], difficulty: 3, context: 'retail',
+      id: 'xl-02-badge-b', objectiveId: 'xl-obj-text', title: 'Product Codes', mode: 'challenge', language: 'sheet', skillIds: ['xl.functions'], concepts: ['LEFT', 'UPPER', 'text join'], difficulty: 3, context: 'retail',
       prompt: text('Stock items have a category (A, in any letter case) and a running number (B). Build each product code in column C: the category in capitals, a dash and the number padded to three digits:', '`TOOL-007`', 'Fill C2:C4.'),
       expectedBehavior: 'C2:C4 show codes like TOOL-007.',
       starterCode: '',
@@ -107,6 +108,21 @@ export const bundle: LessonBundle = {
         cells('Codes', { C2: 'TOOL-007', C3: 'PAINT-112', C4: 'GARDEN-045' }),
         cells('Other items', { C2: 'LAMP-001' }, { with: { A2: 'lamp', B2: 1 }, visible: false }),
         isFormula('C2 is a formula', 'C2', 'TEXT|REPT|RIGHT'),
+      ],
+      xpReward: 65, coinReward: 10,
+    },
+    {
+      id: 'xl-02-rank-report', title: 'Leaderboard Facts', mode: 'challenge', language: 'sheet', skillIds: ['xl.functions'], concepts: ['LARGE', 'MEDIAN', 'range'], difficulty: 3, context: 'sports',
+      prompt: text('Column B holds the scores of seven athletes. Fill E2 with the **highest** score, E3 with the **second highest**, E4 with the **median** and E5 with the **spread** (highest minus lowest).'),
+      expectedBehavior: 'E2 highest, E3 second highest, E4 median, E5 highest minus lowest.',
+      starterCode: '',
+      sheet: { start: book(grid('A1', [['Athlete', 'Score', null, 'Fact', 'Value'], ['Ana', 72], ['Ben', 88], ['Caz', 65], ['Dev', 91], ['Eli', 85], ['Fay', 79], ['Gus', 54]])), editable: ['E2:E5'] },
+      hints: ['There is one function for each fact, except one that combines two.', 'A function exists for “the k-th largest”.', 'The middle of the sorted scores has its own function.'],
+      checks: [
+        cells('Leaderboard facts', { E2: 91, E3: 88, E4: 79, E5: 37 }),
+        cells('Other scores', { E2: 70, E3: 60, E4: 40, E5: 60 }, { with: { B2: 10, B3: 20, B4: 30, B5: 40, B6: 50, B7: 60, B8: 70 }, visible: false }),
+        cells('Repeated scores', { E2: 9, E3: 5, E4: 5, E5: 4 }, { with: { B2: 5, B3: 5, B4: 5, B5: 5, B6: 5, B7: 5, B8: 9 }, visible: false }),
+        isFormula('E3 is a formula', 'E3'),
       ],
       xpReward: 65, coinReward: 10,
     },

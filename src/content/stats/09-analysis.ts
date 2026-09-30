@@ -20,9 +20,11 @@ export const bundle: LessonBundle = {
       { kind: 'challenge', challengeId: 'st-09-group-summary' },
       { kind: 'challenge', challengeId: 'st-09-ab-test' },
       { kind: 'challenge', challengeId: 'st-09-machine-study' },
+      { kind: 'challenge', challengeId: 'st-09-outlier-sweep' },
     ],
   },
   objectives: [
+    { id: 'st-obj-report', title: 'Screening a dataset for outliers', summary: 'Group a log by source, apply a fence rule to each group and report counts honestly.' },
     { id: 'st-obj-analysis', title: 'Analyse a two-group study end to end', summary: 'From a raw file to per-group summaries with uncertainty and an honest verdict.' },
   ],
   challenges: [
@@ -74,6 +76,26 @@ export const bundle: LessonBundle = {
         { kind: 'output', name: "A second study", expect: "M1: n=10, mean 49.31 s, range 45.68 to 52.94\nM2: n=10, mean 51.81 s, range 48.02 to 55.60\nVerdict: no clear difference", files: { "timings.csv": "machine,seconds\nM2,42.0\nM2,52.9\nM1,43.4\nM2,50.6\nM1,50.2\nM1,58.7\nM1,50.4\nM2,54.3\nM1,50.8\nM1,41.4\nM1,45.4\nM1,51.2\nM2,52.2\nM2,45.5\nM2,54.2\nM1,43.9\nM2,51.0\nM2,50.1\nM2,65.3\nM1,57.7\n" }, visible: false },
         { kind: 'output', name: "A larger study", expect: "M1: n=20, mean 12.03 s, range 11.17 to 12.89\nM2: n=25, mean 16.57 s, range 16.01 to 17.13\nVerdict: clear difference", files: { "timings.csv": "machine,seconds\nM2,15.0\nM2,15.3\nM1,12.3\nM1,12.4\nM1,13.1\nM1,14.9\nM2,18.5\nM1,10.0\nM1,9.8\nM2,17.3\nM2,18.2\nM1,14.6\nM2,15.2\nM1,9.1\nM2,17.4\nM2,15.8\nM2,20.0\nM2,13.8\nM1,10.5\nM1,12.6\nM1,9.0\nM2,15.9\nM2,15.4\nM2,16.9\nM2,16.4\nM2,17.8\nM1,16.8\nM1,10.2\nM1,12.1\nM2,16.4\nM1,11.9\nM2,16.4\nM1,13.1\nM2,16.2\nM1,12.1\nM2,18.0\nM2,17.2\nM2,17.4\nM2,13.8\nM1,12.4\nM1,11.7\nM1,12.0\nM2,17.3\nM2,16.4\nM2,16.3\n" }, visible: false },
         { kind: 'output', name: "A third study", expect: "M1: n=8, mean 41.11 s, range 39.16 to 43.06\nM2: n=9, mean 40.77 s, range 39.19 to 42.34\nVerdict: no clear difference", files: { "timings.csv": "machine,seconds\nM1,39.2\nM2,39.9\nM1,40.5\nM1,43.0\nM2,39.7\nM2,40.9\nM1,45.7\nM1,39.2\nM2,38.1\nM2,43.2\nM1,37.2\nM1,43.8\nM2,44.4\nM1,40.3\nM2,40.9\nM2,42.8\nM2,37.0\n" }, visible: false },
+      ],
+      xpReward: 170, coinReward: 26,
+    },
+    {
+      id: 'st-09-outlier-sweep', objectiveId: 'st-obj-report', title: 'The Sensor Sweep', mode: 'independent', language: 'python', skillIds: ['stat.analysis', 'stat.spread', 'de.files'], concepts: [], difficulty: 4, transfer: true, context: 'engineering', project: true,
+      prompt: text(
+        'A monitoring log, `sensors.csv`, has the header `sensor,reading`: one row per reading. Screen each sensor for odd readings.',
+        'For each sensor in alphabetical order print `S1: 2 outliers in 11 readings` (use the word `outlier` when the count is exactly 1, otherwise `outliers`), then a last line `Total outliers: N`.',
+        'A reading is an outlier when it lies **below `Q1 − 1.5 × IQR` or above `Q3 + 1.5 × IQR`**, where the quartiles come from a sensor’s own readings: sort them, `Q1` is the median of the lower half, `Q3` the median of the upper half (with an odd count the middle value belongs to neither half). A sensor with **fewer than 4 readings** has no outliers.',
+      ),
+      starterCode: '',
+      hints: [],
+      fixtures: { files: { 'sensors.csv': "sensor,reading\nS3,107.9\nS2,20.2\nS1,51.2\nS2,18.5\nS2,20.2\nS3,98.4\nS3,106.2\nS2,20.0\nS1,45.9\nS3,190.0\nS3,105.9\nS1,44.7\nS1,51.2\nS2,20.5\nS1,50.2\nS2,20.9\nS1,48.8\nS2,19.9\nS3,95.7\nS2,20.3\nS1,95.0\nS3,97.6\nS1,95.0\nS3,98.2\nS3,98.5\nS1,47.2\nS1,50.5\nS2,21.2\nS2,22.4\nS3,91.6\nS2,19.9\nS1,48.1\nS2,20.2\n" } },
+      checks: [
+        { kind: 'output', name: "The example log", expect: "S1: 2 outliers in 11 readings\nS2: 2 outliers in 12 readings\nS3: 1 outlier in 10 readings\nTotal outliers: 5", files: { 'sensors.csv': "sensor,reading\nS3,107.9\nS2,20.2\nS1,51.2\nS2,18.5\nS2,20.2\nS3,98.4\nS3,106.2\nS2,20.0\nS1,45.9\nS3,190.0\nS3,105.9\nS1,44.7\nS1,51.2\nS2,20.5\nS1,50.2\nS2,20.9\nS1,48.8\nS2,19.9\nS3,95.7\nS2,20.3\nS1,95.0\nS3,97.6\nS1,95.0\nS3,98.2\nS3,98.5\nS1,47.2\nS1,50.5\nS2,21.2\nS2,22.4\nS3,91.6\nS2,19.9\nS1,48.1\nS2,20.2\n" }, visible: true },
+        { kind: 'output', name: "Two sensors, none odd", expect: "T-A: 2 outliers in 6 readings\nT-B: 0 outliers in 7 readings\nTotal outliers: 2", files: { 'sensors.csv': "sensor,reading\nT-B,208.9\nT-B,209.9\nT-A,10.3\nT-A,9.7\nT-B,189.7\nT-A,10.8\nT-A,10.4\nT-B,187.4\nT-A,10.4\nT-A,10.2\nT-B,224.4\nT-B,191.8\nT-B,205.8\n" }, visible: false },
+        { kind: 'output', name: "Short series", expect: "P1: 0 outliers in 4 readings\nP2: 1 outlier in 8 readings\nP3: 0 outliers in 6 readings\nP4: 0 outliers in 5 readings\nTotal outliers: 1", files: { 'sensors.csv': "sensor,reading\nP2,13.6\nP2,15.1\nP2,28.5\nP2,15.3\nP4,0.6\nP3,27.7\nP2,17.5\nP1,4.9\nP2,14.5\nP3,27.6\nP4,3.8\nP1,4.9\nP2,15.0\nP1,5.2\nP4,2.2\nP3,29.3\nP4,2.0\nP3,29.4\nP3,30.5\nP4,2.1\nP3,28.0\nP2,15.2\nP1,4.9\n" }, visible: false },
+        { kind: 'output', name: 'Values sitting on the fences', expect: "B1: 0 outliers in 7 readings\nB2: 1 outlier in 10 readings\nB3: 1 outlier in 10 readings\nB4: 0 outliers in 3 readings\nTotal outliers: 2", files: { 'sensors.csv': "sensor,reading\nB3,5\nB3,4\nB2,3\nB2,8\nB2,4\nB1,15\nB1,10\nB3,4\nB1,7\nB2,6\nB2,7\nB2,100\nB4,1\nB3,4\nB1,12\nB4,1000\nB2,2\nB3,4\nB1,10\nB3,4\nB1,11\nB4,100\nB3,4\nB2,9\nB3,4\nB2,5\nB1,12\nB3,4\nB3,4\nB2,1\n" }, visible: false },
+        { kind: 'output', name: 'Quartiles with an even count', expect: "C1: 0 outliers in 10 readings\nC2: 0 outliers in 3 readings\nTotal outliers: 0", files: { 'sensors.csv': "sensor,reading\nC1,16\nC1,24\nC2,2\nC2,1\nC2,3\nC1,12\nC1,27\nC1,29\nC1,6\nC1,33\nC1,26\nC1,24\nC1,36\n" }, visible: false },
+        { kind: 'output', name: "One busy sensor", expect: "K1: 3 outliers in 14 readings\nTotal outliers: 3", files: { 'sensors.csv': "sensor,reading\nK1,76.6\nK1,80.7\nK1,86.0\nK1,22.5\nK1,72.2\nK1,75.6\nK1,79.2\nK1,142.5\nK1,73.4\nK1,75.2\nK1,22.5\nK1,79.7\nK1,70.8\nK1,73.0\n" }, visible: false },
       ],
       xpReward: 170, coinReward: 26,
     },

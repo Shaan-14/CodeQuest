@@ -189,4 +189,13 @@ export const sheetSolutions: Record<string, { valid: SheetSolution[]; wrong: She
       { cells: { ...rows('Sheet1!D', 2, 6, (r) => `=IFERROR(VLOOKUP(B${r},Rates!$A$2:$B$5,2,FALSE),0)*C${r}*(1-$G$5)`), 'Sheet1!G1': '=SUM(D2:D6)', 'Sheet1!G2': '=COUNTIF(C2:C6,">="&G4)' } },
     ],
   },
+
+  'xl-01-margin': {
+    valid: [{ cells: { ...rows('D', 2, 4, (r) => `=C${r}-B${r}`), ...rows('E', 2, 4, (r) => `=D${r}/C${r}`) } }, { cells: { ...rows('D', 2, 4, (r) => `=C${r}-B${r}`), ...rows('E', 2, 4, (r) => `=(C${r}-B${r})/C${r}`) } }],
+    wrong: [{ cells: { ...rows('D', 2, 4, (r) => `=C${r}-B${r}`), ...rows('E', 2, 4, (r) => `=D${r}/B${r}`) } }, { cells: { ...rows('D', 2, 4, (r) => `=B${r}-C${r}`), ...rows('E', 2, 4, (r) => `=D${r}/C${r}`) } }, { cells: { D2: 4, E2: 0.4, D3: 5, E3: 0.25, D4: 0, E4: 0 } }, { cells: { ...rows('D', 2, 4, (r) => `=C${r}-B${r}`), ...rows('E', 2, 4, (r) => `=D${r}/C${r}*100`) } }],
+  },
+  'xl-02-rank-report': {
+    valid: [{ cells: { E2: '=MAX(B2:B8)', E3: '=LARGE(B2:B8,2)', E4: '=MEDIAN(B2:B8)', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }, { cells: { E2: '=LARGE(B2:B8,1)', E3: '=LARGE(B2:B8,2)', E4: '=MEDIAN(B2:B8)', E5: '=E2-SMALL(B2:B8,1)' } }],
+    wrong: [{ cells: { E2: '=MAX(B2:B8)', E3: '=SMALL(B2:B8,2)', E4: '=MEDIAN(B2:B8)', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }, { cells: { E2: '=MAX(B2:B8)', E3: '=LARGE(B2:B8,2)', E4: '=AVERAGE(B2:B8)', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }, { cells: { E2: '=MAX(B2:B8)', E3: '=LARGE(B2:B8,2)', E4: '=MEDIAN(B2:B8)', E5: '=MAX(B2:B8)' } }, { cells: { E2: 91, E3: 88, E4: 79, E5: 37 } }, { cells: { E2: '=MAX(B2:B8)', E3: '=MAX(B2:B8)-MIN(B2:B8)', E4: '=MEDIAN(B2:B8)', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }, { cells: { E2: '=MAX(B2:B8)', E3: '=LARGE(B2:B8,2)', E4: '=B5', E5: '=MAX(B2:B8)-MIN(B2:B8)' } }],
+  },
 };
