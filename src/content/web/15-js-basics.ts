@@ -5,7 +5,7 @@ import { files, jsCalls, logs, wc, web, webDemo } from './helpers';
 export const bundle: LessonBundle = {
   lesson: {
     id: 'web-15-js-basics', title: 'JavaScript Basics in the Browser', language: 'web', skillId: 'js.basics',
-    blurb: 'Values, variables, conditions, loops and functions: the JavaScript you already know from Python, in the browser.', prerequisites: ['web-14-independent-css'], xpReward: 60,
+    blurb: 'Values, variables, conditions, loops and functions: JavaScript from the first line: no other language needed.', prerequisites: [], xpReward: 60,
     reference: {
       title: 'JavaScript fundamentals',
       body: text(
@@ -15,7 +15,7 @@ export const bundle: LessonBundle = {
       example: 'function parcelClass(weight) {\n  if (weight >= 30) return "freight";\n  return weight >= 5 ? "standard" : "letter";\n}\nconsole.log(parcelClass(12));',
     },
     steps: [
-      { kind: 'teach', title: 'You already know this (mostly)', body: text('If you have written Python, you already understand variables, conditions, loops and functions. JavaScript has the same ideas with different punctuation: braces instead of indentation, `===` instead of `==`, `const`/`let` instead of bare names, and `console.log` instead of `print`. The new part is *where it runs*: inside a web page, next to the HTML and CSS you have written.', 'In this lesson the “page” is just a place to run code and see `console.log` output in the console. From the next lessons it will change the page itself.') },
+      { kind: 'teach', title: 'Programming in JavaScript', body: text('Programs are built from a few ideas: values held in variables, decisions, loops and functions. This lesson introduces each one in JavaScript. (If you have written Python the ideas are the same; only the punctuation changes: braces instead of indentation, `===` instead of `==`, `const`/`let` instead of bare names, and `console.log` instead of `print`.) The new part is *where it runs*: inside a web page, next to the HTML and CSS.', 'In this lesson the “page” is just a place to run code and see `console.log` output in the console. From the next lessons it will change the page itself.') },
       webDemo({
         title: 'Your first script',
         body: text('Run it and read the console. Then change the `weight`, run again, and predict the output before you run.'),

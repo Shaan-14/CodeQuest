@@ -1,6 +1,7 @@
 import { areas } from '../content/world';
 import type { Area, Quest } from '../content/schema';
 import type { SaveData } from '../core/save';
+import { gapsFor } from './graph';
 
 export function isAreaUnlocked(area: Area, save: SaveData): boolean {
   const rule = area.lock;
@@ -13,6 +14,10 @@ export function isAreaUnlocked(area: Area, save: SaveData): boolean {
       return save.quests[rule.questId]?.status === 'complete';
     case 'lesson':
       return !!save.learning.lessons[rule.lessonId]?.completed;
+    case 'lessonsCompleted':
+      return Object.values(save.learning.lessons).filter((l) => l.completed).length >= rule.count;
+    case 'skills':
+      return gapsFor(save, rule.requires).length === 0;
     case 'future':
       return false;
   }

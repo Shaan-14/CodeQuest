@@ -14,7 +14,7 @@ const structure = (h1: string, sections: string[]) => [
 export const bundle: LessonBundle = {
   lesson: {
     id: 'web-01-html-basics', title: 'Your First Web Page', language: 'web', skillId: 'web.html',
-    blurb: 'What HTML is, how a document is structured, and headings and paragraphs.', prerequisites: ['py-13-wake-robot'], xpReward: 45,
+    blurb: 'What HTML is, how a document is structured, and headings and paragraphs.', prerequisites: [], xpReward: 45,
     reference: {
       title: 'HTML document structure',
       body: text(

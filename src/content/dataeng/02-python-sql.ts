@@ -25,7 +25,7 @@ const common = { language: 'python' as const, difficulty: 3 as const, project: t
 export const bundle: LessonBundle = {
   lesson: {
     id: 'de-02-python-sql', title: 'Python Meets the Database', language: 'python', skillId: 'de.integration',
-    blurb: 'Query a real database from Python safely, then finish the analysis where SQL stops.', prerequisites: ['de-01-pipelines'], xpReward: 70,
+    blurb: 'Query a real database from Python safely, then finish the analysis where SQL stops.', prerequisites: ['de-01-pipelines'], requires: [{ skill: 'py.loops', level: 'developing' }, { skill: 'py.dicts', level: 'developing' }, { skill: 'sql.select' }, { skill: 'sql.joins' }, { skill: 'sql.aggregate' }], xpReward: 70,
     reference: {
       title: 'Python + SQLite',
       body: text(

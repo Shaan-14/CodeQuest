@@ -34,7 +34,7 @@ const common = { language: 'python' as const, difficulty: 3 as const, project: t
 export const bundle: LessonBundle = {
   lesson: {
     id: 'de-01-pipelines', title: 'Pipelines That Do Not Break', language: 'python', skillId: 'de.pipelines',
-    blurb: 'Ingest, validate, clean, load: how data moves reliably from a raw file into a database.', prerequisites: ['sql-13-integrity-performance', 'py-21-cleaning'], xpReward: 70,
+    blurb: 'Ingest, validate, clean, load: how data moves reliably from a raw file into a database.', prerequisites: [], requires: [{ skill: 'py.functions' }, { skill: 'py.dicts' }, { skill: 'de.files' }, { skill: 'de.cleaning' }, { skill: 'sql.aggregate' }, { skill: 'db.design' }], xpReward: 70,
     reference: {
       title: 'Data pipelines',
       body: text(

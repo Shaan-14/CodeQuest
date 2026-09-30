@@ -8,7 +8,7 @@ const NASTY = '<b>bold</b><img src=x onerror=alert(1)>';
 export const bundle: LessonBundle = {
   lesson: {
     id: 'web-18-dom', title: 'The DOM: Changing the Page with JavaScript', language: 'web', skillId: 'js.dom',
-    blurb: 'Select elements, change text, attributes and classes, and build lists from data (safely).', prerequisites: ['web-17-js-errors'], xpReward: 65,
+    blurb: 'Select elements, change text, attributes and classes, and build lists from data (safely).', prerequisites: ['web-17-js-errors'], requires: [{ skill: 'web.html' }, { skill: 'web.css' }], xpReward: 65,
     reference: {
       title: 'The DOM',
       body: text(

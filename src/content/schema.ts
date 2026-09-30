@@ -302,6 +302,16 @@ export interface Challenge {
   transfer?: boolean;
   /** Generic real-world context, e.g. 'engineering', 'finance'. For content-variety auditing. */
   context?: string;
+  /**
+   * Competencies needed before this challenge may be attempted outside its lesson (Practice, Daily, Training).
+   * Default: every skill in `skillIds` at 'introduced'. Only set it when that default is wrong.
+   */
+  requires?: SkillReq[];
+  /**
+   * PHASE 6 BOUNDARY: what this challenge does in the game WORLD when it is passed (a robot repair, a spell, a lineup).
+   * Phase 5 only records these as `worldEffect` events (see game/worldEvents.ts); nothing draws them yet.
+   */
+  worldEffects?: WorldEffect[];
   /** Present only on challenges authored for the Daily Challenge. */
   daily?: DailyMeta;
   /** Optional diagnostic metadata (see ChallengeDiagnostics). */
@@ -311,6 +321,17 @@ export interface Challenge {
   /** Present only on problems authored for TRAINING (content/training/): which skills they train and their role in a plan. */
   training?: { skills: string[]; role: 'practice' | 'proof'; requires: string[] };
 }
+
+/**
+ * SKILL GRAPH. How much of a skill the player has SHOWN (game/graph.ts derives it from evidence, never from XP):
+ *  introduced   - passed something on it (even guided) or completed the lesson that teaches it
+ *  developing   - at least one independent (hint-free) pass
+ *  demonstrated - the skill's full mastery requirements are met (see Skill.masteryRequirements)
+ */
+export type Competency = 'none' | 'introduced' | 'developing' | 'demonstrated';
+
+/** One prerequisite: a skill at a level (default 'introduced'), a composite competency, or a passed objective. */
+export type SkillReq = { skill: string; level?: Competency } | { composite: string; level?: Competency } | { objective: string };
 
 export interface TeachStep {
   kind: 'teach';
@@ -356,8 +377,10 @@ export interface Lesson {
   blurb: string;
   language: Language;
   skillId: string;
-  /** Lesson ids that must be completed first. */
+  /** Lesson ids of the SAME learning world that must be completed first (the world's own progression graph). */
   prerequisites: string[];
+  /** Competencies from ANY world that must be shown first (cross-world prerequisites); see game/graph.ts. */
+  requires?: SkillReq[];
   steps: LessonStep[];
   /** XP for finishing the lesson's explanatory steps. Challenges award their own XP. */
   xpReward: number;
@@ -398,7 +421,17 @@ export type LockRule =
   | { type: 'questAccepted'; questId: string; reason: string }
   | { type: 'questComplete'; questId: string; reason: string }
   | { type: 'lesson'; lessonId: string; reason: string }
+  | { type: 'lessonsCompleted'; count: number; reason: string }
+  | { type: 'skills'; requires: SkillReq[]; reason: string }
   | { type: 'future'; phase: number; reason: string };
+
+/** An event the game WORLD can react to (Phase 6). `target` names an object in the world, `action` what happens to it. */
+export interface WorldEffect {
+  target: string;
+  action: string;
+  /** Optional data the animation/scene needs (amounts, names). */
+  detail?: Record<string, string | number | boolean>;
+}
 
 export interface Area {
   id: AreaId;

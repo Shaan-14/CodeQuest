@@ -10,8 +10,11 @@
  */
 import type { Check, Constraint, Fixtures, Json } from '../content/schema';
 
-/** 'web' = an HTML + CSS + JavaScript project run in the sandboxed browser page (learning/web). */
-export type Language = 'javascript' | 'python' | 'sql' | 'r' | 'html-css' | 'web';
+/**
+ * 'web' = an HTML + CSS + JavaScript project run in the sandboxed browser page (learning/web).
+ * 'r' = real R (webR, learning/r). 'sheet' = the spreadsheet engine (learning/sheet). 'git' = the Git simulator (learning/git).
+ */
+export type Language = 'javascript' | 'python' | 'sql' | 'r' | 'html-css' | 'web' | 'sheet' | 'git';
 
 export interface RunRequest {
   language: Language;

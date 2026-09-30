@@ -4,6 +4,7 @@ import { quests } from '../../content/world';
 import { acceptQuest, setFlag } from '../../game/actions';
 import { useGame, getStore } from '../../game/store';
 import { DailyCard } from '../components/DailyCard';
+import { WorldChooser } from '../components/WorldChooser';
 import { QuestOffers } from '../components/NpcCards';
 
 function Juno() {
@@ -23,7 +24,7 @@ function Juno() {
   );
 }
 
-export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') => void; onDaily: () => void }) {
+export function Academy({ onGo, onDaily }: { onGo: (route: 'map' | string) => void; onDaily: () => void }) {
   const game = useGame();
   const { save } = game;
   const name = save.player?.name ?? 'Adventurer';
@@ -36,7 +37,6 @@ export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') =>
     let r = setFlag(save, 'mentor-intro');
     game.apply(r);
     game.apply(acceptQuest(getStore().save, quest.id));
-    onGo('grounds');
   };
 
   return (
@@ -53,7 +53,7 @@ export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') =>
                 {line < lines.length - 1 ? (
                   <button class="btn primary" onClick={() => setLine(line + 1)} data-testid="dialogue-next">Continue ({line + 1}/{lines.length})</button>
                 ) : (
-                  <button class="btn primary" onClick={finishIntro} data-testid="accept-quest">I’ll wake Bolt-7!</button>
+                  <button class="btn primary" onClick={finishIntro} data-testid="accept-quest">I’m ready to explore!</button>
                 )}
               </div>
             </div>
@@ -69,6 +69,7 @@ export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') =>
             </div>
             <DailyCard onStart={onDaily} compact />
             <QuestOffers giver="Mentor Juno" exclude={[quest.id]} />
+            <WorldChooser onEnter={(areaId) => onGo(areaId)} />
             <div>
               <section class="panel">
                 <h2>📜 Quest board</h2>
@@ -77,7 +78,7 @@ export function Academy({ onGo, onDaily }: { onGo: (route: 'grounds' | 'map') =>
                   <span class={`chip ${save.quests[quest.id]?.status ?? 'none'}`}>{save.quests[quest.id]?.status === 'complete' ? 'Complete' : save.quests[quest.id] ? 'In progress' : 'Available'}</span>
                 </div>
                 <p class="muted">{quest.summary}</p>
-                <button class="btn" onClick={() => onGo('grounds')}>Go to the Programming Hall →</button>
+                <button class="btn" onClick={() => onGo('training-grounds')}>Go to the Programming Hall →</button>
               </section>
             </div>
           </>

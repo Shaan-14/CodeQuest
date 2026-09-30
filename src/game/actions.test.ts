@@ -11,6 +11,15 @@ import { levelFromXp } from './progression';
 
 const started = () => A.createPlayer(newSave(), '  Ada  ', 'wizard').save;
 const area = (id: string) => areas.find((a) => a.id === id)!;
+/** A player who has worked through the Python lessons in order up to lesson 6 (the skill gate refuses anything else). */
+const atLesson6 = (): SaveData => {
+  let s = started();
+  for (const l of lessons) { if (l.id === 'py-06-input-conversion') break; s = A.completeLesson(s, l.id).save; }
+  s.stats.xp = 0; // the earlier lessons paid XP; these tests are about what ONE challenge pays
+  s.stats.coins = 0;
+  s.achievements = {};
+  return s;
+};
 
 describe('player creation', () => {
   it('creates a trimmed profile and unlocks the academy', () => {
@@ -26,17 +35,13 @@ describe('player creation', () => {
 });
 
 describe('quest and areas', () => {
-  it('locks Training Grounds until the quest is accepted', () => {
-    let s = started();
-    expect(isAreaUnlocked(area('training-grounds'), s)).toBe(false);
-    s = A.acceptQuest(s, 'wake-the-robot').save;
-    expect(isAreaUnlocked(area('training-grounds'), s)).toBe(true);
-    expect(s.unlockedAreas).toContain('training-grounds');
+  it('opens every foundation world from the very start: no quest or other world comes first', () => {
+    const s = started();
+    for (const id of ['training-grounds', 'data-center', 'web-district', 'r-lab', 'spreadsheet-guild', 'version-vault']) expect(isAreaUnlocked(area(id), s), id).toBe(true);
   });
-  it('keeps future areas locked, even after finishing everything', () => {
-    let s = A.acceptQuest(started(), 'wake-the-robot').save;
-    for (const l of lessons) s = A.completeLesson(s, l.id).save;
-    for (const id of ['observatory']) expect(isAreaUnlocked(area(id), s)).toBe(false);
+  it('worlds that combine others open on demonstrated skills, not on a fixed order', () => {
+    const s = started();
+    for (const id of ['pipeline-works', 'observatory']) expect(isAreaUnlocked(area(id), s), id).toBe(false);
   });
   it('unlocks Library and Shop through lessons', () => {
     let s = A.acceptQuest(started(), 'wake-the-robot').save;
@@ -66,20 +71,20 @@ describe('quest and areas', () => {
 describe('challenge submission, evidence and rewards', () => {
   const id = 'py-06-ticket-total'; // challenge mode, xp 45, coins 8
   it('records failed attempts as evidence and costs focus', () => {
-    const r = A.submitChallenge(started(), id, false, 5000, 'x');
+    const r = A.submitChallenge(atLesson6(), id, false, 5000, 'x');
     expect(r.save.evidence).toHaveLength(1);
     expect(r.save.evidence[0]).toMatchObject({ passed: false, attemptNumber: 1, executed: true, support: 'independent' });
     expect(r.save.stats.xp).toBe(0);
     expect(r.save.stats.focus).toBe(MAX_FOCUS - FAILURE_LEVELS[1].loss); // a small task costs a small setback
   });
   it('pays an independence bonus, and records support level', () => {
-    const r = A.submitChallenge(started(), id, true, 1000, 'x');
+    const r = A.submitChallenge(atLesson6(), id, true, 1000, 'x');
     expect(r.save.stats.xp).toBe(56); // round(45 * 1.25)
     expect(r.save.evidence[0]!.support).toBe('independent');
     expect(r.save.learning.challenges[id]!.passed).toBe(true);
   });
   it('pays less when hints were used, and records them', () => {
-    let s = started();
+    let s = atLesson6();
     s = A.revealHint(s, id).save;
     s = A.revealHint(s, id).save;
     s = A.submitChallenge(s, id, true, 1000, 'x').save;
@@ -87,14 +92,14 @@ describe('challenge submission, evidence and rewards', () => {
     expect(s.evidence[0]).toMatchObject({ support: 'hinted', hintsUsed: 2 });
   });
   it('does not pay again for a repeat solve', () => {
-    let s = A.submitChallenge(started(), id, true, 1, 'x').save;
+    let s = A.submitChallenge(atLesson6(), id, true, 1, 'x').save;
     const xp = s.stats.xp;
     s = A.submitChallenge(s, id, true, 1, 'x').save;
     expect(s.stats.xp).toBe(xp);
     expect(s.evidence).toHaveLength(2);
   });
   it('pays only the difference for a hint-free replay, and records the stronger evidence', () => {
-    let s = A.revealHint(started(), id).save;
+    let s = A.revealHint(atLesson6(), id).save;
     s = A.submitChallenge(s, id, true, 1, 'x', { source: 'practice' }).save;
     const first = s.stats.xp; // round(45 * 0.8) = 36
     expect(first).toBe(36);
@@ -107,14 +112,14 @@ describe('challenge submission, evidence and rewards', () => {
     expect(s.evidence.at(-1)!.support).toBe('independent');
   });
   it('caps hints at the number authored and never in independent mode', () => {
-    let s = started();
+    let s = atLesson6();
     for (let i = 0; i < 10; i++) s = A.revealHint(s, id).save;
     expect(s.learning.challenges[id]!.hintsUsed).toBe(3);
     s = A.revealHint(s, 'py-14-warehouse-audit').save;
     expect(s.learning.challenges['py-14-warehouse-audit']?.hintsUsed ?? 0).toBe(0);
   });
   it('levels up from XP and emits an event', () => {
-    let s = started();
+    let s = atLesson6();
     let leveled = false;
     for (const l of lessons) {
       for (const st of l.steps) {
@@ -133,7 +138,7 @@ describe('challenge submission, evidence and rewards', () => {
     expect(s.evidence).toHaveLength(0);
   });
   it('unlocks achievements', () => {
-    let s = A.recordRun(started()).save;
+    let s = A.recordRun(atLesson6()).save;
     expect(s.achievements['first-run']).toBeDefined();
     s = A.submitChallenge(s, id, true, 1, 'x').save;
     expect(s.achievements['first-pass']).toBeDefined();
@@ -177,26 +182,25 @@ describe('reset', () => {
   });
 
   describe('Phase 2 world and story', () => {
-    it('opens the Database District after Messy Data, and the Pipeline Works after Safe and Fast', () => {
-      let s = A.acceptQuest(started(), 'wake-the-robot').save;
-      expect(isAreaUnlocked(area('data-center'), s)).toBe(false);
+    it('opens the Pipeline Works only when BOTH the Python and the SQL skills it combines have been shown', () => {
+      let s = started();
+      expect(isAreaUnlocked(area('data-center'), s)).toBe(true); // SQL is a foundation: no Python needed
       expect(isAreaUnlocked(area('pipeline-works'), s)).toBe(false);
-      s = A.completeLesson(s, 'py-21-cleaning').save;
-      expect(isAreaUnlocked(area('data-center'), s)).toBe(true);
-      expect(isAreaUnlocked(area('pipeline-works'), s)).toBe(false);
-      s = A.completeLesson(s, 'sql-13-integrity-performance').save;
+      for (const l of lessons) { if (l.id.startsWith('py-') && l.id <= 'py-21-cleaning') s = A.completeLesson(s, l.id).save; }
+      expect(isAreaUnlocked(area('pipeline-works'), s)).toBe(false); // Python alone is not enough
+      for (const l of lessons) { if (l.id.startsWith('sql-') && ['sql-01-select', 'sql-02-sort-limit', 'sql-03-null', 'sql-04-aggregates', 'sql-05-group', 'sql-06-joins', 'sql-07-left-join', 'sql-08-case', 'sql-09-modify', 'sql-10-subqueries', 'sql-11-window', 'sql-12-design'].includes(l.id)) s = A.completeLesson(s, l.id).save; }
       expect(isAreaUnlocked(area('pipeline-works'), s)).toBe(true);
     });
     it('offers story quests in order and completes each exactly once with its reward', () => {
       let s = started();
       const ledger = quests.find((q) => q.id === 'ledger-vault')!;
       const district = quests.find((q) => q.id === 'database-district')!;
-      expect(questOffered(ledger, s)).toBe(false);
+      expect(questOffered(ledger, s)).toBe(false); // the second Python quest follows the first...
+      expect(questOffered(district, s)).toBe(true); // ...but the SQL story starts on its own: worlds are independent
       s = A.acceptQuest(s, 'wake-the-robot').save;
       for (const o of quests[0]!.objectives) s = A.completeLesson(s, o.lessonId).save;
       expect(s.quests['wake-the-robot']?.status).toBe('complete');
       expect(questOffered(ledger, s)).toBe(true);
-      expect(questOffered(district, s)).toBe(false);
       s = A.acceptQuest(s, ledger.id).save;
       for (const o of ledger.objectives) s = A.completeLesson(s, o.lessonId).save;
       expect(s.quests[ledger.id]?.status).toBe('complete');

@@ -3,7 +3,7 @@
  * The input save is never mutated. The store (store.ts) persists the result and shows the events.
  * Keeping this free of UI and storage makes the rules (XP, unlocks, evidence) unit-testable.
  */
-import { getChallenge, getLesson } from '../content';
+import { getChallenge, getLesson, lessonOfChallenge } from '../content';
 import { items, quests } from '../content/world';
 import { areas } from '../content/world';
 import { newSave, type ChallengeProgress, type SaveData } from '../core/save';
@@ -14,6 +14,7 @@ import { isAreaUnlocked } from './world';
 import { buildEvidence, failuresSinceLastPass } from './evidence';
 import { applyDiagnosis } from './weakness';
 import { ensureRequiredPlan, requiredTraining, returnToFor } from './training';
+import { lessonAccess } from './graph';
 import { FAILURE_LEVELS, HINTED_PASS_LOSS, failureLevelOf, focusReady, loseFocus } from './focus';
 import { resolveOnPass } from './weakness';
 import type { EvidenceSource, FailureDetail } from '../learning/mastery';
@@ -152,6 +153,9 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   // THE FOCUS GATE (enforced here, not only in the UI): below 100 Focus the player is not ready to attempt anything graded.
   // Required training holds the curriculum too: the two always agree (training is what restores Focus).
   if (!focusReady(s) || requiredTraining(s)) return { save: s, events };
+  // THE SKILL GATE: a lesson's challenges cannot be attempted until its prerequisites are shown (also enforced here, not only in the UI).
+  const owner = (opts.source ?? 'lesson') === 'lesson' ? lessonOfChallenge(challengeId) : undefined;
+  if (owner && !s.learning.lessons[owner.id]?.completed && !lessonAccess(s, owner).open) return { save: s, events };
   const p = progressFor(s, challengeId);
   p.attempts++;
   p.timeMs += timeMs;
@@ -192,6 +196,8 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
 export function advanceStep(save: SaveData, lessonId: string, stepIndex: number): Result {
   const { s, events } = draft(save);
   if (requiredTraining(s)) return { save: s, events };
+  const target = getLesson(lessonId);
+  if (target && !s.learning.lessons[lessonId]?.completed && !lessonAccess(s, target).open) return { save: s, events };
   const lp = (s.learning.lessons[lessonId] ??= { stepIndex: 0, completed: false });
   lp.stepIndex = Math.max(lp.stepIndex, stepIndex);
   return { save: s, events };
@@ -203,7 +209,7 @@ export function completeLesson(save: SaveData, lessonId: string): Result {
   const lesson = getLesson(lessonId);
   if (!lesson) return { save: s, events };
   // Required training holds every lesson's completion until it is done (rule enforced here, not only in the UI).
-  if (!s.learning.lessons[lessonId]?.completed && requiredTraining(s)) return { save: s, events };
+  if (!s.learning.lessons[lessonId]?.completed && (requiredTraining(s) || !lessonAccess(s, lesson).open)) return { save: s, events };
   const lp = (s.learning.lessons[lessonId] ??= { stepIndex: 0, completed: false });
   if (!lp.completed) {
     lp.completed = true;

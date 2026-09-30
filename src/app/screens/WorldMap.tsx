@@ -3,6 +3,9 @@ import { useGame } from '../../game/store';
 import { requiredTraining } from '../../game/training';
 import { areaIsFuture, isAreaUnlocked } from '../../game/world';
 import { Avatar } from '../components/Avatar';
+import { worldOfArea } from '../../content/worlds';
+import { lessons } from '../../content';
+import { trackOf } from '../../game/lessons';
 
 export function WorldMap({ current, onOpen }: { current: string; onOpen: (areaId: string) => void }) {
   const { save } = useGame();
@@ -21,9 +24,13 @@ export function WorldMap({ current, onOpen }: { current: string; onOpen: (areaId
         </svg>
         {areas.map((a) => {
           const open = isAreaUnlocked(a, save);
+          const w = worldOfArea(a.id);
+          const started = !!w && lessons.some((l) => trackOf(l) === w.track && (save.learning.lessons[l.id]?.stepIndex ?? 0) > 0);
+          const gated = !open && a.lock.type === 'skills';
+          const startHere = open && !!w?.foundation && !started;
           return (
-            <button key={a.id} class={`pin theme-${a.theme} ${open ? 'open' : 'locked'} ${areaIsFuture(a) ? 'future' : ''} ${a.id === 'training-yard' && required ? 'required' : ''}`} style={{ left: `${a.pos.x}%`, top: `${a.pos.y}%` }} onClick={() => onOpen(a.id)} data-testid={`area-${a.id}`} aria-label={`${a.name}${open ? '' : ' (locked)'}`}>
-              <span class="pin-icon">{open ? a.icon : '🔒'}</span>
+            <button key={a.id} class={`pin theme-${a.theme} ${open ? 'open' : gated ? 'needs-skills' : 'locked'} ${startHere ? 'start-here' : ''} ${areaIsFuture(a) ? 'future' : ''} ${a.id === 'training-yard' && required ? 'required' : ''}`} style={{ left: `${a.pos.x}%`, top: `${a.pos.y}%` }} onClick={() => onOpen(a.id)} data-testid={`area-${a.id}`} aria-label={`${a.name}${open ? '' : gated ? ' (needs skills)' : ' (locked)'}`}>
+              <span class="pin-icon">{open || gated ? a.icon : '🔒'}</span>
               <span class="pin-label">{a.name}{a.id === 'training-yard' && required ? ' (needed)' : ''}</span>
             </button>
           );
@@ -34,7 +41,7 @@ export function WorldMap({ current, onOpen }: { current: string; onOpen: (areaId
           </div>
         )}
       </div>
-      <p class="muted center">Locked places open as you progress or in future updates. Select any place to visit it.</p>
+      <p class="muted center">Worlds marked “start here” are open to everyone: begin anywhere and move between them freely. Places that combine worlds tell you exactly which skills they need.</p>
     </main>
   );
 }

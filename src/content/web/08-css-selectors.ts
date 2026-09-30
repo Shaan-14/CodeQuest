@@ -12,7 +12,7 @@ const bg = (sel: string, hex: string) => is(sel, 'background-color', rgb(hex));
 export const bundle: LessonBundle = {
   lesson: {
     id: 'web-08-css-selectors', title: 'Styling: Selectors and the Cascade', language: 'web', skillId: 'web.css',
-    blurb: 'CSS rules, selectors, specificity, inheritance, colour and typography.', prerequisites: ['web-07-independent-html'], xpReward: 55,
+    blurb: 'CSS rules, selectors, specificity, inheritance, colour and typography.', prerequisites: ['web-01-html-basics'], xpReward: 55,
     reference: {
       title: 'CSS selectors, cascade and typography',
       body: text(

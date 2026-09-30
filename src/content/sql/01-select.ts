@@ -6,7 +6,7 @@ const START = '-- Write your query below\n';
 export const bundle: LessonBundle = {
   lesson: {
     id: 'sql-01-select', title: 'Asking the Database', language: 'sql', skillId: 'sql.select',
-    blurb: 'Tables, rows and columns; SELECT, FROM, WHERE with AND, OR, NOT and IN.', prerequisites: ['py-21-cleaning'], xpReward: 45,
+    blurb: 'Tables, rows and columns; SELECT, FROM, WHERE with AND, OR, NOT and IN.', prerequisites: [], xpReward: 45,
     reference: {
       title: 'SELECT and WHERE',
       body: text(

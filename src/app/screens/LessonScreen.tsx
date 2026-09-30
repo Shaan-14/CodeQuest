@@ -4,6 +4,8 @@ import { objectiveOf } from '../../content/helpers';
 import { hasAlternate, pickVariant } from '../../game/selection';
 import { advanceStep, completeLesson } from '../../game/actions';
 import { requiredTraining } from '../../game/training';
+import { lessonAccess } from '../../game/graph';
+import { PrerequisitePanel } from '../components/PrerequisitePanel';
 import { describeReturn } from './TrainingRun';
 import { DiagnosisCard } from '../components/DiagnosisCard';
 import { getStore, useGame } from '../../game/store';
@@ -16,6 +18,7 @@ interface Props {
   onExit: () => void;
   onGoAcademy: () => void;
   onGoTraining: () => void;
+  onOpenLesson?: (lessonId: string) => void;
 }
 
 /**
@@ -52,10 +55,11 @@ function ChallengeSlot({ primaryId, onReady, onGoAcademy, onGoTraining }: { prim
   );
 }
 
-export function LessonScreen({ lessonId, onExit, onGoAcademy, onGoTraining }: Props) {
+export function LessonScreen({ lessonId, onExit, onGoAcademy, onGoTraining, onOpenLesson }: Props) {
   const game = useGame();
   const lesson = getLesson(lessonId)!;
   const completed = !!game.save.learning.lessons[lessonId]?.completed;
+  const access = lessonAccess(game.save, lesson);
   const [index, setIndex] = useState(() => (completed ? 0 : Math.min(game.save.learning.lessons[lessonId]?.stepIndex ?? 0, lesson.steps.length - 1)));
   const [ready, setReady] = useState<Record<number, boolean>>({});
   const step = lesson.steps[index]!;
@@ -78,6 +82,15 @@ export function LessonScreen({ lessonId, onExit, onGoAcademy, onGoTraining }: Pr
   };
   const markReady = () => setReady((r) => (r[index] ? r : { ...r, [index]: true }));
 
+  // A lesson whose prerequisites are not shown yet explains exactly what is missing (and where to learn it) instead of opening.
+  if (!access.open && !completed) {
+    return (
+      <main class="lesson" data-testid="lesson-gated">
+        <div class="lesson-head"><button class="btn small ghost" onClick={onExit}>← Back</button><h1>{lesson.title}</h1></div>
+        <PrerequisitePanel title={lesson.title} reqs={lesson.requires} prerequisiteLessons={lesson.prerequisites} onOpenLesson={onOpenLesson ?? onExit} onBack={onExit} />
+      </main>
+    );
+  }
   return (
     <main class="lesson" data-testid="lesson">
       <div class="lesson-head">

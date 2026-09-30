@@ -1,13 +1,16 @@
-import { lessons } from '../content';
+import { lessonOfChallenge, lessons } from '../content';
 import type { Lesson } from '../content/schema';
 import type { SaveData } from '../core/save';
+import { trackOfLessonId, type Track } from '../content/worlds';
+import { lessonAccess } from './graph';
 
+/** 'locked' means "missing prerequisites" (lessonGaps says exactly which): the UI never presents it as a dead end. */
 export type LessonStatus = 'locked' | 'available' | 'in-progress' | 'complete';
 
 export function lessonStatus(save: SaveData, lesson: Lesson): LessonStatus {
   const p = save.learning.lessons[lesson.id];
   if (p?.completed) return 'complete';
-  if (!lesson.prerequisites.every((id) => save.learning.lessons[id]?.completed)) return 'locked';
+  if (!lessonAccess(save, lesson).open) return 'locked';
   const started = (p && p.stepIndex > 0) || lesson.steps.some((s) => s.kind === 'challenge' && (save.learning.challenges[s.challengeId]?.attempts ?? 0) > 0);
   return started ? 'in-progress' : 'available';
 }
@@ -20,22 +23,23 @@ export function lessonEvidence(save: SaveData, lesson: Lesson) {
   return { total: ids.length, passed, independent };
 }
 
-/** The first lesson the player can do and has not finished. */
-export function nextLesson(save: SaveData): Lesson | undefined {
-  return lessons.find((l) => {
-    const s = lessonStatus(save, l);
-    return s === 'available' || s === 'in-progress';
-  });
+/** The learning world the player touched most recently (their latest evidence or completed lesson); python when they have not started. */
+export function activeTrack(save: SaveData): Track {
+  const lastEv = save.evidence.filter((r) => r.source !== 'daily' && r.source !== 'boss' && r.source !== 'training').at(-1);
+  const lastDone = Object.entries(save.learning.lessons).filter(([, p]) => p.completed).sort((a, b) => Date.parse(b[1].completedAt ?? '') - Date.parse(a[1].completedAt ?? ''))[0];
+  const id = lastEv?.challengeId ? lessonOfChallenge(lastEv.challengeId)?.id : lastDone?.[0];
+  return id ? trackOfLessonId(id) : 'python';
 }
 
-/** Which part of the world a lesson belongs to. Derived from the id prefix so content needs no extra field. */
-export type Track = 'python' | 'sql' | 'data-eng' | 'web';
-
-export function trackOf(lesson: Pick<Lesson, 'id'>): Track {
-  if (lesson.id.startsWith('sql-')) return 'sql';
-  if (lesson.id.startsWith('de-')) return 'data-eng';
-  if (lesson.id.startsWith('web-')) return 'web';
-  return 'python';
+/** The next lesson the player can do in a world (default: the world they are currently in). Worlds are independent: this never crosses into another one unless that one has nothing left. */
+export function nextLesson(save: SaveData, track: Track = activeTrack(save)): Lesson | undefined {
+  const open = (l: Lesson) => { const s = lessonStatus(save, l); return s === 'available' || s === 'in-progress'; };
+  return lessons.find((l) => trackOfLessonId(l.id) === track && open(l)) ?? lessons.find(open);
 }
+
+/** Which learning world a lesson belongs to: derived from the id prefix (content/worlds.ts). */
+export type { Track } from '../content/worlds';
+
+export const trackOf = (lesson: Pick<Lesson, 'id'>): Track => trackOfLessonId(lesson.id);
 
 export const isTrial = (lesson: Pick<Lesson, 'id'>): boolean => lesson.id.includes('independent');

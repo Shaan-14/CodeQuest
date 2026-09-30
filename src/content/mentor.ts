@@ -1,6 +1,6 @@
 import type { SaveData } from '../core/save';
-import { getLesson, lessons } from './index';
-import { quests } from './world';
+import { trackOfLessonId, worldOfTrack } from './worlds';
+import { nextLesson } from '../game/lessons';
 
 export interface DialogueLine {
   /** Speaker label. */
@@ -14,24 +14,18 @@ export function introDialogue(name: string): DialogueLine[] {
     { who: 'Juno', text: `Welcome to Bytehaven Academy, ${name}! I am Mentor Juno. Around here, we learn to make computers do useful things by writing real code.` },
     { who: 'Juno', text: 'Look at the bar above. Your LEVEL and XP grow as you play. They measure how far you have adventured, not how skilled you are. Anyone can collect XP. Skill is something else, and we keep a separate, honest record of it.' },
     { who: 'Juno', text: 'FOCUS is your readiness to attempt hard work. A wrong answer on a real challenge costs Focus, and below 100 you are not ready to try again: you earn it back by training in the Training Grounds. Run your code as often as you like, that is free. Coins buy a few fashionable things.' },
-    { who: 'Juno', text: 'This is not a quiz. There is no multiple choice. You will type real Python, and it will really run. When it breaks, you will read the error and fix it, just like people who do this for a living.' },
+    { who: 'Juno', text: 'This is not a quiz. There is no multiple choice. You will type real code (Python, SQL, JavaScript, R, Git commands, spreadsheet formulas) and it will really run. When it breaks, you will read the error and fix it, just like people who do this for a living.' },
     { who: 'Juno', text: 'I will not hand you answers. Hints exist, but every hint you open lowers your reward and is written in your record. The best reward comes from working it out yourself.' },
-    { who: 'Juno', text: 'Now, the Programming Hall. Our training robot, Bolt-7, cannot move. His control program is unfinished. Wake him up, and along the way you will learn to program. Will you help?' },
+    { who: 'Juno', text: 'CodeQuest is not a course with one order. The map has worlds: Python, SQL, the web, Git, spreadsheets, R. Begin in any of them, leave when you like, come back later. Some places combine worlds, and they will tell you exactly which skills they need. Where would you like to start?' },
   ];
 }
 
-/** What Juno says when you visit later, based on what you have done. */
+/** What Juno says when you visit later, based on what you have done. World-neutral: she points at the world you are in. */
 export function mentorAdvice(save: SaveData): string {
-  const quest = quests[0]!;
-  const state = save.quests[quest.id];
-  if (!state) return 'Ready for the challenge? Speak to me about Bolt-7.';
-  if (state.status === 'complete') {
-    const trial = save.learning.challenges['py-14-warehouse-audit']?.passed;
-    return trial
-      ? 'You woke Bolt and passed the Trial of the Blank Page. There is much more to learn, but the rest of the Academy is still being built. Check the world map for what is coming.'
-      : 'Bolt is awake, thanks to you. But remember: finishing lessons is not the same as mastery. Try the Trial of the Blank Page in the Programming Hall. No hints, no scaffolding.';
-  }
-  const next = lessons.find((l) => !save.learning.lessons[l.id]?.completed && l.prerequisites.every((p) => save.learning.lessons[p]?.completed));
-  const title = next ? getLesson(next.id)?.title : undefined;
-  return title ? `Bolt is waiting. Your next lesson in the Programming Hall is “${title}”. Struggling is part of it. Read the error, try something, run it again.` : 'Head to the Programming Hall.';
+  const done = Object.values(save.learning.lessons).filter((l) => l.completed).length;
+  if (done === 0 && !Object.values(save.learning.lessons).some((l) => l.stepIndex > 0)) return 'Pick a world on the path chooser below and start. Every foundation is open: Python, SQL, web pages, Git, spreadsheets and R.';
+  const next = nextLesson(save);
+  const track = next ? worldOfTrack(trackOfLessonId(next.id)) : undefined;
+  if (!next || !track) return 'You have finished every lesson that is open to you. Check the path chooser: other worlds may be waiting, and the Daily Challenge keeps old skills sharp.';
+  return `Your next lesson in ${track.name.split(':')[0]} is “${next.title}”. Struggling is part of it: read the error, try something, run it again. Or leave and come back: every world keeps your place.`;
 }
