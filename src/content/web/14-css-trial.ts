@@ -1,0 +1,86 @@
+import { text } from '../helpers';
+import type { LessonBundle } from '../schema';
+import { files, wc, web } from './helpers';
+
+const near = (a: string, b: string, why: string) => `h.assert(Math.abs((${a}) - (${b})) <= 1.5, ${JSON.stringify(why)} + ' (got ' + Math.round((${a}) * 10) / 10 + ')');`;
+const FITS = "h.assert(document.documentElement.scrollWidth <= h.viewport.w + 1, 'The page scrolls sideways on a ' + h.viewport.w + 'px screen.');";
+
+/**
+ * INDEPENDENT MODE (CSS). The HTML is given (read-only structure); the brief states measurable outcomes and never
+ * names a CSS property, value or layout mode. Hidden checks measure the rendered result at several screen sizes.
+ */
+export const bundle: LessonBundle = {
+  lesson: {
+    id: 'web-14-independent-css', title: 'Trial: The Style Studio', language: 'web', skillId: 'web.layout',
+    blurb: 'Three design briefs, measured on real screens. No hints, no starter styles.', prerequisites: ['web-13-css-projects'], xpReward: 0,
+    reference: { title: 'Independent trials', body: 'An independent trial gives you a brief and nothing else. The page structure is provided; the styling is yours. Hidden checks measure how the page looks at several screen sizes, so test yours at narrow and wide widths.' },
+    steps: [
+      { kind: 'challenge', challengeId: 'web-14-control-panel' },
+      { kind: 'challenge', challengeId: 'web-14-portfolio' },
+      { kind: 'challenge', challengeId: 'web-14-race-board' },
+    ],
+  },
+  challenges: [
+    wc({
+      id: 'web-14-control-panel', title: 'The Line Control Panel', mode: 'independent', skillIds: ['web.layout', 'web.css'], concepts: [], difficulty: 4, transfer: true, context: 'engineering', project: true,
+      prompt: text(
+        'Design the control panel for production line 3. The page structure is given; you write the styling.',
+        'The panel is **640px wide** (or the screen width if that is smaller), centred on the page, with **24px** of space inside it and a **2px solid `#222222`** border; sizes include their padding and border. The four gauges are **squares of 140px** including their own **2px solid `#bbbbbb`** border, in one row across the panel with the spare space shared equally **between** them (the first touches the panel’s inner left edge and the last its inner right edge). On screens **narrower than 560px** they show **two per row** instead, with **12px** between rows and between columns, and the panel then simply fills the screen. The gauge with the class `critical` has `#b00020` text on a `#fdecea` background. The note under the gauges is centred, italic, `#666666`, and has **16px** of space above it.',
+      ),
+      starterFiles: files('<div class="panel">\n  <h1>Line 3 Control</h1>\n  <div class="gauges">\n    <div class="gauge">Temp 72°C</div>\n    <div class="gauge">Speed 1.2 m/s</div>\n    <div class="gauge critical">Pressure 9.8 bar</div>\n    <div class="gauge">Output 340/h</div>\n  </div>\n  <p class="note">Values refresh every 10 seconds.</p>\n</div>\n', ''), tabs: ['css'], hints: [],
+      checks: [
+        web('The panel', `const p = h.rect('.panel'); ${near('p.w', '640', 'The panel is 640px wide')}; ${near('p.left + p.w / 2', 'h.viewport.w / 2', 'The panel is centred')}; h.eq(h.style('.panel', 'padding-left'), '24px'); h.eq(h.style('.panel', 'padding-top'), '24px'); h.eq(h.style('.panel', 'border-top-width'), '2px'); h.eq(h.style('.panel', 'border-top-color'), 'rgb(34, 34, 34)'); ${FITS}`, { viewport: { width: 900 }, visible: false }),
+        web('The gauges in one row', `const g = h.$$('.gauge').map((x) => x.getBoundingClientRect()); const p = h.rect('.panel'); g.forEach((r) => { ${near('r.width', '140', 'Each gauge is 140px wide')}; ${near('r.height', '140', 'Each gauge is 140px tall')}; }); h.assert(g.every((r) => Math.abs(r.top - g[0].top) < 2), 'One row.'); ${near('g[0].left', 'p.left + 2 + 24', 'The first gauge touches the inner left edge')}; ${near('g[3].right', 'p.right - 2 - 24', 'The last gauge touches the inner right edge')}; const gap1 = g[1].left - g[0].right; const gap2 = g[2].left - g[1].right; ${near('gap1', 'gap2', 'Equal space between gauges')}; h.eq(h.style('.gauge', 'border-top-width'), '2px'); h.eq(h.style('.gauge', 'border-top-color'), 'rgb(187, 187, 187)');`, { viewport: { width: 900 }, visible: false }),
+        web('Two per row on a small screen', `const g = h.$$('.gauge').map((x) => x.getBoundingClientRect()); h.eq(new Set(g.map((r) => Math.round(r.left))).size, 2, 'Two columns'); ${near('g[2].top - g[0].bottom', '12', 'The row gap is 12px')}; ${near('g[1].left - g[0].right', '12', 'The column gap is 12px')}; g.forEach((r) => { ${near('r.width', '140', 'Gauges stay 140px')} }); const p = h.rect('.panel'); ${near('p.w', 'h.viewport.w', 'The panel fills the screen')}; ${FITS}`, { viewport: { width: 400 }, visible: false }),
+        web('The breakpoint', `const g = h.$$('.gauge').map((x) => x.getBoundingClientRect()); h.assert(g.every((r) => Math.abs(r.top - g[0].top) < 2), 'At exactly 560px the gauges are in one row.'); h.assert(h.rect('.panel').w <= h.viewport.w + 1, 'The panel must fit.');`, { viewport: { width: 640 }, visible: false }),
+        web('Just below the breakpoint', `const g = h.$$('.gauge').map((x) => x.getBoundingClientRect()); h.eq(new Set(g.map((r) => Math.round(r.left))).size, 2, 'At 559px the gauges are two per row'); ${FITS}`, { viewport: { width: 559 }, visible: false }),
+        web('Critical and note', "h.eq(h.style('.critical', 'color'), 'rgb(176, 0, 32)'); h.eq(h.style('.critical', 'background-color'), 'rgb(253, 236, 234)'); h.assert(h.style('.gauge:not(.critical)', 'background-color') !== 'rgb(253, 236, 234)'); h.eq(h.style('.note', 'text-align'), 'center'); h.eq(h.style('.note', 'font-style'), 'italic'); h.eq(h.style('.note', 'color'), 'rgb(102, 102, 102)'); const g = h.rect('.gauges'); const n = h.rect('.note'); h.assert(Math.abs(n.top - g.bottom - 16) <= 1.5 || Math.abs(parseFloat(h.style('.note', 'margin-top')) - 16) < 0.5, 'The note has 16px of space above it');", { viewport: { width: 900 }, visible: false }),
+      ],
+      xpReward: 220, coinReward: 32,
+    }),
+    wc({
+      id: 'web-14-portfolio', title: 'The Portfolio Page', mode: 'independent', skillIds: ['web.layout', 'web.css'], concepts: [], difficulty: 4, transfer: true, context: 'personal', project: true,
+      prompt: text(
+        'Style a personal portfolio page. The structure is given; you write the styling. Sizes include padding and border everywhere.',
+        'The content column is **at most 960px wide** and centred, with 16px of space at its sides on small screens. The navigation links are in one row, **spaced with 20px between them**, and on screens **narrower than 480px** each link is on its own line. The project cards sit in **three equal columns on screens 900px and wider**, **two equal columns from 560px up to 899px**, and **one column below 560px**, always with **20px** between cards. Each card has 16px of inner space and a 1px solid `#dddddd` border, and the image inside it is **as wide as the card’s inner area and never wider**, whatever the screen. The footer text is centred and `#777777`. The page never scrolls sideways.',
+      ),
+      starterFiles: files('<div class="wrap">\n  <nav class="links"><a href="#work">Work</a><a href="#about">About</a><a href="#contact">Contact</a></nav>\n  <h1>Ada Reyes</h1>\n  <div class="projects">\n    <article class="project"><img src="a.png" alt="" width="800" height="400"><h2>Line Monitor</h2><p>A dashboard.</p></article>\n    <article class="project"><img src="b.png" alt="" width="800" height="400"><h2>Stock Tracker</h2><p>An inventory app.</p></article>\n    <article class="project"><img src="c.png" alt="" width="800" height="400"><h2>Race Timer</h2><p>Lap analysis.</p></article>\n    <article class="project"><img src="d.png" alt="" width="800" height="400"><h2>Course Planner</h2><p>A planner.</p></article>\n  </div>\n  <footer>© Ada Reyes</footer>\n</div>\n', 'body { margin: 0; }\n'), tabs: ['css'], hints: [],
+      checks: [
+        web('The column is capped and centred', `const w = h.rect('.wrap'); h.assert(w.w <= 960 + 1, 'The column is at most 960px wide.'); ${near('w.left + w.w / 2', 'h.viewport.w / 2', 'The column is centred')}; ${FITS}`, { viewport: { width: 1300 }, visible: false }),
+        web('Three columns on wide screens', `const c = h.$$('.project').map((x) => x.getBoundingClientRect()); h.eq(new Set(c.map((r) => Math.round(r.left))).size, 3, 'Three columns'); ${near('c[1].left - c[0].right', '20', 'The gap is 20px')}; ${near('c[0].width', 'c[1].width', 'Equal columns')}; ${near('c[3].top - c[0].bottom', '20', 'The row gap is 20px')}; ${FITS}`, { viewport: { width: 1000 }, visible: false }),
+        web('Two columns in the middle', `const c = h.$$('.project').map((x) => x.getBoundingClientRect()); h.eq(new Set(c.map((r) => Math.round(r.left))).size, 2, 'Two columns'); ${near('c[1].left - c[0].right', '20', 'The gap is 20px')}; ${FITS}`, { viewport: { width: 700 }, visible: false }),
+        web('One column on small screens', `const c = h.$$('.project').map((x) => x.getBoundingClientRect()); h.eq(new Set(c.map((r) => Math.round(r.left))).size, 1, 'One column'); ${near('c[1].top - c[0].bottom', '20', 'The gap is 20px')}; const w = h.rect('.projects'); ${near('w.left', '16', 'Space at the left edge on small screens')}; ${near('h.viewport.w - w.right', '16', 'Space at the right edge on small screens')}; ${FITS}`, { viewport: { width: 400 }, visible: false }),
+        web('Breakpoints are exact', `const cols = () => new Set(h.$$('.project').map((x) => Math.round(x.getBoundingClientRect().left))).size; h.eq(cols(), 3, 'At exactly 900px there are three columns');`, { viewport: { width: 900 }, visible: false }),
+        web('Just below 900 and at 560', `const cols = new Set(h.$$('.project').map((x) => Math.round(x.getBoundingClientRect().left))).size; h.eq(cols, 2, 'From 560px up to 899px there are two columns');`, { viewport: { width: 560 }, visible: false }),
+        web('Card styling and images', `h.$$('.project').forEach((c) => { h.eq(h.style(c, 'padding-left'), '16px'); h.eq(h.style(c, 'border-left-width'), '1px'); h.eq(h.style(c, 'border-left-color'), 'rgb(221, 221, 221)'); const i = c.querySelector('img'); const r = c.getBoundingClientRect(); ${near('i.getBoundingClientRect().width', 'r.width - 2 - 32', 'The image is as wide as the inner area')}; });`, { viewport: { width: 1000 }, visible: false }),
+        web('Images never overflow on a small screen', `h.$$('.project').forEach((c) => { const i = c.querySelector('img').getBoundingClientRect(); const r = c.getBoundingClientRect(); h.assert(i.right <= r.right + 1, 'An image sticks out of its card.'); }); ${FITS}`, { viewport: { width: 320 }, visible: false }),
+        web('Navigation', `const l = h.$$('.links a').map((x) => x.getBoundingClientRect()); h.assert(l.every((r) => Math.abs(r.top - l[0].top) < 3), 'One row on wide screens.'); ${near('l[1].left - l[0].right', '20', 'The gap is 20px')}; ${near('l[2].left - l[1].right', '20', 'The gap is 20px')};`, { viewport: { width: 700 }, visible: false }),
+        web('Navigation stacks on small screens', "const l = h.$$('.links a').map((x) => x.getBoundingClientRect()); h.assert(l[1].top > l[0].top && l[2].top > l[1].top, 'Each link is on its own line below 480px.');", { viewport: { width: 400 }, visible: false }),
+        web('Navigation at 480px', "const l = h.$$('.links a').map((x) => x.getBoundingClientRect()); h.assert(l.every((r) => Math.abs(r.top - l[0].top) < 3), 'At exactly 480px the links are in one row.');", { viewport: { width: 480 }, visible: false }),
+        web('Footer', "h.eq(h.style('footer', 'text-align'), 'center'); h.eq(h.style('footer', 'color'), 'rgb(119, 119, 119)');", { viewport: { width: 700 }, visible: false }),
+      ],
+      xpReward: 220, coinReward: 32,
+    }),
+    wc({
+      id: 'web-14-race-board', title: 'The Race Leaderboard', mode: 'independent', skillIds: ['web.css', 'web.layout'], concepts: [], difficulty: 4, transfer: true, context: 'motorsport', project: true,
+      prompt: text(
+        'Style the live race leaderboard. The structure is given; you write the styling.',
+        'The table is the full width of its container. Every cell has **8px** of space above and below and **12px** at the sides. Headings are bold, left-aligned, white on `#111111`; the **position** and **gap** columns (the first and the last) are right-aligned in every row. Body rows alternate: **odd rows white, even rows `#f4f4f4`**. The first three positions have their own colour on the **position cell**: `gold` `#ffd700`, `silver` `#c0c0c0`, `bronze` `#cd7f32`. The row with the class `me` is bold and has a **4px solid `#0066cc` line on its left edge** (the table’s border-collapse is used, so put it on the first cell). On screens **narrower than 600px** the team column (class `team`, in the header and every row) is **hidden entirely**.',
+      ),
+      starterFiles: files('<table class="board">\n  <thead><tr><th>Pos</th><th>Driver</th><th class="team">Team</th><th>Gap</th></tr></thead>\n  <tbody>\n    <tr><td class="gold">1</td><td>Reyes</td><td class="team">Owls</td><td>0.0</td></tr>\n    <tr class="me"><td class="silver">2</td><td>Nair</td><td class="team">Cats</td><td>+1.4</td></tr>\n    <tr><td class="bronze">3</td><td>Khan</td><td class="team">Bears</td><td>+3.9</td></tr>\n    <tr><td>4</td><td>Silva</td><td class="team">Wolves</td><td>+8.2</td></tr>\n    <tr><td>5</td><td>Tan</td><td class="team">Hawks</td><td>+9.0</td></tr>\n  </tbody>\n</table>\n', 'body { margin: 0; }\n'), tabs: ['css'], hints: [],
+      checks: [
+        web('Full width and cell padding', `const t = h.rect('.board'); const c = h.rect('body'); ${near('t.w', 'h.viewport.w', 'The table is the full width of its container (the page has no margin)')}; h.$$('.board td, .board th').forEach((x) => { h.eq(h.style(x, 'padding-top'), '8px'); h.eq(h.style(x, 'padding-bottom'), '8px'); h.eq(h.style(x, 'padding-left'), '12px'); h.eq(h.style(x, 'padding-right'), '12px'); });`, { viewport: { width: 900 }, visible: false }),
+        web('Headings', "h.$$('.board th').forEach((x) => { h.assert(parseInt(h.style(x, 'font-weight'), 10) >= 700, 'Headings are bold'); h.eq(h.style(x, 'text-align'), 'left'); h.eq(h.style(x, 'color'), 'rgb(255, 255, 255)'); h.eq(h.style(x, 'background-color'), 'rgb(17, 17, 17)'); });", { viewport: { width: 900 }, visible: false }),
+        web('Alignment', "h.$$('.board tr').forEach((r) => { const first = r.firstElementChild; const last = r.lastElementChild; if (first.tagName === 'TD') { h.eq(h.style(first, 'text-align'), 'right'); h.eq(h.style(last, 'text-align'), 'right'); } }); h.assert(h.style('tbody tr:first-child td:nth-child(2)', 'text-align') !== 'right', 'Only the first and last columns are right-aligned');", { viewport: { width: 900 }, visible: false }),
+        web('Stripes', "const eff = (el) => { const c = h.style(el, 'background-color'); return c === 'rgba(0, 0, 0, 0)' ? h.style(el.parentElement, 'background-color') : c; }; const r = h.$$('tbody tr'); r.forEach((x, i) => { const bg = eff(x.children[1]); const want = i % 2 === 0 ? 'rgb(255, 255, 255)' : 'rgb(244, 244, 244)'; h.eq(bg, want, 'Row ' + (i + 1) + ' background'); });", { viewport: { width: 900 }, visible: false }),
+        web('Medals', "h.eq(h.style('.gold', 'background-color'), 'rgb(255, 215, 0)'); h.eq(h.style('.silver', 'background-color'), 'rgb(192, 192, 192)'); h.eq(h.style('.bronze', 'background-color'), 'rgb(205, 127, 50)'); h.assert(h.style('tbody tr:nth-child(4) td:first-child', 'background-color') !== 'rgb(255, 215, 0)');", { viewport: { width: 900 }, visible: false }),
+        web('My row', "const me = h.$$('.me td'); me.forEach((x) => h.assert(parseInt(h.style(x, 'font-weight'), 10) >= 700, 'My row is bold')); h.eq(h.style(me[0], 'border-left-width'), '4px'); h.eq(h.style(me[0], 'border-left-style'), 'solid'); h.eq(h.style(me[0], 'border-left-color'), 'rgb(0, 102, 204)'); h.assert(h.style('tbody tr:first-child td:first-child', 'border-left-width') === '0px', 'Only my row has the line');", { viewport: { width: 900 }, visible: false }),
+        web('The team column on a small screen', "h.$$('.team').forEach((x) => h.eq(h.style(x, 'display'), 'none', 'The team column is hidden'));", { viewport: { width: 500 }, visible: false }),
+        web('The team column on a wide screen', "h.$$('.team').forEach((x) => h.assert(h.style(x, 'display') !== 'none', 'The team column shows on wide screens'));", { viewport: { width: 700 }, visible: false }),
+        web('The breakpoint is 600px', "h.$$('.team').forEach((x) => h.assert(h.style(x, 'display') !== 'none', 'At exactly 600px the team column shows'));", { viewport: { width: 600 }, visible: false }),
+        web('Just below 600', "h.$$('.team').forEach((x) => h.eq(h.style(x, 'display'), 'none', 'At 599px the team column is hidden'));", { viewport: { width: 599 }, visible: false }),
+      ],
+      xpReward: 220, coinReward: 32,
+    }),
+  ],
+};
