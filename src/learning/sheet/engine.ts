@@ -443,7 +443,15 @@ const FUNCTIONS: Record<string, Fn> = {
   YEAR: (a) => { const n = num(a[0]!); return isErr(n) ? n : serialToDate(n).getUTCFullYear(); },
   MONTH: (a) => { const n = num(a[0]!); return isErr(n) ? n : serialToDate(n).getUTCMonth() + 1; },
   DAY: (a) => { const n = num(a[0]!); return isErr(n) ? n : serialToDate(n).getUTCDate(); },
-  WEEKDAY: (a) => { const n = num(a[0]!); return isErr(n) ? n : serialToDate(n).getUTCDay() + 1; },
+  WEEKDAY: (a) => {
+    const n = num(a[0]!); if (isErr(n)) return n;
+    const t = a[1] === undefined ? 1 : num(a[1]!); if (isErr(t)) return t;
+    const d = serialToDate(n).getUTCDay(); // 0 = Sunday
+    if (t === 1) return d + 1;
+    if (t === 2) return d === 0 ? 7 : d;
+    if (t === 3) return d === 0 ? 6 : d - 1;
+    return ERR.num();
+  },
   /* ---- lookups */
   VLOOKUP: (a) => {
     const key = a[0] as Value; const table = asMatrix(a[1]!); const col = num(a[2]!); const approx = a[3] === undefined ? true : toBool(a[3] as Value);

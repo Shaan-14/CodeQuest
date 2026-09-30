@@ -96,4 +96,42 @@ export const sheetSolutions: Record<string, { valid: SheetSolution[]; wrong: She
     valid: [{ cells: rows('F', 2, 4, (r) => `=IFERROR(INDEX($A$2:$A$6,MATCH(E${r},$B$2:$B$6,0)),"not found")`) }],
     wrong: [{ cells: rows('F', 2, 4, (r) => `=INDEX($A$2:$A$6,MATCH(E${r},$B$2:$B$6,0))`) }, { cells: rows('F', 2, 4, (r) => `=IFERROR(INDEX($C$2:$C$6,MATCH(E${r},$B$2:$B$6,0)),"not found")`) }, { cells: { F2: 'T-04', F3: 'T-01', F4: 'not found' } }],
   },
+
+  'xl-05-region-total': {
+    valid: [{ cells: { G1: '=SUMIF(A2:A7,"East",D2:D7)' } }, { cells: { G1: '=SUMIFS(D2:D7,A2:A7,"East")' } }],
+    wrong: [{ cells: { G1: '=SUMIF(A2:A7,"East",D2:D7)-15' } }, { cells: { G1: 195 } }, { cells: { G1: '=SUM(D2:D7)' } }, { cells: { G1: '=D2+D4' } }],
+  },
+  'xl-05-rep-quarter': {
+    valid: [{ cells: { G1: '=SUMIFS(D2:D7,A2:A7,"East",C2:C7,"Tools")', G2: '=COUNTIFS(A2:A7,"East",D2:D7,">=100")' } }, { cells: { G1: '=SUMIFS(D2:D7,C2:C7,"Tools",A2:A7,"East")', G2: '=COUNTIFS(D2:D7,">=100",A2:A7,"East")' } }],
+    wrong: [{ cells: { G1: '=SUMIF(A2:A7,"East",D2:D7)', G2: '=COUNTIFS(A2:A7,"East",D2:D7,">=100")' } }, { cells: { G1: '=SUMIFS(D2:D7,A2:A7,"East",C2:C7,"Tools")', G2: '=COUNTIFS(A2:A7,"East",D2:D7,">100")' } }, { cells: { G1: 310, G2: 3 } }, { cells: { G1: '=SUMIFS(D2:D7,A2:A7,"East",C2:C7,"Tools")', G2: '=COUNTIF(D2:D7,">=100")' } }],
+  },
+  'xl-05-rep-quarter-b': {
+    valid: [{ cells: { G1: '=SUMIFS(D2:D7,A2:A7,"Night",B2:B7,"Line 2")', G2: '=COUNTIFS(A2:A7,"Night",D2:D7,">=5")' } }],
+    wrong: [{ cells: { G1: '=SUMIFS(D2:D7,A2:A7,"Night")', G2: '=COUNTIFS(A2:A7,"Night",D2:D7,">=5")' } }, { cells: { G1: '=SUMIFS(D2:D7,A2:A7,"Night",B2:B7,"Line 2")', G2: '=COUNTIFS(A2:A7,"Night",D2:D7,">5")' } }, { cells: { G1: 15, G2: 3 } }],
+  },
+  'xl-05-shift-summary': {
+    valid: [{ cells: { G1: '=COUNTIF(A2:A7,"North")', G2: '=AVERAGEIF(A2:A7,"North",D2:D7)', G3: '=SUMIFS(D2:D7,A2:A7,"North",D2:D7,">30")/SUMIF(A2:A7,"North",D2:D7)' } }],
+    wrong: [{ cells: { G1: '=COUNTIF(A2:A7,"North")', G2: '=AVERAGE(D2:D7)', G3: '=SUMIFS(D2:D7,A2:A7,"North",D2:D7,">30")/SUMIF(A2:A7,"North",D2:D7)' } }, { cells: { G1: '=COUNTIF(A2:A7,"North")', G2: '=AVERAGEIF(A2:A7,"North",D2:D7)', G3: '=SUMIF(D2:D7,">30")/SUMIF(A2:A7,"North",D2:D7)' } }, { cells: { G1: 4, G2: 30, G3: 0.75 } }, { cells: { G1: '=COUNTIF(A2:A7,"North")', G2: '=AVERAGEIF(A2:A7,"North",D2:D7)', G3: '=COUNTIFS(A2:A7,"North",D2:D7,">30")/G1' } }],
+  },
+
+  'xl-06-names': {
+    valid: [{ cells: rows('B', 2, 4, (r) => `=PROPER(TRIM(A${r}))`) }, { cells: rows('B', 2, 4, (r) => `=TRIM(PROPER(A${r}))`) }],
+    wrong: [{ cells: rows('B', 2, 4, (r) => `=PROPER(A${r})`) }, { cells: rows('B', 2, 4, (r) => `=TRIM(A${r})`) }, { cells: { B2: 'Ana Lopez', B3: "Ben O'Neil", B4: 'Caz De La Cruz' } }, { cells: rows('B', 2, 4, (r) => `=PROPER(SUBSTITUTE(A${r},"  "," "))`) }],
+  },
+  'xl-06-ids': {
+    valid: [{ cells: { ...rows('B', 2, 5, (r) => `=VALUE(MID(A${r},FIND("-",A${r})+1,4))`), ...rows('C', 2, 5, (r) => `=VALUE(MID(A${r},FIND("-",A${r},FIND("-",A${r})+1)+1,10))`) } }, { cells: { ...rows('B', 2, 5, (r) => `=VALUE(LEFT(MID(A${r},FIND("-",A${r})+1,20),4))`), ...rows('C', 2, 5, (r) => `=VALUE(RIGHT(A${r},LEN(A${r})-FIND("-",A${r},FIND("-",A${r})+1)))`) } }],
+    wrong: [{ cells: { ...rows('B', 2, 5, (r) => `=VALUE(MID(A${r},5,4))`), ...rows('C', 2, 5, (r) => `=VALUE(RIGHT(A${r},4))`) } }, { cells: { ...rows('B', 2, 5, (r) => `=MID(A${r},FIND("-",A${r})+1,4)`), ...rows('C', 2, 5, (r) => `=MID(A${r},FIND("-",A${r},FIND("-",A${r})+1)+1,10)`) } }, { cells: { B2: 2024, C2: 42, B3: 2023, C3: 7, B4: 2019, C4: 310, B5: 2025, C5: 15 } }, { cells: { ...rows('B', 2, 5, (r) => `=VALUE(MID(A${r},FIND("-",A${r})+1,4))`), ...rows('C', 2, 5, (r) => `=VALUE(RIGHT(A${r},4))`) } }],
+  },
+  'xl-06-ids-b': {
+    valid: [{ cells: { ...rows('B', 2, 5, (r) => `=VALUE(MID(A${r},FIND(":L",A${r})+2,FIND(":",A${r},FIND(":",A${r})+1)-FIND(":L",A${r})-2))`), ...rows('C', 2, 5, (r) => `=VALUE(MID(A${r},FIND(":",A${r},FIND(":",A${r})+1)+1,10))`) } }],
+    wrong: [{ cells: { ...rows('B', 2, 5, (r) => `=VALUE(MID(A${r},6,1))`), ...rows('C', 2, 5, (r) => `=VALUE(RIGHT(A${r},4))`) } }, { cells: { ...rows('B', 2, 5, (r) => `=MID(A${r},FIND(":L",A${r})+2,1)`), ...rows('C', 2, 5, (r) => `=MID(A${r},FIND(":",A${r},FIND(":",A${r})+1)+1,10)`) } }, { cells: { B2: 3, C2: 5521, B3: 12, C3: 40, B4: 1, C4: 9, B5: 7, C5: 1001 } }],
+  },
+  'xl-06-dates': {
+    valid: [{ cells: { ...rows('B', 2, 5, (r) => `=ROUNDUP(MONTH(DATE(VALUE(LEFT(A${r},4)),VALUE(MID(A${r},6,2)),VALUE(RIGHT(A${r},2))))/3,0)`), ...rows('C', 2, 5, (r) => `=IF(WEEKDAY(DATE(VALUE(LEFT(A${r},4)),VALUE(MID(A${r},6,2)),VALUE(RIGHT(A${r},2))),2)>5,"Weekend","Weekday")`) } }, { cells: { ...rows('B', 2, 5, (r) => `=INT((VALUE(MID(A${r},6,2))+2)/3)`), ...rows('C', 2, 5, (r) => `=IF(WEEKDAY(DATE(VALUE(LEFT(A${r},4)),VALUE(MID(A${r},6,2)),VALUE(RIGHT(A${r},2))),2)>=6,"Weekend","Weekday")`) } }],
+    wrong: [{ cells: { ...rows('B', 2, 5, (r) => `=VALUE(MID(A${r},6,2))`), ...rows('C', 2, 5, (r) => `=IF(WEEKDAY(DATE(VALUE(LEFT(A${r},4)),VALUE(MID(A${r},6,2)),VALUE(RIGHT(A${r},2))),2)>5,"Weekend","Weekday")`) } }, { cells: { ...rows('B', 2, 5, (r) => `=ROUNDUP(VALUE(MID(A${r},6,2))/3,0)`), ...rows('C', 2, 5, (r) => `=IF(WEEKDAY(DATE(VALUE(LEFT(A${r},4)),VALUE(MID(A${r},6,2)),VALUE(RIGHT(A${r},2))),2)>6,"Weekend","Weekday")`) } }, { cells: { ...rows('B', 2, 5, (r) => `=ROUNDUP(VALUE(MID(A${r},6,2))/3,0)`), ...rows('C', 2, 5, (r) => `=IF(WEEKDAY(DATE(VALUE(LEFT(A${r},4)),VALUE(MID(A${r},6,2)),VALUE(RIGHT(A${r},2))),1)>5,"Weekend","Weekday")`) } }, { cells: { B2: 1, C2: 'Weekend', B3: 2, C3: 'Weekday', B4: 4, C4: 'Weekday', B5: 3, C5: 'Weekend' } }],
+  },
+  'xl-06-dates-b': {
+    valid: [{ cells: { ...rows('D', 2, 5, (r) => `=ROUNDUP(B${r}/3,0)`), ...rows('E', 2, 5, (r) => `=IF(WEEKDAY(DATE(A${r},B${r},C${r}),2)>5,"Weekend","Weekday")`) } }, { cells: { ...rows('D', 2, 5, (r) => `=INT((MONTH(DATE(A${r},B${r},C${r}))+2)/3)`), ...rows('E', 2, 5, (r) => `=IF(OR(WEEKDAY(DATE(A${r},B${r},C${r}),2)=6,WEEKDAY(DATE(A${r},B${r},C${r}),2)=7),"Weekend","Weekday")`) } }],
+    wrong: [{ cells: { ...rows('D', 2, 5, (r) => `=B${r}/3`), ...rows('E', 2, 5, (r) => `=IF(WEEKDAY(DATE(A${r},B${r},C${r}),2)>5,"Weekend","Weekday")`) } }, { cells: { ...rows('D', 2, 5, (r) => `=ROUNDUP(B${r}/3,0)`), ...rows('E', 2, 5, (r) => `=IF(WEEKDAY(DATE(A${r},B${r},C${r}),2)>6,"Weekend","Weekday")`) } }, { cells: { ...rows('D', 2, 5, (r) => `=ROUNDUP(B${r}/3,0)`), ...rows('E', 2, 5, (r) => `=IF(WEEKDAY(DATE(A${r},B${r},C${r}),1)>5,"Weekend","Weekday")`) } }, { cells: { D2: 1, E2: 'Weekday', D3: 3, E3: 'Weekend', D4: 4, E4: 'Weekday', D5: 1, E5: 'Weekday' } }],
+  },
 };
