@@ -44,5 +44,18 @@ export default defineConfig({
     },
   ],
   worker: { format: 'es' },
+  build: {
+    rollupOptions: {
+      output: {
+        // Third-party code changes rarely, so it caches separately from the game. The curriculum (data) is the bulk
+        // of the game chunk; see ARCHITECTURE.md ("Bundle size") for measurements and the plan to load it per track.
+        manualChunks(id: string) {
+          if (id.includes('node_modules/preact')) return 'preact';
+          if (id.includes('node_modules/@codemirror') || id.includes('node_modules/@lezer') || id.includes('node_modules/codemirror')) return 'editor';
+          return undefined;
+        },
+      },
+    },
+  },
   test: { environment: 'node', include: ['src/**/*.test.ts'], testTimeout: 30_000 },
 });

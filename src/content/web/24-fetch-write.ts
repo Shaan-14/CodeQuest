@@ -29,7 +29,7 @@ export const bundle: LessonBundle = {
       { kind: 'teach', title: 'Reading is easy; writing has consequences', body: text('A `GET` changes nothing, so trying it twice is harmless. A `POST` creates something each time, so a double click can create two. Writing code that changes data means thinking about **what if it fails**, **what if it is sent twice**, and **what the user sees in between**.', 'The server is the source of truth: after a write, show what the **server** answered (its id, its stored values), not what you hoped it would store.') },
       webDemo({
         title: 'Sending data',
-        body: text('Run it and press the button. Open the request log: look at the method, the header and the body you sent, then the status and body that came back. Change the type to something else.'),
+        body: text('Run it and press the button. Open the network log under the preview: look at the method, the address and the status that came back. Change the type to something else.'),
         files: files('<button id="send">Add a machine</button>\n<p id="result"></p>\n', '', 'document.querySelector("#send").addEventListener("click", async () => {\n  const response = await fetch("/api/machines", {\n    method: "POST",\n    headers: { "Content-Type": "application/json" },\n    body: JSON.stringify({ name: "Saw 9", type: "cutter" }),\n  });\n  const data = await response.json();\n  document.querySelector("#result").textContent = response.status + " " + JSON.stringify(data);\n});\n'),
         api: true,
         notice: 'Status 201 means created, and the body is the stored record with its new `id`. Remove the Content-Type header and run it again to see a 415.',

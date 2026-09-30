@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'preact/compat';
 import { useEffect, useState } from 'preact/hooks';
 import { areas } from '../content/world';
 import { useGame } from '../game/store';
@@ -6,19 +7,22 @@ import { Hud, type PanelTab } from './components/Hud';
 import { Panel } from './components/Panel';
 import { Toasts } from './components/Toasts';
 import { Academy } from './screens/Academy';
-import { DailyRun } from './screens/DailyRun';
-import { DailyScreen } from './screens/DailyScreen';
 import { useDailyClock } from './components/useDailyClock';
-import { LessonScreen } from './screens/LessonScreen';
-import { Library } from './screens/Library';
-import { Practice } from './screens/Practice';
-import { PracticeRun } from './screens/PracticeRun';
 import { Locked } from './screens/Locked';
-import { Shop } from './screens/Shop';
 import { Title } from './screens/Title';
 import { TrackArea } from './screens/TrackArea';
 import { TrainingGrounds } from './screens/TrainingGrounds';
 import { WorldMap } from './screens/WorldMap';
+
+/** Rarely-used screens load on demand so the first paint does not wait for their code. */
+const DailyRun = lazy(() => import('./screens/DailyRun').then((m) => ({ default: m.DailyRun })));
+const DailyScreen = lazy(() => import('./screens/DailyScreen').then((m) => ({ default: m.DailyScreen })));
+const Library = lazy(() => import('./screens/Library').then((m) => ({ default: m.Library })));
+const Practice = lazy(() => import('./screens/Practice').then((m) => ({ default: m.Practice })));
+const PracticeRun = lazy(() => import('./screens/PracticeRun').then((m) => ({ default: m.PracticeRun })));
+const LessonScreen = lazy(() => import('./screens/LessonScreen').then((m) => ({ default: m.LessonScreen })));
+const Shop = lazy(() => import('./screens/Shop').then((m) => ({ default: m.Shop })));
+const Loading = <main class="scene"><div class="scene-card"><p class="muted center">Loading…</p></div></main>;
 
 const areaForLesson = (lessonId: string): string => (lessonId.startsWith('sql-') ? 'data-center' : lessonId.startsWith('de-') ? 'pipeline-works' : lessonId.startsWith('web-') ? 'web-district' : 'training-grounds');
 
@@ -78,7 +82,7 @@ export function App() {
           <button class="btn small" onClick={() => setNotice(false)}>Dismiss</button>
         </div>
       )}
-      <div class="screen" key={route.name === 'map' ? 'map' : route.name === 'lesson' ? `l-${route.id}` : route.name === 'area' ? `a-${route.id}` : route.name === 'practice' ? 'practice' : route.name === 'daily' || route.name === 'daily-run' ? route.name : `p-${route.challengeId}`}>{screen}</div>
+      <div class="screen" key={route.name === 'map' ? 'map' : route.name === 'lesson' ? `l-${route.id}` : route.name === 'area' ? `a-${route.id}` : route.name === 'practice' ? 'practice' : route.name === 'daily' || route.name === 'daily-run' ? route.name : `p-${route.challengeId}`}><Suspense fallback={Loading}>{screen}</Suspense></div>
       {panel && <Panel tab={panel} onTab={setPanel} onClose={() => setPanel(null)} onReset={() => { setPanel(null); setRoute({ name: 'area', id: 'academy' }); setLastArea('academy'); }} />}
       <Toasts />
     </div>

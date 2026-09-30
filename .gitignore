@@ -4,3 +4,4 @@ dist
 .DS_Store
 public/pyodide
 e2e/screenshots
+e2e/.fixtures.json

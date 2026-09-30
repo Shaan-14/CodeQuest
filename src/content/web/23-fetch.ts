@@ -53,7 +53,7 @@ export const bundle: LessonBundle = {
       { kind: 'teach', title: 'Servers hold the data', body: text('Until now your data lived in the page. Most real apps ask a **server** for it, over HTTP, and get JSON back. Your page sends a request, waits, and then shows what came back: or shows that nothing did.', 'Every request has three outcomes you must design for: **waiting** (show that something is happening), **success** (show the data), and **failure** (say what went wrong, in words, and leave the page usable).') },
       webDemo({
         title: 'Your first request',
-        body: text('Run it, then open the request log under the preview to see exactly what your page sent and what came back. Change the URL to `/api/machines/3` and to `/api/machines/999`.'),
+        body: text('Run it, then look at the network log under the preview: every request your page made, with the status that came back. Change the URL to `/api/machines/3` and to `/api/machines/999`.'),
         files: files(HTML.machines, '', 'async function load() {\n  const response = await fetch("/api/machines?limit=5");\n  const machines = await response.json();\n  for (const m of machines) {\n    const li = document.createElement("li");\n    li.textContent = m.name + ": " + m.status;\n    document.querySelector("#machines").append(li);\n  }\n}\nload();\n'),
         api: true,
         notice: 'The API is simulated inside the game: deterministic, private, no real network. `/api/machines/999` returns 404 with a JSON error body, but `fetch` still resolves; only `response.ok` tells you.',

@@ -18,6 +18,8 @@ export const SANDBOX_URL = `${import.meta.env.BASE_URL}web-sandbox.html`;
 export interface SandboxEvents {
   onConsole?: (level: string, text: string) => void;
   onError?: (text: string) => void;
+  /** One line per request the page made to the in-game API (method, path with query, status). */
+  onRequest?: (method: string, path: string, status: number) => void;
   onReady?: () => void;
 }
 
@@ -76,6 +78,7 @@ export function mountSandbox(parent: HTMLElement, files: WebFiles, opts: MountOp
     if (m.nonce !== nonce) return;
     if (m.type === 'console') opts.onConsole?.(String(m.level).slice(0, 12), String(m.text).slice(0, 2000));
     else if (m.type === 'error') opts.onError?.(String(m.text).slice(0, 2000));
+    else if (m.type === 'request') opts.onRequest?.(String(m.method).slice(0, 10), String(m.path).slice(0, 300), Number(m.status) || 0);
     else if (m.type === 'ready') opts.onReady?.();
     else if (m.type === 'result') opts.onResult?.(m.passed === true, String(m.message ?? '').slice(0, 2000));
   };

@@ -1,11 +1,13 @@
+import { lazy, Suspense } from 'preact/compat';
 import { useEffect } from 'preact/hooks';
 import { getRunner } from '../../learning/python/runner';
 import type { Track } from '../../game/lessons';
 import { LessonList } from '../components/LessonList';
 import { NpcCards, QuestOffers } from '../components/NpcCards';
 import { Recommendations } from '../components/Recommendations';
-import { SqlSandbox } from '../components/SqlSandbox';
 import { useState } from 'preact/hooks';
+
+const SqlSandbox = lazy(() => import('../components/SqlSandbox').then((m) => ({ default: m.SqlSandbox })));
 
 interface Props {
   areaId: string;
@@ -39,7 +41,7 @@ export function TrackArea(p: Props) {
             <button role="tab" aria-selected={tab === 'sandbox'} class={tab === 'sandbox' ? 'active' : ''} onClick={() => setTab('sandbox')} data-testid="tab-sandbox">SQL Sandbox</button>
           </div>
         )}
-        {tab === 'sandbox' && p.sandbox ? <SqlSandbox /> : (
+        {tab === 'sandbox' && p.sandbox ? <Suspense fallback={<p class="muted">Loading the sandbox…</p>}><SqlSandbox /></Suspense> : (
           <>
             <div class="row-between">
               <h2>Lessons</h2>

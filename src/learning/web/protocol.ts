@@ -24,6 +24,7 @@ export type SandboxOut =
   | { cq: true; nonce: string; type: 'ready' }
   | { cq: true; nonce: string; type: 'console'; level: string; text: string }
   | { cq: true; nonce: string; type: 'error'; text: string; where?: string }
+  | { cq: true; nonce: string; type: 'request'; method: string; path: string; status: number }
   | { cq: true; nonce: string; type: 'result'; passed: boolean; message: string };
 
 export const isSandboxOut = (d: unknown): d is SandboxOut => typeof d === 'object' && d !== null && (d as { cq?: unknown }).cq === true && typeof (d as { type?: unknown }).type === 'string' && typeof (d as { nonce?: unknown }).nonce === 'string';

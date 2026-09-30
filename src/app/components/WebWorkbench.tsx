@@ -7,6 +7,12 @@ import { CodeEditor } from './CodeEditor';
 type Tab = 'html' | 'css' | 'js';
 const LABEL: Record<Tab, string> = { html: 'HTML', css: 'CSS', js: 'JavaScript' };
 
+export interface RequestLine {
+  method: string;
+  path: string;
+  status: number;
+}
+
 export interface LogLine {
   level: string;
   text: string;
@@ -34,6 +40,7 @@ interface Props {
 export function WebWorkbench({ files, onFiles, tabs, api = false, readOnly = false, onRun, onReset, children, busy = false }: Props) {
   const [tab, setTab] = useState<Tab>(tabs[0] ?? 'html');
   const [logs, setLogs] = useState<LogLine[]>([]);
+  const [requests, setRequests] = useState<RequestLine[]>([]);
   const [ran, setRan] = useState(false);
   const holder = useRef<HTMLDivElement>(null);
   const handle = useRef<SandboxHandle | null>(null);
@@ -45,11 +52,13 @@ export function WebWorkbench({ files, onFiles, tabs, api = false, readOnly = fal
   const run = () => {
     handle.current?.destroy();
     setLogs([]);
+    setRequests([]);
     setRan(true);
     if (!holder.current) return;
     handle.current = mountSandbox(holder.current, latest.current, {
       api: api ? 'a' : null,
       onConsole: (level, text) => setLogs((l) => (l.length < 200 ? [...l, { level, text }] : l)),
+      onRequest: (method, path, status) => setRequests((r) => (r.length < 100 ? [...r, { method, path, status }] : r)),
       onError: (text) => setLogs((l) => (l.length < 200 ? [...l, { level: 'error', text: `Uncaught ${text}` }] : l)),
       onStartFailure: () => setLogs([{ level: 'error', text: 'The page sandbox could not start. Try reloading.' }]),
     });
@@ -78,6 +87,15 @@ export function WebWorkbench({ files, onFiles, tabs, api = false, readOnly = fal
         {!ran && <p class="muted small preview-hint">Press Run to see your page here.</p>}
         <div class="preview-frame" ref={holder} />
       </div>
+      {api && (
+        <div class="console request-log" data-testid="request-log">
+          <div class="console-title"><span>Network: requests to the in-game API</span></div>
+          <pre class="console-body">
+            {requests.length === 0 && <span class="muted">{ran ? '(no requests yet)' : 'Requests your page makes appear here with their status codes.'}</span>}
+            {requests.map((r, i) => <div key={i} class={r.status >= 400 ? 'console-error' : ''} data-testid="request-line">{r.method} {r.path} → {r.status}</div>)}
+          </pre>
+        </div>
+      )}
       <div class="console" data-testid="console">
         <div class="console-title"><span>Console</span></div>
         <pre class="console-body">

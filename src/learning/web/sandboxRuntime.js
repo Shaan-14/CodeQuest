@@ -149,6 +149,7 @@
         if (override) res = { status: override, headers: { 'Content-Type': 'application/json' }, body: nativeJsonStringify({ error: 'Simulated server error' }) };
         else res = state.server.handle(method, url, { headers: headers, body: body });
         var bodyOut = res.status === 204 || res.status === 205 || res.status === 304 ? null : res.body;
+        send({ type: 'request', method: method, path: clip(String(url).replace(/^https:\/\/api\.codequest\.test/, '')), status: res.status });
         resolve(new Response(bodyOut, { status: res.status, statusText: '', headers: res.headers }));
       }, state.server.latencyFor(url));
       if (signal && typeof signal.addEventListener === 'function') {
