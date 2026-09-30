@@ -214,6 +214,14 @@ async function main() {
   browser = await chromium.launch({ executablePath: findChromium(), args: ['--no-sandbox'] });
   try {
     console.log('Startup & character creation');
+    /** Fails the current lesson challenge once on purpose (a wrong program), returning when the result is shown. */
+    const failOnce = async (page) => {
+      await setCode(page, 'print("nope")');
+      await tid(page, 'submit').click();
+      await tid(page, 'result').waitFor({ timeout: 30000 });
+    };
+
+    const PY_EARLY = ['py-01-first-program', 'py-02-fixing-errors', 'py-03-variables', 'py-04-strings', 'py-05-numbers', 'py-06-input-conversion', 'py-07-logic', 'py-08-if-else', 'py-09-elif', 'py-10-while', 'py-11-for-range', 'py-12-functions', 'py-13-wake-robot'];
     /** Types the reference solution for ANY challenge (lesson, daily or boss) into the editor. */
     const solveAny = async (page, cid) => {
       if (solutions[cid]) return setCode(page, solutions[cid].valid[0]);
@@ -317,7 +325,8 @@ async function main() {
       assert(await page.locator('.result.fail').count() === 1, 'fails');
       assert((await page.locator('.diff').innerText()).includes('BOLT-7 ONLINE'), 'shows expected on visible check');
       eq(await xp(page), xp0, 'no XP for failure');
-      assert((await tid(page, 'focus').innerText()).includes('90/100'), 'focus dropped');
+      assert((await tid(page, 'focus').innerText()).includes('100/100'), 'a guided exercise costs no Focus: it only gives feedback');
+      eq(await tid(page, 'not-ready').count(), 0, 'and it can be retried at once');
       await page.screenshot({ path: SHOTS + '08-challenge-fail.png' });
       // correct
       await setCode(page, 'print("BOLT-7 ONLINE")');
@@ -500,25 +509,70 @@ async function main() {
       await page.context().close();
     });
 
-    await test('focus: exhausting it disables Submit; resting at the Academy restores it', async () => {
+    await test('Focus gate: a wrong answer costs Focus, there is no retry or Rest, training earns it back, a NEW variant is offered', async () => {
       const page = await newPage();
       await startGame(page);
-      await introAndAccept(page);
-      await openLesson(page, 'py-01-first-program');
-      await tid(page, 'continue').click(); await run(page); await tid(page, 'continue').click();
-      await setCode(page, 'print("nope")');
-      for (let i = 0; i < 10; i++) {
-        await tid(page, 'submit').click();
-        await tid(page, 'result').waitFor({ timeout: 30000 });
-        await page.waitForTimeout(80);
+      await seed(page, PY_EARLY.slice(0, 4));
+      await tid(page, 'area-training-grounds').or(page.locator('button[title="World map"]')).first().waitFor();
+      await gotoArea(page, 'training-grounds');
+      await openLesson(page, 'py-05-numbers');
+      await advanceToChallengeId(page, 'py-05-crates');
+      eq(await tid(page, 'focus').innerText(), 'Focus 100/100', 'ready at 100');
+      eq(await tid(page, 'not-ready').count(), 0, 'nothing in the way at 100 Focus');
+      const first = await tid(page, 'briefing').getAttribute('data-challenge');
+      await failOnce(page);
+      assert((await tid(page, 'focus').innerText()).includes('50/100'), 'Focus dropped to 50: ' + await tid(page, 'focus').innerText());
+      assert(await tid(page, 'submit').isDisabled(), 'Submit is disabled below 100 Focus');
+      eq(await tid(page, 'hint').isDisabled(), true, 'hints are disabled too');
+      const mentor = await tid(page, 'diagnosis').innerText();
+      assert(/lost some Focus/.test(mentor) && /Focus 50 \/ 100/.test(mentor), 'the Mentor says it plainly: ' + mentor);
+      for (const id of ['rest', 'train-now', 'other-variant', 'replay']) eq(await tid(page, id).count(), 0, 'no ' + id + ' shortcut');
+      assert(!/\bRest\b|Recover Focus|Restore Focus/.test(await page.locator('body').innerText()), 'the word Rest (as an action) appears nowhere on this screen');
+      // nothing around it: back out, reload, open the lesson again
+      await page.reload();
+      await tid(page, 'hud').waitFor();
+      assert((await tid(page, 'focus').innerText()).includes('50/100'), 'reloading does not restore Focus');
+      await tid(page, 'area-training-grounds').or(page.locator('button[title="World map"]')).first().waitFor().catch(() => undefined);
+      await gotoArea(page, 'training-grounds');
+      await openLesson(page, 'py-05-numbers');
+      await tid(page, 'lesson-blocked').waitFor();
+      assert((await tid(page, 'lesson-blocked').innerText()).includes('Not ready'), 'the lesson says Not ready, not locked');
+      assert(!/Locked/.test(await tid(page, 'lesson-blocked').innerText()), 'never "locked"');
+      eq(await page.locator('.cm-content').count(), 0, 'no editor, so no attempt');
+      await tid(page, 'go-training').click();
+      await tid(page, 'training-yard').waitFor();
+      assert((await tid(page, 'focus-needed').innerText()).includes('50'), 'the Training Grounds shows Focus needed: 50');
+      await page.screenshot({ path: SHOTS + '53-focus-training-grounds.png' });
+      await tid(page, 'start-training').click();
+      await tid(page, 'training-run').waitFor();
+      let last = 50;
+      for (let guard = 0; guard < 30 && !(await tid(page, 'training-complete').count()); guard++) {
+        const kind = await tid(page, 'training-run').getAttribute('data-step-kind');
+        if (kind === 'predict') { for (let i = 0; i < 4 && !(await tid(page, 'predict-right').count()); i++) await tid(page, `predict-${i}`).click(); await tid(page, 'training-read').click(); }
+        else if (await tid(page, 'training-read').count()) await tid(page, 'training-read').click();
+        else {
+          if (await tid(page, 'training-start-step').count()) await tid(page, 'training-start-step').click();
+          await tid(page, 'briefing').waitFor();
+          await solveAny(page, await tid(page, 'briefing').getAttribute('data-challenge'));
+          await tid(page, 'submit').click();
+          await tid(page, 'result').or(tid(page, 'training-intro')).or(tid(page, 'training-read')).or(tid(page, 'training-complete')).first().waitFor({ timeout: 60000 });
+        }
+        await page.waitForTimeout(200);
+        const f = parseInt((await tid(page, 'focus').innerText()).match(/(\d+)\/100/)[1], 10);
+        assert(f >= last, 'Focus only goes up in training');
+        last = f;
       }
-      assert((await tid(page, 'focus').innerText()).includes('0/100'), 'focus at 0');
-      assert(await tid(page, 'submit').isDisabled(), 'submit disabled');
-      await tid(page, 'focus-warning').waitFor();
-      await tid(page, 'run').click(); // running is still allowed
-      await page.locator('.focus-warning button').click();
-      await tid(page, 'rest').click();
-      assert((await tid(page, 'focus').innerText()).includes('100/100'), 'rested');
+      await tid(page, 'focus-restored').waitFor();
+      assert((await tid(page, 'focus').innerText()).includes('100/100'), 'back at 100 Focus');
+      await page.screenshot({ path: SHOTS + '54-focus-restored.png' });
+      await tid(page, 'training-return-btn').click();
+      await tid(page, 'lesson').waitFor();
+      eq(await tid(page, 'not-ready').count() + await tid(page, 'lesson-blocked').count(), 0, 'ready again');
+      const second = await tid(page, 'briefing').getAttribute('data-challenge');
+      assert(second !== first, 'a NEW variant at the same place: ' + first + ' -> ' + second);
+      await solveAny(page, second);
+      await tid(page, 'submit').click();
+      await page.locator('.result.pass').waitFor({ timeout: 30000 });
       await page.context().close();
     });
 
@@ -533,13 +587,13 @@ async function main() {
       await tid(page, 'area-shop').click();
       await tid(page, 'shop').waitFor();
       await page.screenshot({ path: SHOTS + '15-shop.png' });
-      await tid(page, 'buy-focus-tea').click();
-      eq(await tid(page, 'coins').innerText(), '🪙 175', 'coins spent');
+      eq(await tid(page, 'buy-focus-tea').count() + await tid(page, 'buy-study-snack').count(), 0, 'the shop sells no Focus');
+      await tid(page, 'buy-lucky-cap').click();
+      eq(await tid(page, 'coins').innerText(), '🪙 140', 'coins spent');
       await tid(page, 'buy-explorer-cape').click();
       assert(await tid(page, 'buy-explorer-cape').isDisabled(), 'cosmetic owned once');
       await openPanel(page, 'pack');
-      await tid(page, 'use-focus-tea').click();
-      assert((await tid(page, 'focus').innerText()).includes('80/100'), 'tea restored 50 focus');
+      eq(await page.locator('[data-testid^=use-]').count(), 0, 'nothing in the pack restores Focus');
       await page.screenshot({ path: SHOTS + '16-pack.png' });
       await page.context().close();
     });
@@ -715,7 +769,6 @@ async function main() {
 
 
     console.log('Phase 3: Daily Challenge');
-    const PY_EARLY = ['py-01-first-program', 'py-02-fixing-errors', 'py-03-variables', 'py-04-strings', 'py-05-numbers', 'py-06-input-conversion', 'py-07-logic', 'py-08-if-else', 'py-09-elif', 'py-10-while', 'py-11-for-range', 'py-12-functions', 'py-13-wake-robot'];
     const openDaily = async (page) => {
       await tid(page, 'hud-daily').click();
       await tid(page, 'daily-card').waitFor();
@@ -953,13 +1006,6 @@ async function main() {
 
 
     console.log('Phase 4: adaptive training, bosses, campaign');
-    /** Fails the current lesson challenge once on purpose (a wrong program), returning when the result is shown. */
-    const failOnce = async (page) => {
-      await setCode(page, 'print("nope")');
-      await tid(page, 'submit').click();
-      await tid(page, 'result').waitFor({ timeout: 30000 });
-    };
-
     await test('Training Grounds: a failure sends the player to a separate place, blocks the lesson, and the return is to the SAME step', async () => {
       const page = await newPage();
       await startGame(page);
@@ -1121,7 +1167,8 @@ async function main() {
       await tid(page, 'submit').click();
       await tid(page, 'boss-defeat').waitFor({ timeout: 30000 });
       const failed = await readSave(page);
-      eq(failed.stats.focus, focusBefore, 'failing a boss costs no Focus');
+      eq(failed.stats.focus, 0, 'a boss failure costs major Focus (was ' + focusBefore + ')');
+      assert((await tid(page, 'focus').innerText()).includes('0/100'), 'the HUD shows it');
       eq(failed.bosses['mini-python-functions'].attempts.length, 1, 'the attempt is recorded');
       assert(failed.evidence.at(-1).source === 'boss' && failed.evidence.at(-1).passed === false, 'boss failure is evidence');
       // SEALED -> DIAGNOSIS (Mentor, one button) -> TRAINING GROUNDS -> training -> new version; there is no "try again" here
@@ -1133,10 +1180,10 @@ async function main() {
       await tid(page, 'training-run').waitFor();
       assert((await tid(page, 'training-return').innerText()).includes('boss gate'), 'the return point is the boss gate');
       await playTraining(page);
+      assert((await tid(page, 'focus').innerText()).includes('100/100'), 'substantial training brought Focus back to 100');
       await tid(page, 'training-return-btn').click();
-      await tid(page, 'boss-hall').waitFor();
-      eq(await tid(page, 'boss-mini-python-functions').getAttribute('data-status'), 'ready', 'training completed: the gate opens again');
-      await tid(page, 'boss-open-mini-python-functions').click();
+      await tid(page, 'boss-run').waitFor();
+      eq(await tid(page, 'boss-run').getAttribute('data-status'), 'ready', 'back at the exact boss, ready for a new version');
       await tid(page, 'boss-begin').click();
       await tid(page, 'briefing').waitFor();
       const second = await tid(page, 'briefing').getAttribute('data-challenge');
