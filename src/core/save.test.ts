@@ -116,4 +116,27 @@ describe('save', () => {
     d.explore = 'nonsense';
     expect(migrate(d)!.explore).toEqual({ visited: [], last: null });
   });
+
+  it('migrates a v8 (Phase 5) save to v9: an empty play block, progress and quests untouched', () => {
+    const v8 = structuredClone(newSave()) as unknown as Record<string, unknown>;
+    delete v8.play;
+    v8.version = 8;
+    (v8.quests as Record<string, unknown>)['wake-the-robot'] = { status: 'active', acceptedAt: '2026-01-01T00:00:00.000Z' };
+    (v8.stats as Record<string, number>).xp = 910;
+    const m = migrate(v8)!;
+    expect(m.version).toBe(SAVE_VERSION);
+    expect(m.play).toEqual({ scene: null, pos: null, talked: {}, seen: {}, settings: { muted: false, reducedMotion: null, quality: 'medium' } });
+    expect(m.quests['wake-the-robot']!.status).toBe('active');
+    expect(m.stats.xp).toBe(910);
+  });
+  it('repairs a corrupt play block instead of crashing or trusting it', () => {
+    const s = structuredClone(newSave()) as unknown as Record<string, unknown>;
+    s.play = { scene: 42, pos: { x: 'a', z: 1, ry: 0 }, talked: { a: -3, b: 2, c: 'x' }, seen: { k: 5, j: 'iso' }, settings: { muted: 'yes', quality: 'ultra' } };
+    const m = migrate(s)!;
+    expect(m.play.scene).toBeNull();
+    expect(m.play.pos).toBeNull();
+    expect(m.play.talked).toEqual({ b: 2 });
+    expect(m.play.seen).toEqual({ j: 'iso' });
+    expect(m.play.settings).toEqual({ muted: false, reducedMotion: null, quality: 'medium' });
+  });
 });

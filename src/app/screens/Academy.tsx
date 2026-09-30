@@ -6,6 +6,7 @@ import { useGame, getStore } from '../../game/store';
 import { DailyCard } from '../components/DailyCard';
 import { WorldChooser } from '../components/WorldChooser';
 import { QuestOffers } from '../components/NpcCards';
+import { QuestCard } from '../components/QuestCard';
 
 function Juno() {
   return (
@@ -73,11 +74,7 @@ export function Academy({ onGo, onDaily }: { onGo: (route: 'map' | string) => vo
             <div>
               <section class="panel">
                 <h2>📜 Quest board</h2>
-                <div class="quest-line">
-                  <strong>{quest.title}</strong>
-                  <span class={`chip ${save.quests[quest.id]?.status ?? 'none'}`}>{save.quests[quest.id]?.status === 'complete' ? 'Complete' : save.quests[quest.id] ? 'In progress' : 'Available'}</span>
-                </div>
-                <p class="muted">{quest.summary}</p>
+                <QuestCard quest={quest} showObjectives={false} />
                 <button class="btn" onClick={() => onGo('training-grounds')}>Go to the Programming Hall →</button>
               </section>
             </div>

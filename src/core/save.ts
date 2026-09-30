@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export interface PlayerProfile {
   name: string;
@@ -314,6 +314,44 @@ export function sanitizeExplore(raw: unknown): ExploreState {
   return { visited, last: typeof r.last === 'string' ? r.last : null };
 }
 
+
+/* ------------------------------------------------------------------ Phase 6: the playable 3D world */
+
+/**
+ * Facts about the PLAYED world that learning evidence cannot express: who the player has spoken to, what they have inspected, where they
+ * stood, and the settings of the 3D view. What code CHANGED in the world is never stored here (it is derived from evidence by
+ * `deriveWorldState`), so a save edit cannot fake a repaired robot.
+ */
+export interface PlayState {
+  /** Scene the player was last in and where they stood, so a reload resumes in the world. */
+  scene: string | null;
+  pos: { x: number; z: number; ry: number } | null;
+  /** npcId -> number of conversations (1 = met). */
+  talked: Record<string, number>;
+  /** Interaction ids inspected/used at least once (`inspect:` facts that quest objectives can ask for). */
+  seen: Record<string, string>;
+  /** Player-facing settings of the 3D layer. */
+  settings: { muted: boolean; reducedMotion: boolean | null; quality: 'low' | 'medium' | 'high' };
+}
+export const emptyPlay = (): PlayState => ({ scene: null, pos: null, talked: {}, seen: {}, settings: { muted: false, reducedMotion: null, quality: 'medium' } });
+export function sanitizePlay(raw: unknown): PlayState {
+  const out = emptyPlay();
+  if (typeof raw !== 'object' || raw === null) return out;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.scene === 'string') out.scene = r.scene.slice(0, 64);
+  const p = r.pos as Record<string, unknown> | null;
+  if (p && typeof p === 'object' && [p.x, p.z, p.ry].every((n) => typeof n === 'number' && Number.isFinite(n))) out.pos = { x: p.x as number, z: p.z as number, ry: p.ry as number };
+  if (typeof r.talked === 'object' && r.talked !== null) for (const [k, v] of Object.entries(r.talked as Record<string, unknown>).slice(0, 256)) if (typeof v === 'number' && v > 0) out.talked[k] = Math.min(9999, Math.floor(v));
+  if (typeof r.seen === 'object' && r.seen !== null) for (const [k, v] of Object.entries(r.seen as Record<string, unknown>).slice(0, 512)) if (typeof v === 'string') out.seen[k] = v;
+  const st = r.settings as Record<string, unknown> | undefined;
+  if (st && typeof st === 'object') {
+    out.settings.muted = st.muted === true;
+    out.settings.reducedMotion = typeof st.reducedMotion === 'boolean' ? st.reducedMotion : null;
+    out.settings.quality = st.quality === 'low' || st.quality === 'high' ? st.quality : 'medium';
+  }
+  return out;
+}
+
 export interface SaveData {
   version: number;
   player: PlayerProfile | null;
@@ -339,6 +377,8 @@ export interface SaveData {
   campaign: CampaignState;
   /** Phase 5: which worlds the player has visited (navigation only, never progress). */
   explore: ExploreState;
+  /** Phase 6: conversations, inspections, position and view settings of the playable 3D world. */
+  play: PlayState;
 }
 
 export const MAX_FOCUS = 100;
@@ -360,6 +400,7 @@ export function newSave(): SaveData {
     bosses: emptyBosses(),
     campaign: {},
     explore: emptyExplore(),
+    play: emptyPlay(),
   };
 }
 
@@ -403,6 +444,9 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // saves gain an `explore` block (which worlds were visited) and Daily records may carry the new 'mixed' kind.
   // Nothing is lost or re-locked: access is now computed from demonstrated skills, and a player who had finished a lesson keeps it.
   7: (old) => ({ ...old, explore: emptyExplore() }),
+  // v8 -> v9 (Phase 6): the playable 3D world. Saves gain an empty `play` block (nobody has talked to anyone yet). Quest states, evidence and
+  // lessons are untouched; the world a player's old evidence already earned is derived from that evidence, so nothing needs backfilling.
+  8: (old) => ({ ...old, play: emptyPlay() }),
 };
 /** Shop items that restored Focus directly. They no longer exist: Focus is earned through training. */
 const REMOVED_CONSUMABLES: Record<string, number> = { 'study-snack': 10, 'focus-tea': 25 };
@@ -435,6 +479,7 @@ export function migrate(raw: unknown): SaveData | null {
   data.bosses = sanitizeBosses(data.bosses);
   sanitizeFocus(data);
   data.explore = sanitizeExplore(data.explore);
+  data.play = sanitizePlay(data.play);
   data.campaign = typeof data.campaign === 'object' && data.campaign !== null ? { completedAt: typeof (data.campaign as CampaignState).completedAt === 'string' ? (data.campaign as CampaignState).completedAt : undefined } : {};
   return data;
 }

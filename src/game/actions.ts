@@ -4,7 +4,7 @@
  * Keeping this free of UI and storage makes the rules (XP, unlocks, evidence) unit-testable.
  */
 import { getChallenge, getLesson, lessonOfChallenge } from '../content';
-import { items, quests } from '../content/world';
+import { items } from '../content/world';
 import { areas } from '../content/world';
 import { newSave, type ChallengeProgress, type SaveData } from '../core/save';
 import { newlyEarned } from './achievements';
@@ -16,6 +16,7 @@ import { buildEvidence, failuresSinceLastPass } from './evidence';
 import { applyDiagnosis } from './weakness';
 import { ensureRequiredPlan, requiredTraining, returnToFor } from './training';
 import { lessonAccess } from './graph';
+import { advanceQuests, getQuest, unavailableReason } from './quests';
 import { FAILURE_LEVELS, HINTED_PASS_LOSS, failureLevelOf, focusReady, loseFocus } from './focus';
 import { resolveOnPass } from './weakness';
 import type { EvidenceSource, FailureDetail } from '../learning/mastery';
@@ -36,6 +37,8 @@ export function draft(save: SaveData): { s: SaveData; events: GameEvent[] } {
 
 /** Recompute derived unlocks/achievements. Call at the end of any action that could change them. */
 export function settle(s: SaveData, events: GameEvent[]): void {
+  // Quests finish whenever their last objective is done, whatever action did it (a lesson, a passed challenge, a conversation).
+  advanceQuests(s, events, (xp, coins, note) => gain(s, events, xp, coins, note), now);
   for (const area of areas) {
     if (isAreaUnlocked(area, s) && !s.unlockedAreas.includes(area.id)) {
       s.unlockedAreas.push(area.id);
@@ -80,7 +83,9 @@ export function setFlag(save: SaveData, flag: string, value = true): Result {
 
 export function acceptQuest(save: SaveData, questId: string): Result {
   const { s, events } = draft(save);
-  if (!s.quests[questId] && quests.some((q) => q.id === questId)) {
+  const q = getQuest(questId);
+  // Only a quest that is really on offer can be taken: the UI never shows an Accept button for anything else, and the rule lives here.
+  if (q && !s.quests[questId] && !unavailableReason(s, q)) {
     s.quests[questId] = { status: 'active', acceptedAt: now() };
     events.push({ type: 'questAccepted', id: questId });
   }
@@ -219,19 +224,6 @@ export function completeLesson(save: SaveData, lessonId: string): Result {
     lp.stepIndex = lesson.steps.length;
     events.push({ type: 'lessonComplete', id: lessonId });
     gain(s, events, lesson.xpReward, 0, 'Lesson complete');
-    for (const q of quests) {
-      const state = s.quests[q.id];
-      if (state?.status === 'active' && q.objectives.every((o) => s.learning.lessons[o.lessonId]?.completed)) {
-        state.status = 'complete';
-        state.completedAt = now();
-        events.push({ type: 'questComplete', id: q.id });
-        gain(s, events, q.reward.xp, q.reward.coins, `Quest: ${q.title}`);
-        for (const id of q.reward.items ?? []) {
-          s.inventory[id] = (s.inventory[id] ?? 0) + 1;
-          events.push({ type: 'item', id });
-        }
-      }
-    }
   }
   settle(s, events);
   return { save: s, events };

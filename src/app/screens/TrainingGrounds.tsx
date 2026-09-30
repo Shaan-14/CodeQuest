@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { quests } from '../../content/world';
 import { getRunner } from '../../learning/python/runner';
+import { questProgress } from '../../game/quests';
 import { useGame } from '../../game/store';
 import { LessonList } from '../components/LessonList';
 import { NpcCards } from '../components/NpcCards';
@@ -10,8 +11,8 @@ export function TrainingGrounds({ onOpenLesson, onPractice, onPracticeYard }: { 
   const { save } = useGame();
   useEffect(() => void getRunner().warmUp().catch(() => undefined), []);
   const quest = quests[0]!;
-  const done = quest.objectives.filter((o) => save.learning.lessons[o.lessonId]?.completed).length;
-  const power = Math.round((done / quest.objectives.length) * 100);
+  const { done, total } = questProgress(save, quest);
+  const power = Math.round((done / total) * 100);
   const awake = save.quests[quest.id]?.status === 'complete';
   return (
     <main class="scene theme-grounds" data-testid="grounds">

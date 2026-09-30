@@ -56,13 +56,13 @@ describe('quest and areas', () => {
     let s = A.acceptQuest(started(), 'wake-the-robot').save;
     const q = quests[0]!;
     let last: A.Result | undefined;
-    for (const o of q.objectives) last = A.completeLesson(s, o.lessonId), (s = last.save);
+    for (const o of q.objectives) last = A.completeLesson(s, o.lessonId!), (s = last.save);
     expect(s.quests[q.id]?.status).toBe('complete');
     expect(last!.events.some((e) => e.type === 'questComplete')).toBe(true);
     expect(s.inventory['robot-bolt']).toBe(1);
     expect(s.achievements['robot-awake']).toBeDefined();
     const xp = s.stats.xp;
-    const again = A.completeLesson(s, q.objectives[0]!.lessonId).save;
+    const again = A.completeLesson(s, q.objectives[0]!.lessonId!).save;
     expect(again.stats.xp).toBe(xp);
     expect(again.inventory['robot-bolt']).toBe(1);
   });
@@ -198,24 +198,25 @@ describe('reset', () => {
       expect(questOffered(ledger, s)).toBe(false); // the second Python quest follows the first...
       expect(questOffered(district, s)).toBe(true); // ...but the SQL story starts on its own: worlds are independent
       s = A.acceptQuest(s, 'wake-the-robot').save;
-      for (const o of quests[0]!.objectives) s = A.completeLesson(s, o.lessonId).save;
+      for (const o of quests[0]!.objectives) s = A.completeLesson(s, o.lessonId!).save;
       expect(s.quests['wake-the-robot']?.status).toBe('complete');
       expect(questOffered(ledger, s)).toBe(true);
       s = A.acceptQuest(s, ledger.id).save;
-      for (const o of ledger.objectives) s = A.completeLesson(s, o.lessonId).save;
+      for (const o of ledger.objectives) s = A.completeLesson(s, o.lessonId!).save;
       expect(s.quests[ledger.id]?.status).toBe('complete');
       expect(questOffered(district, s)).toBe(true);
       const xp = s.stats.xp;
-      s = A.completeLesson(s, ledger.objectives[0]!.lessonId).save;
+      s = A.completeLesson(s, ledger.objectives[0]!.lessonId!).save;
       expect(s.stats.xp).toBe(xp);
     });
     it('every quest objective names a real lesson, and quest lessons never duplicate across quests', () => {
       const ids = new Set(lessons.map((l) => l.id));
       const seen = new Set<string>();
       for (const q of quests) for (const o of q.objectives) {
-        expect(ids.has(o.lessonId), o.lessonId).toBe(true);
-        expect(seen.has(o.lessonId), `duplicate ${o.lessonId}`).toBe(false);
-        seen.add(o.lessonId);
+        if ((o.kind ?? 'lesson') !== 'lesson') continue;
+        expect(ids.has(o.lessonId!), o.lessonId).toBe(true);
+        expect(seen.has(o.lessonId!), `duplicate ${o.lessonId}`).toBe(false);
+        seen.add(o.lessonId!);
       }
     });
     it('achievements: first SQL pass and quest milestones are earned from evidence, not XP', () => {

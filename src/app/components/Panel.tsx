@@ -1,10 +1,11 @@
 import { useState } from 'preact/hooks';
 import { items, quests, achievementDefs } from '../../content/world';
-import { getLesson } from '../../content';
 import { exportSave, importSave } from '../../core/save';
 import { resetAll } from '../../game/actions';
 import { backfillEvidence } from '../../game/backfill';
+import { questStatus } from '../../game/quests';
 import { getStore, useGame } from '../../game/store';
+import { QuestCard } from './QuestCard';
 import { Modal } from './Modal';
 import { SkillsView } from './SkillsView';
 import type { PanelTab } from './Hud';
@@ -30,23 +31,14 @@ export function Panel({ tab, onTab, onClose, onReset }: { tab: PanelTab; onTab: 
 
 function QuestLog() {
   const { save } = useGame();
-  const active = quests.filter((q) => save.quests[q.id]);
-  if (!active.length) return <p class="muted">No quests yet. Speak to Mentor Juno at the Academy.</p>;
+  const taken = quests.filter((q) => save.quests[q.id]);
+  const open = quests.filter((q) => !save.quests[q.id] && questStatus(save, q) === 'available');
+  if (!taken.length && !open.length) return <p class="muted">No quests yet. Speak to Mentor Juno at the Academy.</p>;
   return (
     <div data-testid="quest-log">
-      {active.map((q) => (
-        <section class="panel" key={q.id}>
-          <div class="quest-line"><strong>{q.title}</strong><span class={`chip ${save.quests[q.id]!.status}`}>{save.quests[q.id]!.status === 'complete' ? 'Complete' : 'Active'}</span></div>
-          <p class="muted">{q.summary}</p>
-          <ul class="objectives">
-            {q.objectives.map((o) => {
-              const done = !!save.learning.lessons[o.lessonId]?.completed;
-              return <li key={o.id} class={done ? 'done' : ''}>{done ? '☑' : '☐'} {o.text} <span class="muted small">({getLesson(o.lessonId)?.title})</span></li>;
-            })}
-          </ul>
-          <p class="small muted">Reward: {q.reward.xp} XP, {q.reward.coins} coins{q.reward.items?.length ? ', and a keepsake' : ''}. Completing a quest is a milestone, not proof of mastery.</p>
-        </section>
-      ))}
+      {taken.map((q) => <QuestCard key={q.id} quest={q} />)}
+      {open.length > 0 && <h3>Waiting for you</h3>}
+      {open.map((q) => <p key={q.id} class="small muted"><strong>{q.title}</strong> (available from {q.giver})</p>)}
     </div>
   );
 }

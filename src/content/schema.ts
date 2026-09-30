@@ -542,12 +542,15 @@ export interface Item {
   kind: 'cosmetic' | 'quest';
 }
 
-export interface QuestObjective {
-  id: string;
-  text: string;
-  /** Completed when this lesson is completed. */
-  lessonId: string;
-}
+/**
+ * One step of a quest. A quest is a story: lessons are still objectives, but so are the things a player does in the playable world.
+ * `lesson` (the default) is done when the lesson is completed; `talk` when the NPC has been spoken to; `inspect` when that object was
+ * examined; `challenge` when that challenge (or another variant of its objective) was passed; `effect` when code caused `target:action`
+ * in the derived world state. Only `challenge`/`effect`/`lesson` depend on evidence; none depends on XP.
+ */
+export type QuestObjective =
+  | { id: string; text: string; lessonId: string; kind?: 'lesson' }
+  | { id: string; text: string; kind: 'talk' | 'inspect' | 'challenge' | 'effect'; ref: string; lessonId?: undefined };
 
 export interface Quest {
   id: string;

@@ -188,7 +188,7 @@ describe('save migration v5 -> current', () => {
     const v5 = { ...structuredClone(s), version: 5 } as Record<string, unknown>;
     const m = migrate(v5)!;
     expect(m.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(8);
+    expect(SAVE_VERSION).toBe(9);
     expect(m.player?.name).toBe('Ada');
     expect(requiredTraining(m)).toBeUndefined(); // nothing an old save had becomes a sudden block
     s = withMastery(s, 'py.numbers');

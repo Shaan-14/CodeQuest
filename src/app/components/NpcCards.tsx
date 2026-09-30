@@ -1,8 +1,7 @@
 import { npcLine, npcsIn } from '../../content/npcs';
 import { quests } from '../../content/world';
-import { acceptQuest } from '../../game/actions';
-import { questOffered } from '../../game/world';
-import { getStore, useGame } from '../../game/store';
+import { useGame } from '../../game/store';
+import { QuestCard } from './QuestCard';
 
 /** Characters in an area. Their advice follows the player's progress; none of it is an answer. */
 export function NpcCards({ areaId }: { areaId: string }) {
@@ -23,24 +22,9 @@ export function NpcCards({ areaId }: { areaId: string }) {
   );
 }
 
-/** Quests offered by a giver: accept once, progress is by completing lessons. */
+/** Every quest a giver has, each in its true state (only an available quest has an Accept button). */
 export function QuestOffers({ giver, exclude = [] }: { giver: string; exclude?: string[] }) {
-  const { save, apply } = useGame();
-  const list = quests.filter((q) => q.giver === giver && !exclude.includes(q.id) && questOffered(q, save));
+  const list = quests.filter((q) => q.giver === giver && !exclude.includes(q.id));
   if (!list.length) return null;
-  return (
-    <div class="quest-offers">
-      {list.map((q) => {
-        const st = save.quests[q.id];
-        const done = q.objectives.filter((o) => save.learning.lessons[o.lessonId]?.completed).length;
-        return (
-          <section key={q.id} class="panel" data-testid={`quest-${q.id}`}>
-            <div class="quest-line"><strong>📜 {q.title}</strong><span class={`chip ${st?.status ?? 'none'}`}>{st?.status === 'complete' ? 'Complete' : st ? 'In progress' : 'Available'}</span></div>
-            <p class="muted">{q.summary}</p>
-            {st ? <p class="small muted">{done} of {q.objectives.length} lessons finished. Quest progress tracks lessons, not skill.</p> : <button class="btn" onClick={() => apply(acceptQuest(getStore().save, q.id))} data-testid={`accept-${q.id}`}>Accept quest</button>}
-          </section>
-        );
-      })}
-    </div>
-  );
+  return <div class="quest-offers">{list.map((q) => <QuestCard key={q.id} quest={q} showObjectives={false} />)}</div>;
 }

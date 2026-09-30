@@ -88,7 +88,7 @@ describe('content structure', () => {
     for (const l of lessons) expect(skillIds.has(l.skillId)).toBe(true);
     for (const c of challenges) for (const s of c.skillIds) expect(skillIds.has(s), `${c.id}:${s}`).toBe(true);
     for (const q of quests) {
-      for (const o of q.objectives) expect(getLesson(o.lessonId)).toBeDefined();
+      for (const o of q.objectives) if ((o.kind ?? 'lesson') === 'lesson') expect(getLesson(o.lessonId!)).toBeDefined();
       for (const i of q.reward.items ?? []) expect(items.some((x) => x.id === i)).toBe(true);
     }
     for (const a of areas) {

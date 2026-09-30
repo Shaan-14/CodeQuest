@@ -13,12 +13,13 @@ export interface Toast {
   event: GameEvent;
 }
 
-class GameStore {
+export class GameStore {
   save: SaveData;
   loadStatus: LoadStatus;
   toasts: Toast[] = [];
   private nextToast = 1;
   private listeners = new Set<() => void>();
+  private eventListeners = new Set<(e: GameEvent) => void>();
 
   constructor(private storage: KeyValueStore) {
     const loaded = loadSave(storage);
@@ -26,17 +27,19 @@ class GameStore {
     this.loadStatus = loaded.status;
   }
 
-  subscribe(fn: () => void): () => void {
+  // Methods the UI destructures (`const { save, apply } = useGame()`) are arrow properties so `this` can never be lost (a real bug: a detached
+  // `apply` threw silently and made every Accept-quest button do nothing).
+  subscribe = (fn: () => void): (() => void) => {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
-  }
+  };
 
-  private emit() {
+  private emit = () => {
     this.listeners.forEach((l) => l());
-  }
+  };
 
   /** Apply a pure action result: persist, queue toasts, notify the UI. */
-  apply(result: Result, opts: { silent?: boolean } = {}): void {
+  apply = (result: Result, opts: { silent?: boolean } = {}): void => {
     this.save = result.save;
     try {
       writeSave(this.storage, this.save);
@@ -45,12 +48,19 @@ class GameStore {
     }
     for (const event of result.events) this.toasts = [...this.toasts, { id: this.nextToast++, event }];
     if (!opts.silent) this.emit();
-  }
+    for (const event of result.events) this.eventListeners.forEach((l) => l(event));
+  };
 
-  dismissToast(id: number): void {
+  dismissToast = (id: number): void => {
     this.toasts = this.toasts.filter((t) => t.id !== id);
     this.emit();
-  }
+  };
+
+  /** The stream of game events (what just happened) for things that react to play, like the 3D world. Returns an unsubscribe. */
+  onEvent = (fn: (e: GameEvent) => void): (() => void) => {
+    this.eventListeners.add(fn);
+    return () => this.eventListeners.delete(fn);
+  };
 }
 
 let store: GameStore | null = null;
