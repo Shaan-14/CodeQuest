@@ -4,6 +4,8 @@
  *
  * Units are metres. X is east, Z is south (toward the camera at the start), Y is up. Rotation `ry` is radians about Y (0 faces -Z, north).
  */
+import type { SkillReq } from '../../content/schema';
+
 export type WorldId = 'hub' | 'robotics' | 'academy' | 'ballpark' | 'racing' | 'summit';
 
 export type Vec2 = { x: number; z: number };
@@ -68,6 +70,9 @@ export interface Exit {
   spawn?: string;
   /** The learning-graph area whose access rule gates this door (content/world.ts `Area.lock`), if any. */
   area?: string;
+  /** Or competencies the player must have shown (the skill graph is the only authority; the panel names exactly what is missing). */
+  requires?: SkillReq[];
+  reason?: string;
 }
 
 /** A condition on the save, used for dialogue, interactables and quest stages. All given keys must hold. */

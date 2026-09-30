@@ -12,6 +12,7 @@ export type OneShot = 'interact' | 'damage' | 'success' | 'wave' | 'cast' | 'thi
 
 const ONE_SHOT_LEN: Record<OneShot, number> = { interact: 0.6, damage: 0.7, success: 1.4, wave: 1.2, cast: 0.9, think: 1.6, cheer: 1.4 };
 const blobGeo = new CircleGeometry(0.45, 14);
+blobGeo.userData.shared = true;
 const blobMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false });
 
 export interface Rig {

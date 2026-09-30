@@ -25,6 +25,21 @@ export const stations: Station[] = [
     blurb: 'The line’s control programs: sort parts, keep records, reuse routines, find faults and read the machine logs.',
     lessons: ['py-14-independent-trial', 'py-15-lists', 'py-16-dicts', 'py-17-records', 'py-18-function-design', 'py-19-debugging', 'py-20-files', 'py-21-cleaning'],
   },
+  {
+    id: 'rune-lectern', scene: 'spell-classroom', title: 'The Rune Lectern',
+    blurb: 'Runes give things their meaning: a heading, a list, a form, a door. Each rune you write changes the Runecraft Hall.',
+    lessons: ['web-01-html-basics', 'web-02-links-lists', 'web-03-tables', 'web-04-semantics', 'web-05-forms', 'web-06-html-debugging', 'web-07-independent-html'],
+  },
+  {
+    id: 'ward-lectern', scene: 'spell-classroom', title: 'The Ward Lectern',
+    blurb: 'Wards decide how things look and where they stand. Change a ward and the whole hall changes with it.',
+    lessons: ['web-08-css-selectors', 'web-09-box-model', 'web-10-flexbox', 'web-11-grid', 'web-12-responsive', 'web-13-css-projects', 'web-14-independent-css'],
+  },
+  {
+    id: 'spell-lectern', scene: 'arena', title: 'The Incantation Lectern',
+    blurb: 'Incantations make things happen: click, wait, ask, answer. The Gloomhound answers only to spells that really work.',
+    lessons: ['web-15-js-basics', 'web-16-js-data', 'web-17-js-errors', 'web-18-dom', 'web-19-events', 'web-20-forms-js', 'web-21-storage-json', 'web-22-async', 'web-23-fetch', 'web-24-fetch-write', 'web-25-web-projects', 'web-26-independent-js'],
+  },
 ];
 export const getStation = (id: string): Station | undefined => stations.find((s) => s.id === id);
 export const stationOfLesson = (lessonId: string): Station | undefined => stations.find((s) => s.lessons.includes(lessonId));

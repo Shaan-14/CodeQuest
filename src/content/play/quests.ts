@@ -70,4 +70,39 @@ export const playQuests: Quest[] = [
     ],
     reward: { xp: 200, coins: 70 },
   },
+  {
+    id: 'q-lantern-briefing', title: 'The Lanterns Are Going Out', giver: 'Warden Teselle',
+    summary: 'One by one the academy’s lanterns have failed. The Warden thinks the old rune-work is unsound. Look at a dead lantern, then write the first runes in the Runecraft Hall.',
+    objectives: [
+      { id: 'l1', text: 'Talk to Warden Teselle in the courtyard', kind: 'talk', ref: 'teselle' },
+      { id: 'l2', text: 'Inspect the dark lantern by the pond', kind: 'inspect', ref: 'dark-lantern' },
+      { id: 'l3', text: 'Write a rune at the Rune Lectern: unfurl the academy banner', kind: 'effect', ref: 'hall.banner:unfurl' },
+      { id: 'l4', text: 'Write the links and lists that raise a portal frame', kind: 'effect', ref: 'hall.portal:frame' },
+    ],
+    reward: { xp: 90, coins: 30 },
+  },
+  {
+    id: 'q-lantern-wards', title: 'Raise the Wards', giver: 'Tutor Bram', requires: 'q-lantern-briefing',
+    summary: 'Runes give things meaning; wards give them form. Tutor Bram wants the old dome raised again: colour it, thicken it, line up its glyphs and let it fit any hall.',
+    objectives: [
+      { id: 'w1', text: 'Open the portal with a form that works', kind: 'effect', ref: 'hall.portal:open' },
+      { id: 'w2', text: 'Colour the ward dome (selectors)', kind: 'effect', ref: 'ward.dome:color' },
+      { id: 'w3', text: 'Thicken the dome (the box model)', kind: 'effect', ref: 'ward.dome:thick' },
+      { id: 'w4', text: 'Line up the glyphs (flexbox)', kind: 'effect', ref: 'ward.runes:align' },
+      { id: 'w5', text: 'Let the dome fit any hall (responsive design)', kind: 'effect', ref: 'ward.dome:adapt' },
+    ],
+    reward: { xp: 130, coins: 40 },
+  },
+  {
+    id: 'q-lantern-duel', title: 'The Gloomhound', giver: 'Apprentice Nim', requires: 'q-lantern-wards',
+    summary: 'Something has crept into the Dueling Ring and is eating the light. Nim says it only fears incantations that really work. Cast them at the lectern.',
+    objectives: [
+      { id: 'h1', text: 'Wake the altar orb with your first incantation', kind: 'effect', ref: 'arena.orb:spark' },
+      { id: 'h2', text: 'Strike the Gloomhound with a spell built from data', kind: 'effect', ref: 'arena.hound:hit1' },
+      { id: 'h3', text: 'Relight the arena lanterns by changing the page (the DOM)', kind: 'effect', ref: 'arena.lanterns:light' },
+      { id: 'h4', text: 'Strike again with a spell that answers a click (events)', kind: 'effect', ref: 'arena.hound:hit2' },
+      { id: 'h5', text: 'Finish the trial: drive the Gloomhound out', kind: 'effect', ref: 'arena.hound:defeat' },
+    ],
+    reward: { xp: 200, coins: 70, items: ['lantern-charm'] },
+  },
 ];

@@ -61,6 +61,71 @@ const ROBOTICS: Npc3D[] = [
   },
 ];
 
-export const cast: Npc3D[] = [...ROBOTICS];
+const HUB: Npc3D[] = [
+  {
+    id: 'kip', icon: '🤖', name: 'Kip', role: 'Receptionist robot, Robotics Academy',
+    personality: 'A cheerful, slightly overeager service robot who narrates his own status lights.',
+    look: { body: 0x7dffb3, head: 0xcfd6ea, accent: 0x2f9e8f, shape: 'robot', scale: 0.9 },
+    dialogue: [
+      { when: { effect: 'bay.bolt:awake' }, mood: 'cheer', lines: ['Bzzt! Bolt-7 is walking again. He told me himself. I am so pleased my lights are doing the thing.', 'The Manufacturing Floor is through the north-east door. Engineer Ori is very busy, very polite, and very short on programmers.'] },
+      { when: { quest: { id: 'q-bay-briefing', status: ['completed'] } }, lines: ['His display is on! Status lights: delighted. The rest of the repair is in the Bay.'] },
+      { lines: ['Welcome to the Robotics Academy. Maintenance Bay is the north-west door: a robot needs you. The Manufacturing Floor is north-east. The Simulation Room on the west is where you train when something goes wrong.', 'Everything in this building can be fixed with code. Nothing in this building can be fixed by guessing.'] },
+    ],
+  },
+  {
+    id: 'pip', icon: '🧭', name: 'Pip', role: 'Guide of Bytehaven',
+    personality: 'Bright, curious, always slightly out of breath. Has walked every road in Bytehaven and loves telling people they may choose their own.',
+    look: { body: 0xd98a2b, head: 0xf0c9a0, accent: 0x7dffb3, hair: 0xc94f6d, hat: 'cap', scale: 0.92 },
+    dialogue: [
+      { when: { bossPassed: 'summit' }, mood: 'cheer', lines: ['You did it. The whole plant is lit. I watched from the fountain and I have never seen Bytehaven so bright.', 'Go wherever you like now. Every road is still open, and some of them are more fun when nothing is at stake.'] },
+      { when: { bossPassed: 'mastery-python' }, lines: ['A guardian beaten! The Summit Trail in the north-east opens for anyone who has shown enough in any three worlds. You do not need the same three as anybody else.'] },
+      { when: { met: 'pip' }, lines: ['Robotics is west, the magic academy is north, the ballpark is east and the raceway is south. They teach different things, but they all run on the same idea: you change the world by writing things down precisely.', 'Go in any order. The map board knows where you have been.'] },
+      { lines: ['Welcome to Bytehaven! Four worlds and a mountain. Robotics to the west, the Lanternhollow magic academy to the north, Harborview Park to the east, the Redline Raceway to the south.', 'There is no right first. Some doors ask you to have shown a skill before they open, and they will say exactly which one. Nothing here gives you answers; everything here rewards working things out.', 'Two tips: a glowing diamond above someone means they have work for you, and if something goes wrong, the Simulation Room in the Robotics Academy is where you train.'] },
+    ],
+  },
+];
+
+export const cast: Npc3D[] = [...ROBOTICS, ...HUB];
 const byId = new Map(cast.map((n) => [n.id, n]));
 export const getNpc3D = (id: string): Npc3D | undefined => byId.get(id);
+
+const ACADEMY: Npc3D[] = [
+  {
+    id: 'teselle', icon: '🧙‍♀️', name: 'Warden Teselle', role: 'Warden of Lanternhollow Academy',
+    personality: 'Dry, exact and quietly warm. Speaks as if every sentence had to pass an inspection. Hates magic done by guessing.',
+    look: { body: 0x4b3a7a, head: 0xd9b48f, accent: 0xffd98a, hair: 0xd8d8e8, hat: 'wizard', scale: 1.02 },
+    dialogue: [
+      { when: { quest: { id: 'q-lantern-duel', status: ['completed'] } }, mood: 'cheer', lines: ['The ring is quiet, the lanterns burn, and the Gloomhound has not been seen since. You have earned the thing we give to very few students: my complete trust.', 'The Summit beacon will need people like you. Go where you are needed.'] },
+      { when: { quest: { id: 'q-lantern-briefing', status: ['completed'] } }, lines: ['You found the first fault, and you wrote the first fix. Bram will tell you what comes next. A ward is only as good as the rune under it.'] },
+      { when: { quest: { id: 'q-lantern-briefing', status: ['accepted', 'in-progress'] }, notSeen: 'dark-lantern' }, lines: ['Look at the dark lantern by the pond first. Do not start a repair before you have looked at the failure.'] },
+      { when: { quest: { id: 'q-lantern-briefing', status: ['accepted', 'in-progress'] } }, lines: ['The Runecraft Hall is through the big doors to the north. Tutor Bram will be there. The Rune Lectern is yours to use. Write carefully; the hall reads what you write exactly.'] },
+      { when: { quest: { id: 'q-lantern-briefing', status: ['available'] } }, offer: 'q-lantern-briefing', mood: 'worry', lines: ['Welcome to Lanternhollow. I am Teselle, Warden here.', 'Our lanterns are failing, one by one. Not from age: from unsound runework, written by people who guessed. You cannot guess a rune. It says exactly what you wrote, and nothing else.', 'Look at the dark lantern by the pond. Then go to the Runecraft Hall and write what the academy has forgotten. Will you?'] },
+      { lines: ['Precision is a kindness. Write what you mean.'] },
+    ],
+  },
+  {
+    id: 'bram', icon: '🧑‍🎓', name: 'Tutor Bram Quillfeather', role: 'Tutor of Runecraft',
+    personality: 'Gentle, scatterbrained and never wrong about a rune. Forgets where he put his spectacles; remembers every bug he has ever met.',
+    look: { body: 0x3f6a7a, head: 0xe0b48e, accent: 0xb48cff, hair: 0x8a8aa8, hat: 'hood' },
+    dialogue: [
+      { when: { quest: { id: 'q-lantern-wards', status: ['completed'] } }, mood: 'cheer', lines: ['Did you see the dome? Coloured, thick, every glyph in its place, and it fits the hall however the hall is shaped. That is what a ward is: a promise about how things will look, kept.'] },
+      { when: { quest: { id: 'q-lantern-wards', status: ['accepted', 'in-progress'] } }, lines: ['The Ward Lectern is the second one. Change one thing at a time and look at the dome after each change. A ward you cannot watch is a ward you cannot trust.'] },
+      { when: { quest: { id: 'q-lantern-wards', status: ['available'] } }, offer: 'q-lantern-wards', lines: ['Ah, the new one! Warden Teselle said you would come. Runes give things meaning; wards give them form.', 'The old dome fell when the lanterns went dark. Shall we raise it again? Colour first, then thickness, then the glyphs, and finally making it fit any hall.'] },
+      { when: { quest: { id: 'q-lantern-briefing', status: ['accepted', 'in-progress'] } }, lines: ['The Rune Lectern is on your left. A rune is not decoration, it is meaning: a heading is a heading because it heads something. Get the meaning right and the rest follows.'] },
+      { lines: ['Mind the lectern. It bites if you leave a tag open.'] },
+    ],
+  },
+  {
+    id: 'nim', icon: '🧒', name: 'Apprentice Nim', role: 'Second-year apprentice',
+    personality: 'Quick, competitive, secretly worried. Finished the exams two years early and has never solved anything that was not on one.',
+    look: { body: 0xc2603a, head: 0xcf9a72, accent: 0x5ee6d0, hair: 0x1f1a1a, hat: 'headband', scale: 0.92 },
+    dialogue: [
+      { when: { quest: { id: 'q-lantern-duel', status: ['completed'] } }, mood: 'cheer', lines: ['You beat it. On a problem that was not on any exam. I have been trying to work out how, and I think the honest answer is that you looked before you cast.', 'Teach me?'] },
+      { when: { quest: { id: 'q-lantern-duel', status: ['accepted', 'in-progress'] } }, lines: ['The Incantation Lectern is at the west side of the ring. Every spell that really works hits it. Every spell that does not, it notices.', 'Do not panic when it bites back. Read what your spell actually did, not what you meant it to do.'] },
+      { when: { quest: { id: 'q-lantern-duel', status: ['available'] } }, offer: 'q-lantern-duel', lines: ['Wards up? Good. Because something has crept into the Dueling Ring and it is eating the light. Gloomhound. Warden says it only fears incantations that work.', 'I tried three spells. I was sure each one was right. It laughed at all three. Will you go?'] },
+      { lines: ['Hi. I am Nim. Do not tell Tutor Bram I was in the library after hours.'] },
+    ],
+  },
+];
+cast.push(...ACADEMY);
+byId.clear(); for (const n of cast) byId.set(n.id, n);

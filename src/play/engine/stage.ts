@@ -7,7 +7,7 @@
  * terminal/dialogue covers the view or the tab is hidden, and every scene's GPU resources are released when the player leaves it.
  */
 import {
-  AmbientLight, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
+  type Object3D, AmbientLight, Box3, Ray, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
 } from 'three';
 import type { SaveData } from '../../core/save';
 import type { GameEvent } from '../../game/events';
@@ -24,7 +24,7 @@ import { Fx } from './fx';
 import { Input } from './input';
 import { createRig, type Rig } from './rig';
 import { Tweens } from './tween';
-import { mat } from './kit';
+import { clearLabels, mat } from './kit';
 
 export type Quality = 'low' | 'medium' | 'high';
 
@@ -49,12 +49,15 @@ export interface StageEnv {
 
 interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number }
 
+/** Props that are flat or fixed to walls: they never block the view, so they are never hidden. */
+const NEVER_HIDE = new Set(['wall', 'floor', 'ground', 'pond', 'sign', 'screen', 'statusScreen', 'banner', 'void']);
 const markerGeo = new OctahedronGeometry(0.22);
+markerGeo.userData.shared = true;
 
 export class Stage {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
-  readonly camera = new PerspectiveCamera(55, 1, 0.1, 160);
+  readonly camera = new PerspectiveCamera(48, 1, 0.1, 160);
   readonly input: Input;
   readonly tweens = new Tweens();
   readonly audio = new Audio();
@@ -66,6 +69,13 @@ export class Stage {
   private dyns = new Map<string, Dyn>();
   private npcs: NpcRuntime[] = [];
   private colliders: Collider[] = [];
+  /** Solid props that can open (a gate): their collider leaves when the prop opens. */
+  private propColliders = new Map<string, Collider>();
+  /** Room walls: hidden while the camera is on the outside of them, so the room is never seen from behind a wall. */
+  /** Tall solid props: hidden while they stand between the camera and the player, so nothing ever hides the character. */
+  private occluders: { obj: Object3D; box: Box3 }[] = [];
+  private ray = new Ray(); private hit = new Vector3(); private headPos = new Vector3();
+  private walls: { obj: Object3D; nx: number; nz: number; px: number; pz: number; inside: number }[] = [];
   private active: Interactable[] = [];
   private markers: Marker[] = [];
   private markerMeshes = new Map<string, Mesh>();
@@ -148,8 +158,13 @@ export class Stage {
       built.object.rotation.y = p.ry ?? 0;
       this.world.add(built.object);
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
+      if (!NEVER_HIDE.has(p.kind)) { const box = new Box3().setFromObject(built.object); if (box.max.y - box.min.y > 0.7) this.occluders.push({ obj: built.object, box }); }
+      if (p.kind === 'wall') { const ry = p.ry ?? 0; const n = { x: Math.sin(ry), z: Math.cos(ry) }; const inside = Math.sign(n.x * (cx - p.x) + n.z * (cz - p.z)) || 1; this.walls.push({ obj: built.object, nx: n.x, nz: n.z, px: p.x, pz: p.z, inside }); }
     }
-    this.colliders = collidersOf(def);
+    this.colliders = collidersOf({ ...def, props: def.props.filter((p) => !p.id) });
+    this.propColliders.clear();
+    // a solid prop with an id remembers its collider so it can be removed when the prop opens
+    for (const p of def.props) if (p.id && p.solid) { const c = collidersOf({ ...def, props: [p], walls: [] })[0]; if (c) { this.colliders.push(c); this.propColliders.set(p.id, c); } }
     // NPCs
     for (const pl of def.npcs) {
       const npc = this.env.getNpc(pl.npc); if (!npc) continue;
@@ -168,7 +183,7 @@ export class Stage {
     this.snapCamera();
     this.playerRig.group.position.set(s0.x, 0, s0.z);
     // state the player's code has already earned: instant, no animation
-    for (const r of def.reactions ?? []) if (hasEffect(save, r.effect)) this.dyns.get(r.prop)?.setState(r.state, true);
+    for (const r of def.reactions ?? []) if (hasEffect(save, r.effect)) { this.dyns.get(r.prop)?.setState(r.state, true); if (r.state === 'open') this.openGate(r.prop); }
     this.refresh();
     this.audio.setAmbience(def.ambience ?? 'none');
     this.env.onCaption(`${def.title}. ${def.blurb}`);
@@ -180,11 +195,12 @@ export class Stage {
     const dispose = (o: Mesh) => {
       const m = o.material as MeshBasicMaterial | undefined;
       if (m && !m.userData.shared) { (m.map && !m.map.userData.shared) && m.map.dispose(); m.dispose(); }
-      if (o.geometry && o.geometry.type === 'PlaneGeometry' && o.userData.own) o.geometry.dispose();
+      if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
     };
     this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); });
+    clearLabels();
     for (const n of this.npcs) this.scene.remove(n.rig.group);
-    this.npcs = []; this.dyns.clear(); this.colliders = []; this.active = []; this.markers = [];
+    this.npcs = []; this.dyns.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = [];
     for (const m of this.markerMeshes.values()) this.scene.remove(m);
     this.markerMeshes.clear();
     this.prompt = null; this.driver = null; this.hooks = [];
@@ -216,7 +232,7 @@ export class Stage {
     for (const e of events) {
       if (e.type === 'worldEffect') {
         const ref = `${e.target}:${e.action}`;
-        for (const r of def.reactions ?? []) if (r.effect === ref) { this.dyns.get(r.prop)?.setState(r.state, false); if (r.say) this.env.onCaption(r.say); won = true; }
+        for (const r of def.reactions ?? []) if (r.effect === ref) { this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true; }
       } else if (e.type === 'challengeFailed') {
         const station = this.env.stationOfChallenge(e.challengeId);
         for (const c of def.consequences ?? []) if (c.station === station) { this.dyns.get(c.prop)?.play?.('malfunction'); this.env.onCaption(c.say); lost = true; }
@@ -227,6 +243,8 @@ export class Stage {
     if (lost) { this.playerRig.play('damage'); this.playerRig.flash(true); this.tweens.after(0.35, () => this.playerRig.flash(false)); if (!this.reduced) this.shake = 0.5; }
     this.refresh();
   }
+
+  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.colliders = this.colliders.filter((x) => x !== c); this.propColliders.delete(prop); } }
 
   /** Play an animation on the player (the UI asks: cast, interact, success...). */
   playerAnim(a: Parameters<Rig['play']>[0]): void { this.playerRig.play(a); }
@@ -265,7 +283,7 @@ export class Stage {
     let flat = Math.cos(this.pitch) * dist;
     const dirX = Math.sin(this.yaw), dirZ = Math.cos(this.yaw);
     if (bd) {
-      const m = 0.5;
+      const m = -9; // the camera may go well outside the room: the walls in the way disappear
       const lim = (d: number, p: number, lo: number, hi: number) => (d > 1e-4 ? (hi - m - p) / d : d < -1e-4 ? (lo + m - p) / d : Infinity);
       flat = Math.max(1.2, Math.min(flat, lim(dirX, b.x, bd.minX, bd.maxX), lim(dirZ, b.z, bd.minZ, bd.maxZ)));
     }
@@ -276,6 +294,14 @@ export class Stage {
     this.camPos.x += (ex - this.camPos.x) * k; this.camPos.y += (ey - this.camPos.y) * k; this.camPos.z += (ez - this.camPos.z) * k;
     this.camLook.x += (b.x - this.camLook.x) * k; this.camLook.y += (cy - this.camLook.y) * k; this.camLook.z += (b.z - this.camLook.z) * k;
     this.camera.position.copy(this.camPos);
+    for (const w of this.walls) w.obj.visible = (w.nx * (this.camPos.x - w.px) + w.nz * (this.camPos.z - w.pz)) * w.inside > -0.5;
+    // things standing between the camera and the character vanish until they no longer do
+    if (this.occluders.length) {
+      this.headPos.set(b.x, cy - 0.2, b.z);
+      this.ray.origin.copy(this.camera.position); this.ray.direction.copy(this.headPos).sub(this.ray.origin);
+      const len = this.ray.direction.length(); this.ray.direction.divideScalar(len || 1);
+      for (const o of this.occluders) { const h = this.ray.intersectBox(o.box, this.hit); o.obj.visible = !(h && h.distanceTo(this.ray.origin) < len - 0.4); }
+    }
     if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 2); this.camera.position.x += (Math.random() - 0.5) * this.shake * 0.3; this.camera.position.y += (Math.random() - 0.5) * this.shake * 0.3; }
     this.camera.lookAt(this.camLook);
   }

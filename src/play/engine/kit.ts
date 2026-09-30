@@ -18,6 +18,7 @@ const geo = {
 };
 export type GeoKey = keyof typeof geo;
 
+for (const g of Object.values(geo)) g.userData.shared = true;
 const mats = new Map<string, Material>();
 /** A flat-lit material for a colour (shared). `glow` adds emissive light so screens, lamps and magic read in any lighting. */
 export function mat(color: number, glow = 0, opts: { transparent?: number; flat?: boolean } = {}): Material {
@@ -80,6 +81,9 @@ export function sign(lines: string[], w: number, h: number, o: { bg?: string; fg
   m.rotation.y = o.ry ?? 0;
   return m;
 }
+
+/** Free the label textures (sign text); they are rebuilt when the next place loads. Keeps memory flat while travelling. */
+export function clearLabels(): void { for (const t of labelCache.values()) t.dispose(); labelCache.clear(); }
 
 /** Release every shared GPU resource (call when leaving the 3D layer for good). */
 export function disposeKit(): void {

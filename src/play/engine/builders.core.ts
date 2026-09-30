@@ -19,6 +19,7 @@ function tileTexture(a: number, b: number, lines: number): CanvasTexture {
 }
 
 const floorGeo = new PlaneGeometry(1, 1);
+floorGeo.userData.shared = true;
 
 export const coreBuilders: Record<string, Builder> = {
   box: (p) => ({ object: shape('box', num(p, 'w', 1), num(p, 'h', 1), num(p, 'd', 1), col(p, 'color', 0x8892b0), { glow: num(p, 'glow', 0) }) }),

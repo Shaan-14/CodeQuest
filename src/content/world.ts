@@ -96,6 +96,10 @@ export const items: Item[] = [
   { id: 'pixel-pin', name: 'Pixel Pin', icon: '📌', kind: 'quest', price: null, description: 'A pin from the Web District for finishing the Web Workshop. Cannot be bought.' },
   { id: 'summit-flag', name: 'Summit Flag', icon: '🚩', kind: 'quest', price: null, description: 'Planted at the top of the Summit. Cannot be bought.' },
   { id: 'robot-bolt', name: 'Bolt’s Bolt', icon: '🔩', kind: 'quest', price: null, description: 'A shiny bolt Bolt-7 gave you for waking him up.' },
+  { id: 'lantern-charm', name: 'Lantern Charm', icon: '🏮', kind: 'quest', price: null, description: 'A tiny warm lantern from Lanternhollow Academy, given for driving the Gloomhound out of the ring.' },
+  { id: 'pennant', name: 'Harborview Pennant', icon: '🚩', kind: 'quest', price: null, description: 'A pennant from Harborview Park, given for a lineup that won.' },
+  { id: 'checkered-flag', name: 'Checkered Flag', icon: '🏁', kind: 'quest', price: null, description: 'Given for a fast, clean lap on a car you set up yourself.' },
+  { id: 'summit-lantern', name: 'Summit Lantern', icon: '🔥', kind: 'quest', price: null, description: 'A flame lit from the Summit beacon.' },
 ];
 
 export const quests: Quest[] = [

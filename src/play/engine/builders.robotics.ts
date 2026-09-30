@@ -34,12 +34,13 @@ const conveyor: Builder = (p, ctx) => {
   g.add(lamp, shape('cyl', 0.06, 0.4, 0.06, 0x2a2f45, { y: 0.6, x: -w / 2 + 0.3, z: -d / 2 - 0.15 }));
   const boxes: Mesh[] = [];
   for (let i = 0; i < Math.floor(w / 1.5); i++) { const b = shape('box', 0.6, 0.45, 0.6, 0xb8863b, { y: 0.66, x: -w / 2 + 0.6 + i * 1.5 }); b.visible = false; boxes.push(b); g.add(b); }
-  let running = false, jam = false, t = 0;
+  let running = false, jam = false, t = 0, flaky = false, sinceJam = 0;
   const dyn: Dyn = {
-    id: p.id ?? 'conveyor', object: g,
+    id: p.id ?? 'conveyor', object: g, states: () => [running ? 'run' : '', flaky ? 'flaky' : 'steady'].filter(Boolean),
     at: () => ({ x: p.x, y: 0.9, z: p.z }),
     setState(s) {
-      if (s === 'run') { running = true; jam = false; boxes.forEach((b) => (b.visible = true)); (lamp.material as never) && (lamp.material = mat(0x7dffb3, 0.9)); }
+      if (s === 'run') { running = true; flaky = true; jam = false; boxes.forEach((b) => (b.visible = true)); lamp.material = mat(0x7dffb3, 0.9); }
+      if (s === 'repair') { flaky = false; if (running) { lamp.material = mat(0x7dffb3, 0.9); ctx.audio.sfx('success'); ctx.fx.burst('heal', p.x, 1, p.z, 16); } }
       if (s === 'jam') { jam = true; }
     },
     play(name) {
@@ -47,6 +48,8 @@ const conveyor: Builder = (p, ctx) => {
     },
     update(dt) {
       t += dt;
+      // until the bug is found and fixed, the line jams now and then (the story Ori tells)
+      if (running && flaky && !jam) { sinceJam += dt; if (sinceJam > 22) { sinceJam = 0; dyn.play!('malfunction'); } }
       if (running && !jam) {
         for (const b of boxes) { b.position.x += dt * 0.9; if (b.position.x > w / 2 - 0.4) b.position.x = -w / 2 + 0.4; }
         (belt.material as MeshBasicMaterial).map!.offset.x -= dt * 0.25;
@@ -66,15 +69,16 @@ const arm: Builder = (p, ctx) => {
   upper.add(shape('box', 0.3, 1.6, 0.3, 0xf2c14e, { y: 0 }));
   const fore = new Group(); fore.position.y = 1.6; upper.add(fore);
   fore.add(shape('box', 0.26, 1.3, 0.26, 0xe8a93a, { y: -0.1 }), shape('box', 0.5, 0.12, 0.2, 0x2a2f45, { y: 1.15 }));
-  let on = false, t = 0, broken = false;
+  let on = false, t = 0, broken = false, precise = false;
   const dyn: Dyn = {
     id: p.id ?? 'arm', object: g, at: () => ({ x: p.x, y: 1.6, z: p.z }),
-    setState(s) { if (s === 'run') on = true; },
+    states: () => [on ? 'run' : '', precise ? 'precise' : ''].filter(Boolean),
+    setState(s) { if (s === 'run') on = true; if (s === 'precise') precise = true; },
     play(name) { if (name === 'malfunction') { broken = true; ctx.fx.burst('sparks', p.x, 2.2, p.z, 26); ctx.fx.flash(p.x, 2.2, p.z, 0xffb347, 12, 0.5); ctx.audio.sfx('spark'); ctx.tweens.after(1.4, () => { broken = false; }); } },
     update(dt) {
       t += dt;
       if (broken) { shoulder.rotation.y += Math.sin(t * 40) * 0.05; fore.rotation.x = Math.sin(t * 30) * 0.3; return; }
-      if (on) { shoulder.rotation.y = Math.sin(t * 0.9) * 1.0; upper.rotation.x = 0.4 + Math.sin(t * 1.8) * 0.35; fore.rotation.x = -0.7 + Math.sin(t * 1.8 + 1) * 0.5; } else { upper.rotation.x = 0.15; fore.rotation.x = -0.3; }
+      if (on) { const k = precise ? 0.6 : 1; shoulder.rotation.y = Math.sin(t * 0.9 * k) * 1.0; upper.rotation.x = 0.4 + Math.sin(t * 1.8) * 0.35; fore.rotation.x = -0.7 + Math.sin(t * 1.8 + 1) * 0.5; } else { upper.rotation.x = 0.15; fore.rotation.x = -0.3; }
     },
   };
   return { object: g, dyn };
@@ -125,6 +129,57 @@ const gantry: Builder = (p) => { const g = new Group(); const w = num(p, 'w', 8)
 
 /** A big wall screen for status text. */
 const screen: Builder = (p) => { const g = new Group(); const w = num(p, 'w', 3), h = num(p, 'h', 1.6); g.add(shape('box', w + 0.15, h + 0.15, 0.12, 0x11131f, { y: num(p, 'y', 1.6) }), sign(str(p, 'text', '').split('|'), w, h, { bg: str(p, 'bg', '#0b1d17'), fg: str(p, 'fg', '#7dffb3'), z: 0.07, y: num(p, 'y', 1.6) + h / 2 })); return { object: g }; };
+
+
+/**
+ * A status screen that changes when the world does: `off` text until a state is set, then `on` text (glowing). The states it reacts to are
+ * whatever the scene's reactions name (light, open, online...).
+ */
+const statusScreen: Builder = (p, ctx) => {
+  const g = new Group();
+  const w = num(p, 'w', 3.2), h = num(p, 'h', 1.7), y = num(p, 'y', 1.7);
+  g.add(shape('box', w + 0.16, h + 0.16, 0.12, 0x11131f, { y }));
+  const off = sign(str(p, 'off', 'OFFLINE').split('|'), w, h, { bg: '#1a1d2a', fg: '#58607a', z: 0.07, y: y + h / 2 });
+  const on = sign(str(p, 'on', 'ONLINE').split('|'), w, h, { bg: str(p, 'bg', '#0b1d17'), fg: str(p, 'fg', '#7dffb3'), z: 0.071, y: y + h / 2 });
+  on.visible = false;
+  g.add(off, on);
+  const dyn: Dyn = {
+    id: p.id ?? 'status', object: g, at: () => ({ x: p.x, y: y + h / 2, z: p.z }), states: () => (on.visible ? ['on'] : []),
+    setState(_s, instant) { if (on.visible) return; on.visible = true; off.visible = false; if (!instant) { ctx.audio.sfx('interact'); ctx.fx.burst('magic', p.x, y + h / 2, p.z + 0.3, 14, 0.8); ctx.fx.flash(p.x, y + h / 2, p.z + 0.6, 0x7dffb3, 6, 0.5); } },
+  };
+  return { object: g, dyn };
+};
+
+/** A scanner gate that sweeps a light beam once it is online. */
+const scanner: Builder = (p, ctx) => {
+  const g = new Group();
+  g.add(shape('box', 0.25, 2.2, 0.25, 0x596080, { x: -0.9 }), shape('box', 0.25, 2.2, 0.25, 0x596080, { x: 0.9 }), shape('box', 2.05, 0.25, 0.25, 0x596080, { y: 2.2 }));
+  const beam = shape('box', 1.6, 0.05, 0.05, 0xff4d4d, { y: 1.0, glow: 1.2, transparent: 0.85 }); beam.visible = false; g.add(beam);
+  let on = false, t = 0;
+  return { object: g, dyn: { id: p.id ?? 'scanner', object: g, at: () => ({ x: p.x, y: 1.2, z: p.z }), states: () => (on ? ['online'] : []), setState(_s, instant) { if (on) return; on = true; beam.visible = true; if (!instant) { ctx.audio.sfx('success'); ctx.fx.burst('magic', p.x, 1.2, p.z, 18); } }, update(dt) { if (!on) return; t += dt; beam.position.y = 0.3 + (Math.sin(t * 2) * 0.5 + 0.5) * 1.6; } } };
+};
+
+/** A simulation pod: a glass cylinder with a hologram inside (the Training Grounds' look). */
+const pod: Builder = (p) => {
+  const g = new Group();
+  g.add(shape('cyl', 1.6, 0.25, 1.6, 0x39405c), shape('cyl', 1.5, 2.4, 1.5, 0x9fe8ff, { y: 0.25, transparent: 0.18, cast: false }), shape('cyl', 1.6, 0.2, 1.6, 0x39405c, { y: 2.65 }));
+  const core = shape('sphere', 0.5, 0.5, 0.5, col(p, 'color', 0x7dffb3), { y: 1.2, glow: 1, transparent: 0.8 });
+  g.add(core);
+  let t = 0;
+  return { object: g, dyn: { id: p.id ?? 'pod', object: g, at: () => ({ x: p.x, y: 1.4, z: p.z }), setState() { /* always running */ }, update(dt) { t += dt; core.position.y = 0.95 + Math.sin(t * 1.5 + p.x) * 0.15; core.rotation.y = t; } } };
+};
+
+/** A gate/archway with a glowing name: doors between worlds. */
+const archway: Builder = (p) => {
+  const g = new Group();
+  const w = num(p, 'w', 4), h = num(p, 'h', 4.2), c = col(p, 'color', 0x7dffb3);
+  g.add(shape('box', 0.6, h, 0.8, 0x596080, { x: -w / 2 }), shape('box', 0.6, h, 0.8, 0x596080, { x: w / 2 }), shape('box', w + 1.2, 0.7, 0.9, 0x596080, { y: h }));
+  g.add(shape('box', w - 0.4, 0.12, 0.3, c, { y: h - 0.1, glow: 1 }), sign(str(p, 'text', '').split('|'), w, 0.9, { bg: '#0d1020', fg: `#${c.toString(16).padStart(6, '0')}`, y: h + 0.35, z: 0.47 }));
+  if (p.p?.portal !== false) g.add(shape('box', w - 0.4, h - 0.4, 0.06, c, { y: 0.1, glow: 0.35, transparent: 0.35, cast: false }));
+  return { object: g };
+};
+
+const board: Builder = (p) => { const g = new Group(); g.add(shape('box', 0.12, 1.4, 0.12, 0x596080, { x: -1.1 }), shape('box', 0.12, 1.4, 0.12, 0x596080, { x: 1.1 }), shape('box', 2.6, 1.3, 0.1, 0x8a5a33, { y: 1.0 }), sign(str(p, 'text', 'NOTICES').split('|'), 2.3, 1.0, { bg: '#d9c9a0', fg: '#3a2a12', y: 1.15, z: 0.07 })); return { object: g }; };
 
 /** The repairable robot. Stages accumulate (eyes, arm, power, voice, ears, senses, loop, routine, awake); a failed attempt makes it malfunction. */
 const bolt: Builder = (p, ctx) => {
@@ -212,5 +267,5 @@ const bolt: Builder = (p, ctx) => {
 };
 void STAGE_ORDER;
 
-export const roboticsBuilders: Record<string, Builder> = { console: consoleB, conveyor, arm, door, hologram, dummy, workbench, toolrack, gantry, screen, bolt };
+export const roboticsBuilders: Record<string, Builder> = { console: consoleB, conveyor, arm, door, hologram, dummy, workbench, toolrack, gantry, screen, bolt, statusScreen, scanner, pod, archway, board };
 void labelTexture; void (null as unknown as BuildCtx);

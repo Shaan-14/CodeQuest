@@ -16,13 +16,17 @@ import { canUseExit } from '../logic/travel';
 import type { Stage } from '../engine/stage';
 import { Caption, Controls, Dialogue, Prompt, QuestTracker, Where } from './Overlays';
 import { TerminalOverlay } from './TerminalOverlay';
+import { TrainingOverlay } from './TrainingOverlay';
+import { MapOverlay } from './MapOverlay';
+import { stationOfLesson } from '../../content/play/stations';
+import type { ReturnPoint } from '../../core/save';
 import { PauseMenu } from './PauseMenu';
 import './play.css';
 
 const PrerequisitePanel = lazy(() => import('../../app/components/PrerequisitePanel').then((m) => ({ default: m.PrerequisitePanel })));
 
 const hex = (css: string): number => parseInt(css.replace('#', ''), 16);
-export const DEFAULT_SCENE = 'maintenance-bay';
+export const DEFAULT_SCENE = 'plaza';
 
 type Talk = { conv: Conversation; lines: string[] } | { inspect: { name: string; lines: string[] } } | null;
 
@@ -45,13 +49,15 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
   const [sceneId, setSceneId] = useState<string>('');
   const [talk, setTalk] = useState<Talk>(null);
   const [terminal, setTerminal] = useState<string | null>(null);
-  const [gate, setGate] = useState<{ area: string; text: string } | null>(null);
+  const [gate, setGate] = useState<{ title: string; reqs: import('../../content/schema').SkillReq[]; text: string } | null>(null);
   const [paused, setPaused] = useState(false);
+  const [training, setTraining] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const pending = useRef<import('../../game/events').GameEvent[]>([]);
   const overlayOpen = useRef(false);
   const captionTimer = useRef<number>(0);
 
-  overlayOpen.current = !!(talk || terminal || paused || gate);
+  overlayOpen.current = !!(talk || terminal || paused || gate || training || mapOpen);
 
   const say = useCallback((text: string) => {
     setCaption(text);
@@ -127,15 +133,12 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
   // overlays take the keyboard: the world stops listening (and stops rendering behind a full-screen terminal)
   useEffect(() => {
     const s = stageRef.current; if (!s) return;
-    s.setInputEnabled(!(talk || terminal || paused || gate));
-    if (terminal || paused) s.suspend(); else if (ready) s.start();
-    if (!talk && !terminal && !paused && !gate && pending.current.length) { const evs = pending.current; pending.current = []; s.react(evs); }
-  }, [talk, terminal, paused, gate, ready]);
+    s.setInputEnabled(!(talk || terminal || paused || gate || training || mapOpen));
+    if (terminal || paused || training || mapOpen) s.suspend(); else if (ready) s.start();
+    if (!talk && !terminal && !paused && !gate && !training && !mapOpen && pending.current.length) { const evs = pending.current; pending.current = []; s.react(evs); }
+  }, [talk, terminal, paused, gate, training, mapOpen, ready]);
 
-  function interactPanel(panel: string): void { if (panel === 'map') setPaused(false), onOpenMap(); }
-  const [mapOpen, setMapOpen] = useState(false);
-  function onOpenMap(): void { setMapOpen(true); }
-  void mapOpen;
+  function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); }
 
   function interact(it: Interactable): void {
     const st = getStore();
@@ -156,13 +159,14 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
       }
       case 'terminal': setTerminal(a.station); break;
       case 'exit': {
-        const exit = getScene(sceneId)?.exits.find((e) => `exit:${e.id}` === it.id);
+        const exit = stageRef.current?.def?.exits.find((e) => `exit:${e.id}` === it.id);
         const check = exit ? canUseExit(st.save, exit) : { ok: true, reason: '' };
-        if (!check.ok && check.areaId) { setGate({ area: check.areaId, text: check.reason }); break; }
+        if (!check.ok) { setGate({ title: check.title ?? it.label, reqs: check.reqs ?? [], text: check.reason }); break; }
         stageRef.current?.audio.sfx('open');
         travel(a.to, a.spawn);
         break;
       }
+      case 'panel': interactPanel(a.panel); break;
       default: say(`${it.label}: not available yet.`);
     }
   }
@@ -179,8 +183,16 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
     }
   }
 
-  const goTraining = () => { setTerminal(null); onOpenTraining(); };
-  void cast; void getLesson; void getStation; void requiredTraining; void onLeaveToLesson; void setPlaySettings; void game;
+  /** A failure owes training: walk the player to the Simulation Room, and open its console. Nothing is lost by going. */
+  const goTraining = () => { setTerminal(null); setPaused(false); setMapOpen(false); travel('sim-room', 'training'); setTraining(true); };
+  /** Training is done: back to the exact place (and lesson) the player left. */
+  const returnFromTraining = (r: ReturnPoint) => {
+    setTraining(false);
+    const station = r.kind === 'lesson' && r.lessonId ? stationOfLesson(r.lessonId) : undefined;
+    if (station) { travel(station.scene); setTerminal(station.id); return; }
+    if (r.kind === 'lesson' && r.lessonId && onLeaveToLesson) { onLeaveToLesson(r.lessonId); return; }
+  };
+  void cast; void getLesson; void requiredTraining; void setPlaySettings; void game; void onOpenTraining;
 
   const scene = getScene(sceneId);
   if (failed) {
@@ -202,7 +214,7 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
           {scene && <Where title={scene.title} blurb={scene.blurb} />}
           <QuestTracker />
           <Caption text={caption} />
-          {!talk && !terminal && !paused && !gate && <Prompt it={prompt} />}
+          {!talk && !terminal && !paused && !gate && !training && !mapOpen && <Prompt it={prompt} />}
           <Controls />
           <div class="play-buttons">
             <button class="btn small" onClick={() => setPaused(true)} data-testid="play-menu" aria-label="Pause menu">☰ Menu</button>
@@ -210,20 +222,15 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
           {talk && ('conv' in talk ? <Dialogue conv={talk.conv} lines={talk.lines} onClose={closeTalk} /> : <Dialogue conv={{ npc: { name: talk.inspect.name, role: 'You look closely', icon: '🔍' }, lines: talk.inspect.lines, canOffer: false }} lines={talk.inspect.lines} onClose={closeTalk} />)}
           {gate && (
             <div class="play-terminal" role="dialog" aria-label="Prerequisite required" data-testid="play-gate">
-              <div class="term-body"><Suspense fallback={null}><PrerequisitePanelForArea areaId={gate.area} onClose={() => setGate(null)} /></Suspense></div>
+              <div class="term-body"><Suspense fallback={null}><PrerequisitePanel title={gate.title} reqs={gate.reqs} reason={gate.text} onOpenLesson={() => setGate(null)} onBack={() => setGate(null)} backLabel="Back to the world" /></Suspense></div>
             </div>
           )}
+          {training && <TrainingOverlay onClose={() => setTraining(false)} onReturn={returnFromTraining} />}
+          {mapOpen && <MapOverlay sceneId={sceneId} onClose={() => setMapOpen(false)} onTravel={(to, spawn) => { setMapOpen(false); travel(to, spawn); }} />}
           {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} onClose={() => setTerminal(null)} onGoTraining={goTraining} />}
           {paused && <PauseMenu onResume={() => setPaused(false)} onClassic={onClassic} stage={stageRef.current} />}
         </div>
       )}
     </div>
   );
-}
-
-import { areas } from '../../content/world';
-function PrerequisitePanelForArea({ areaId, onClose }: { areaId: string; onClose: () => void }) {
-  const area = areas.find((a) => a.id === areaId);
-  if (!area || area.lock.type !== 'skills') return <p>Not open yet. <button class="btn" onClick={onClose}>Back</button></p>;
-  return <PrerequisitePanel title={area.name} reqs={area.lock.requires} reason={area.lock.reason} onOpenLesson={() => onClose()} onBack={onClose} backLabel="Back to the world" />;
 }

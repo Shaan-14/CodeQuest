@@ -6,21 +6,18 @@ export const C = {
 };
 
 /** The four walls of a rectangular room (north wall = -Z). A gap can be left on any side for a doorway: `gaps` = { south: [centre, width] }. */
-export function room(minX: number, maxX: number, minZ: number, maxZ: number, o: { h?: number; color?: number; trim?: number; gaps?: Partial<Record<'north' | 'south' | 'east' | 'west', [number, number]>>; t?: number } = {}): Prop[] {
+export function room(minX: number, maxX: number, minZ: number, maxZ: number, o: { h?: number; color?: number; trim?: number; gaps?: Partial<Record<'north' | 'south' | 'east' | 'west', [number, number] | [number, number][]>>; t?: number } = {}): Prop[] {
   const h = o.h ?? 4, t = o.t ?? 0.4, color = o.color ?? C.steel, trimColor = o.trim ?? C.yellow;
   const out: Prop[] = [];
-  const wallX = (z: number, side: 'north' | 'south') => {
-    const gap = o.gaps?.[side];
-    const w = maxX - minX;
-    const seg = (x0: number, x1: number) => { if (x1 - x0 > 0.05) out.push({ kind: 'wall', x: (x0 + x1) / 2, z, p: { w: x1 - x0, h, d: t, color, trimColor }, solid: { w: x1 - x0, d: t } }); };
-    if (!gap) seg(minX, maxX); else { seg(minX, gap[0] - gap[1] / 2); seg(gap[0] + gap[1] / 2, maxX); }
-    void w;
+  /** Split [lo,hi] around doorway gaps and emit a segment between them. */
+  const around = (lo: number, hi: number, raw: [number, number] | [number, number][] | undefined, emit: (a: number, b: number) => void) => {
+    const gaps = (raw === undefined ? [] : Array.isArray(raw[0]) ? (raw as [number, number][]) : [raw as [number, number]]).slice().sort((a, b) => a[0] - b[0]);
+    let at = lo;
+    for (const [c, w] of gaps) { emit(at, c - w / 2); at = c + w / 2; }
+    emit(at, hi);
   };
-  const wallZ = (x: number, side: 'east' | 'west') => {
-    const gap = o.gaps?.[side];
-    const seg = (z0: number, z1: number) => { if (z1 - z0 > 0.05) out.push({ kind: 'wall', x, z: (z0 + z1) / 2, ry: Math.PI / 2, p: { w: z1 - z0, h, d: t, color, trimColor }, solid: { w: z1 - z0, d: t } }); };
-    if (!gap) seg(minZ, maxZ); else { seg(minZ, gap[0] - gap[1] / 2); seg(gap[0] + gap[1] / 2, maxZ); }
-  };
+  const wallX = (z: number, side: 'north' | 'south') => around(minX, maxX, o.gaps?.[side], (x0, x1) => { if (x1 - x0 > 0.05) out.push({ kind: 'wall', x: (x0 + x1) / 2, z, p: { w: x1 - x0, h, d: t, color, trimColor }, solid: { w: x1 - x0, d: t } }); });
+  const wallZ = (x: number, side: 'east' | 'west') => around(minZ, maxZ, o.gaps?.[side], (z0, z1) => { if (z1 - z0 > 0.05) out.push({ kind: 'wall', x, z: (z0 + z1) / 2, ry: Math.PI / 2, p: { w: z1 - z0, h, d: t, color, trimColor }, solid: { w: z1 - z0, d: t } }); });
   wallX(minZ, 'north'); wallX(maxZ, 'south'); wallZ(minX, 'west'); wallZ(maxX, 'east');
   return out;
 }
