@@ -6,7 +6,7 @@ import { getStation, stationOfChallenge, stationServes } from '../../content/pla
 import { getAvatar } from '../../content/avatars';
 import { getLesson } from '../../content';
 import { acceptQuest } from '../../game/actions';
-import { enterScene, recordSeen, recordTalk, setPlaySettings, setPosition } from '../../game/play';
+import { enterScene, recordSeen, worldReward, recordTalk, setPlaySettings, setPosition } from '../../game/play';
 import { getStore, useGame } from '../../game/store';
 import { requiredTraining } from '../../game/training';
 import { conversationWith, type Conversation } from '../logic/dialogue';
@@ -29,6 +29,10 @@ import { hasEffect } from '../logic/conditions';
 import { stationOfLesson } from '../../content/play/stations';
 import type { ReturnPoint } from '../../core/save';
 import { PauseMenu } from './PauseMenu';
+import { DailyOverlay } from './DailyOverlay';
+import { ManualOverlay } from './ManualOverlay';
+import { Welcome } from './Welcome';
+import { TouchControls } from './TouchControls';
 import './play.css';
 
 const PrerequisitePanel = lazy(() => import('../../app/components/PrerequisitePanel').then((m) => ({ default: m.PrerequisitePanel })));
@@ -88,6 +92,10 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
   const [sim, setSim] = useState(false);
   const [boss, setBoss] = useState<{ start: string | null } | null>(null);
   const [finale, setFinale] = useState(false);
+  const [daily, setDaily] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [welcome, setWelcome] = useState(() => !getStore().save.play.seen['play-welcome']);
+  const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const [termNote, setTermNote] = useState('');
   const [termStart, setTermStart] = useState<string | null>(null);
   const terminalRef = useRef<string | null>(null);
@@ -101,7 +109,7 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
   const overlayOpen = useRef(false);
   const captionTimer = useRef<number>(0);
 
-  overlayOpen.current = !!(talk || terminal || paused || gate || training || mapOpen || sim || boss || finale);
+  overlayOpen.current = !!(talk || terminal || paused || gate || training || mapOpen || sim || boss || finale || daily || manual || welcome);
 
   const say = useCallback((text: string) => {
     setCaption(text);
@@ -143,7 +151,7 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
           onCaption: say,
           onPause: () => setPaused(true),
           onPosition: (scene, x, z, ry) => { const st = getStore(); st.apply(setPosition(st.save, scene, x, z, ry), { silent: true }); },
-          onAction: (n) => { if (n === 'map') interactPanel('map'); },
+          onAction: (n) => { if (n === 'map') interactPanel('map'); if (n === 'manual') setManual((m) => !m); },
           playerLook: { body: hex(a.robe), head: hex(a.skin), accent: hex(a.trim), hair: hex(a.hair) },
           quality: s.play.settings.quality,
           reducedMotion: reduced,
@@ -160,7 +168,7 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
           stage, state: () => stage.snapshot(), travel, drive: () => startDriving(), dynStates: (id) => stage.dyn(id)?.states?.() ?? [],
           teleport: localStorage.getItem('codequest.e2e') === '1' ? (x, z, ry) => stage.teleport(x, z, ry) : undefined,
           autopilot: localStorage.getItem('codequest.e2e') === '1' ? (on, scale) => { stage.timeScale = on ? (scale ?? 4) : 1; autopilot(stage, on); } : undefined,
-          open: (w) => { if (w === 'pause') setPaused(true); if (w === 'sim') setSim(true); if (w === 'map') setMapOpen(true); },
+          open: (w) => { if (w === 'pause') setPaused(true); if (w === 'sim') setSim(true); if (w === 'map') setMapOpen(true); if (w === 'daily') setDaily(true); if (w === 'manual') setManual(true); },
         };
       } catch (e) { if (!disposed) setFailed(String((e as Error).message ?? e)); }
     })();
@@ -189,14 +197,14 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
   // overlays take the keyboard: the world stops listening (and stops rendering behind a full-screen terminal)
   useEffect(() => {
     const s = stageRef.current; if (!s) return;
-    s.setInputEnabled(!(talk || terminal || paused || gate || training || mapOpen || sim || boss || finale));
-    if (terminal || paused || training || mapOpen || boss) s.suspend(); else if (ready) s.start();
-    if (!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && pending.current.length) { const evs = pending.current; pending.current = []; s.react(evs); }
+    s.setInputEnabled(!(talk || terminal || paused || gate || training || mapOpen || sim || boss || finale || daily || manual || welcome));
+    if (terminal || paused || training || mapOpen || boss || daily || manual || welcome) s.suspend(); else if (ready) s.start();
+    if (!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && pending.current.length) { const evs = pending.current; pending.current = []; s.react(evs); }
     // the ending: once the beacon has had its moment, the campaign-complete card appears
-    if (!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && finalePending.current) { finalePending.current = false; window.setTimeout(() => setFinale(true), s.reduced ? 500 : 7000); }
-  }, [talk, terminal, paused, gate, training, mapOpen, sim, boss, finale, ready]);
+    if (!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && finalePending.current) { finalePending.current = false; window.setTimeout(() => setFinale(true), s.reduced ? 500 : 7000); }
+  }, [talk, terminal, paused, gate, training, mapOpen, sim, boss, finale, daily, manual, welcome, ready]);
 
-  function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); }
+  function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); else if (panel === 'daily') setDaily(true); }
 
   function interact(it: Interactable): void {
     const st = getStore();
@@ -228,6 +236,12 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
       case 'sim': setSim(true); break;
       case 'vehicle': void startDriving(); break;
       case 'boss': setBoss({ start: null }); break;
+      case 'container': {
+        const first = !st.save.play.seen[a.id];
+        say(first ? a.text : 'Already searched.');
+        if (first) { st.apply(recordSeen(st.save, a.id)); st.apply(worldReward(getStore().save, 0, a.coins, 'Found something')); }
+        break;
+      }
       default: say(`${it.label}: not available yet.`);
     }
   }
@@ -302,9 +316,10 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
           {scene && <Where title={scene.title} blurb={scene.blurb} />}
           <QuestTracker />
           <Caption text={caption} />
-          {!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !driving && !boss && !finale && <Prompt it={prompt} />}
+          {!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !driving && !boss && !finale && !daily && !manual && !welcome && <Prompt it={prompt} />}
           {driving ? <DriveHud hud={hud} par={par.current} onExit={() => stopDrive.current?.()} /> : <Controls />}
           <div class="play-buttons">
+            <button class="btn small" onClick={() => setManual(true)} data-testid="play-manual-btn" aria-label="Field Manual">📖 Manual</button>
             <button class="btn small" onClick={() => setPaused(true)} data-testid="play-menu" aria-label="Pause menu">☰ Menu</button>
           </div>
           {talk && ('conv' in talk ? <Dialogue conv={talk.conv} lines={talk.lines} onClose={closeTalk} /> : <Dialogue conv={{ npc: { name: talk.inspect.name, role: 'You look closely', icon: '🔍' }, lines: talk.inspect.lines, canOffer: false }} lines={talk.inspect.lines} onClose={closeTalk} />)}
@@ -313,6 +328,10 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
               <div class="term-body"><Suspense fallback={null}><PrerequisitePanel title={gate.title} reqs={gate.reqs} reason={gate.text} onOpenLesson={() => setGate(null)} onBack={() => setGate(null)} backLabel="Back to the world" /></Suspense></div>
             </div>
           )}
+          {touch && !driving && stageRef.current && <TouchControls input={stageRef.current.input} />}
+          {daily && <DailyOverlay onClose={() => setDaily(false)} onGoTraining={() => { setDaily(false); goTraining(); }} />}
+          {manual && <ManualOverlay onClose={() => setManual(false)} />}
+          {welcome && <Welcome onStart={() => { const t = getStore(); t.apply(recordSeen(t.save, 'play-welcome'), { silent: true }); setWelcome(false); }} onClassic={onClassic} />}
           {boss && <BossOverlay start={boss.start} onClose={() => setBoss(null)} onGoTraining={goTraining} />}
           {finale && <Finale onClose={() => setFinale(false)} onClassic={onClassic} />}
           {sim && stageRef.current && <SimOverlay stage={stageRef.current} onClose={() => setSim(false)} />}

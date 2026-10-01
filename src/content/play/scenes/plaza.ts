@@ -19,6 +19,7 @@ export const plaza: SceneDef = {
     { kind: 'archway', x: 0, z: 17.5, ry: Math.PI, p: { w: 4.4, h: 4.4, text: 'REDLINE RACEWAY', color: 0xff5d73 } },
     { kind: 'archway', x: 16.5, z: -14.5, ry: Math.PI, p: { w: 3.4, h: 3.6, text: 'SUMMIT TRAIL', color: C.yellow } },
     { kind: 'board', x: 5, z: 5, id: 'map-board', solid: { w: 2.6, d: 0.3 } },
+    { kind: 'board', x: -5, z: 6.5, id: 'daily-board', solid: { w: 2.6, d: 0.3 } },
     { kind: 'lamppost', x: -5, z: -5 }, { kind: 'lamppost', x: 5, z: -5 }, { kind: 'lamppost', x: -5, z: 5 }, { kind: 'lamppost', x: 5, z: 8 },
     { kind: 'bench', x: -8, z: 4, solid: { w: 1.6, d: 0.5 } }, { kind: 'bench', x: 8, z: -4, solid: { w: 1.6, d: 0.5 } },
     ...[[-12, -10], [-14, 10], [12, 10], [14, 12], [-10, -14], [10, -14], [-18, 12], [18, -10], [-18, -12], [18, 12], [-20, 4], [20, -4]].map(([x, z]) => ({ kind: 'tree', x: x!, z: z!, p: { scale: 1 + ((x! + z!) % 3) * 0.12 }, solid: { w: 0.6, d: 0.6 } })),
@@ -27,6 +28,7 @@ export const plaza: SceneDef = {
   npcs: [{ npc: 'pip', x: 3, z: 3.5, ry: 0.4, patrol: [{ x: 3, z: 3.5 }, { x: 3, z: 8 }, { x: 8, z: 8 }, { x: 8, z: 3.5 }] }],
   interactables: [
     { id: 'talk-pip', verb: 'Talk', label: 'Pip the guide', x: 3, z: 3.5, action: { type: 'talk', npc: 'pip' } },
+    { id: 'daily-board', verb: 'Read', label: 'the dispatch board', x: -5, z: 6.9, action: { type: 'panel', panel: 'daily' } },
     { id: 'map-board', verb: 'Read', label: 'the world map', x: 5, z: 3.9, action: { type: 'panel', panel: 'map' } },
   ],
   exits: [

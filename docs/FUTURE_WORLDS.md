@@ -1,6 +1,9 @@
 # Future worlds and the 3D presentation layer
 
-**Status: design notes plus one built boundary.** Phases 3-5 deliberately did not build 3D, Baseball World, Racing World, the robot/engineering yard, an API district or the original magic academy; they make sure the architecture can carry them. Phase 5 built the *event contract* between learning and any visual world (below); no renderer exists. Build a world only when the user asks for that phase.
+**Status: Phase 6 built the 3D layer described below (see PROGRESS.md and ARCHITECTURE.md "Phase 6 systems"). The rest of this file is the original design (kept, partly historical) plus post-game ideas at the end. Nothing here is committed future work; there is no Phase 7.**
+
+### What Phase 6 actually implemented
+Robotics (Python), the original Lanternhollow Academy (web), Harborview Park (SQL/stats/R + a simulated game), Redline Raceway (drivable car, telemetry-based setup), a plaza hub, a map, the Simulation Room as the Training Grounds, a dispatch board for the Daily, the Field Manual on `H`, and the Summit finale. Scenes are data in `src/content/play/`; the contract below (`worldEffect` → `deriveWorldState` → scene reactions) is used exactly as designed. Not built: a duel HUD, placed chests, per-track curriculum loading, authored 3D art, gamepad.
 
 ## The roadmap of worlds
 CodeQuest's long-term map is a set of *worlds* (areas with their own theme, NPCs and quests). Each one is a **presentation** of curriculum that already lives in `src/content/`; a world never owns curriculum.
@@ -76,3 +79,10 @@ code  ->  graded evidence  ->  worldEffect event  ->  derived WorldState  ->  (P
 - Curriculum, grading and rules are already independent of the UI (pure `game/` functions; content as data).
 - Areas are data with lock rules; the Web District was added purely by data plus a route.
 - Challenges/dailies are addressed by id and graded by runner-agnostic checks, so a scene can open any of them.
+
+## Post-game ideas (suggestions, not a roadmap)
+- A real art pass (authored models, textures, animation clips) behind the existing scene data; nothing in logic needs to change.
+- More stations per world so every lesson has an in-world terminal; per-track lazy loading of the curriculum chunk.
+- A duel HUD in the arena (hearts, shield, cooldowns) fed by `challengeFailed` / `worldEffect`; chests and collectibles using the `container` interaction.
+- Further worlds from the table above (an API district, a data-engineering plant) as new scenes and stations only.
+- Gamepad support, a screen-reader-narrated mode for the world, and a tablet pass on real devices.

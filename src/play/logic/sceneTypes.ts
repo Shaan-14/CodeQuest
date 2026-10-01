@@ -38,7 +38,9 @@ export type InteractAction =
   | { type: 'vehicle'; vehicle: string }
   | { type: 'panel'; panel: 'map' | 'training' | 'daily' | 'lineup' | 'setup' | 'spellbook' }
   | { type: 'sim'; sim: 'baseball' }
-  | { type: 'boss'; boss: string };
+  | { type: 'boss'; boss: string }
+  /** A chest, toolbox or locker: opens once for a small reward (coins), and can be looked at again. */
+  | { type: 'container'; id: string; text: string; coins: number };
 
 export interface Interactable {
   id: string;

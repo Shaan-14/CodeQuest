@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { challenges, getAnyChallenge, lessons } from '../content';
 import { BOSS_EFFECTS, LESSON_EFFECTS } from '../content/worldEffects';
+import { PLAY_EFFECTS } from '../content/play/effects';
 import { bosses } from '../content/bosses';
 import { newSave, type SaveData } from '../core/save';
 import * as A from './actions';
@@ -46,7 +47,7 @@ describe('world effects: the boundary to any future visual world', () => {
     const named = /^[a-z]+\.[a-z-]+$/;
     for (const [lessonId, list] of Object.entries(LESSON_EFFECTS)) {
       expect(lessons.some((l) => l.id === lessonId), lessonId).toBe(true);
-      expect(finalChallengeOf(lessonId).worldEffects, lessonId).toEqual(list);
+      expect(finalChallengeOf(lessonId).worldEffects, lessonId).toEqual([...list, ...(PLAY_EFFECTS[lessonId] ?? [])]); // Phase 6 scenes add their own effects to the same lessons
       for (const e of list) { expect(e.target).toMatch(named); expect(e.action).toMatch(/^[a-z-]+$/); }
     }
     for (const [bossId, list] of Object.entries(BOSS_EFFECTS)) {

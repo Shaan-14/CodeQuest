@@ -17,7 +17,7 @@ export class Input {
     this.onKey = (e) => {
       if (!this.enabled || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      if (['w', 'a', 's', 'd', 'e', 'q', ' ', 'Shift', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Tab', 'm', 'j', 'f'].includes(k)) {
+      if (['w', 'a', 's', 'd', 'e', 'q', ' ', 'Shift', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Tab', 'm', 'j', 'f', 'h'].includes(k)) {
         if (k !== 'Tab' && k !== 'Escape') e.preventDefault();
         if (!this.down.has(k)) this.pressed.add(k);
         this.down.add(k);

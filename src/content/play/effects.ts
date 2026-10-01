@@ -41,6 +41,7 @@ export const PLAY_EFFECTS: Record<string, WorldEffect[]> = {
   'web-14-independent-css': [{ target: 'ward.dome', action: 'aegis' }],
   'web-15-js-basics': [{ target: 'arena.orb', action: 'spark' }],
   'web-16-js-data': [{ target: 'arena.hound', action: 'hit1' }],
+  'web-17-js-errors': [{ target: 'arena.shield', action: 'raise' }],
   'web-18-dom': [{ target: 'arena.lanterns', action: 'light' }],
   'web-19-events': [{ target: 'arena.hound', action: 'hit2' }],
   'web-20-forms-js': [{ target: 'arena.hound', action: 'hit3' }],

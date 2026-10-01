@@ -65,3 +65,15 @@
 .play-drive .play-buttons, .play-drive button { pointer-events: auto; }
 
 .play-drive .play-buttons { bottom: 60px; }
+
+.touch-controls { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end; padding: 12px 16px 18px; pointer-events: none; z-index: 3; }
+.touch-controls > * { pointer-events: auto; }
+.touch-pad { display: grid; justify-items: center; gap: 4px; } .touch-pad > div { display: flex; gap: 4px; }
+.touch-actions { display: flex; gap: 8px; align-items: flex-end; }
+.touch-btn { width: 54px; height: 54px; border-radius: 14px; border: 2px solid var(--edge, #34397a); background: rgba(20,24,52,.78); color: #fff; font-size: 1.3rem; touch-action: none; }
+.touch-btn.big { width: 72px; height: 72px; background: rgba(242,193,78,.85); color: #1b1b2f; font-weight: 900; font-size: 1.6rem; }
+.touch-btn:active { filter: brightness(1.4); }
+
+.play-duel { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); display: flex; gap: .9rem; align-items: center; pointer-events: none; font-size: 1.1rem; }
+.play-duel .heart { font-size: 1.4rem; } .play-duel .gone { opacity: .25; filter: grayscale(1); }
+.play-duel .chip { font-size: .8rem; color: #c8cdf0; }

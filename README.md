@@ -7,7 +7,14 @@ Programming fundamentals · Python · SQL & databases · **data engineering (dee
 
 The world is an RPG with baseball as an occasional theme; examples span engineering, manufacturing, business, finance, science, data, automation and games.
 
-## What exists today (Phase 5)
+## What exists today (Phase 6): a playable 3D world
+**CodeQuest is now a 3D browser RPG: code is how you change the world.** Walk Bytehaven with WASD, talk to people, accept quests and use terminals that open the real lessons; a program that works makes something happen (a robot repairs, a ward lights, a car gains grip), a program that fails makes something go wrong, and a failure sends you to train in the Simulation Room before you try a *different* problem.
+- **Worlds**: Robotics Academy (Python), Lanternhollow Academy (an original fantasy school: HTML, CSS, JavaScript, APIs), Harborview Park (SQL, statistics, R; a simulated game driven by your analysis), Redline Raceway (a car you drive, set up from telemetry you analyse), the Summit finale, joined by a plaza hub and a world map.
+- Same rules as ever: real execution and hidden checks, Focus (100 = ready, no shortcut), evidence-only mastery (XP is never skill), one-attempt Daily (a dispatch board in the plaza), Field Manual (press H), a finite campaign.
+- The classic view is one button away (or `?classic`) and shares the save. Sound can be muted; reduced motion is respected; touch controls appear on touch devices.
+- Details and honest limitations: [PROGRESS.md](PROGRESS.md), [ARCHITECTURE.md](ARCHITECTURE.md); notes for later: [docs/FUTURE_WORLDS.md](docs/FUTURE_WORLDS.md). Commands: `npm run dev`, `npm test`, `npm run e2e` (classic suite then the 3D suite in `e2e/play.mjs`).
+
+## Phase 5
 **Phase 5 turns the line into a graph** (126 lessons, 584 challenges, 90 skills, 52 Daily Challenges, 11 bosses): *begin in any world, prove skills by doing, and gates always tell you exactly what you are missing, where to learn it and what it opens.*
 - **Six open worlds, real runtimes.** Python, SQL, Web, **Git**, **Spreadsheets** and **R** all open from the first minute (Git: a simulator graded by repository state; spreadsheets: a formula/pivot/chart engine graded by recomputing on hidden data; R: real R in your browser via webR). **Statistics** and **Data Engineering** open when the skills they combine have been shown, in any order you like.
 - **Gates explain themselves**: "Prerequisite required" lists what you have shown, what is missing, the open lesson that teaches it and what it unlocks. Competency (introduced → developing → demonstrated) comes only from evidence, never from XP or completion.

@@ -264,6 +264,24 @@ Seven mastery guardians now exist (Python, SQL, data engineering, web, **analyti
 ### Save v8
 `SAVE_VERSION = 8`: `explore` (visited worlds, last world: navigation only) and Daily records/offers may carry `focus: 'mixed'`. Migration 7 → 8 adds `explore`; nothing else is touched, so evidence, lessons and quests carry over and no player is re-locked: access is computed from evidence on load.
 
+## Phase 6 systems: the 3D world (src/play/)
+**Decision: three.js** (one dependency, WebGL2, loaded as a lazy chunk the first time the 3D view opens). Considered: Babylon.js (larger, more engine than needed), raw WebGL (too much code to own), CSS 3D/Canvas 2D (cannot give a real third-person world). The classic UI stays and shares the same save; `localStorage codequest.mode` ('classic'|'3d') and `?classic` choose; no WebGL falls back to classic.
+
+```
+src/play/logic    pure, Node-testable: movement/collision, interact selection, dialogue, conditions (holds/hasEffect, per-save cached deriveWorldState),
+                  travel gates (canUseExit), vehicle physics, track geometry, baseball sim, markers
+src/play/engine   three.js: stage (loop, camera, load/unload scene, react to events), builders.* (procedural props per world), rig (characters),
+                  tween, fx (pooled particles), audio (synth, mute), input, drive (car mode)
+src/play/ui       Preact overlays on the canvas: PlayScreen (the wiring), dialogue/prompt/quest tracker, terminal (real LessonScreen), training,
+                  map, daily (dispatch board), manual (Field Manual), boss, finale, sim, pause, welcome, touch controls
+src/content/play  data only: scenes/*.ts (props, NPCs, interactables, exits, reactions, consequences), cast, quests, effects, stations, baseball
+src/game/play.ts, quests.ts   pure actions for play state and quest state
+```
+**Flow.** Terminal → real lesson/challenge → `submitChallenge` (unchanged) → events. First pass: `worldEffect` → `reactions` in the scene definition map `target:action` to a prop state (animated live; applied instantly on load from `deriveWorldState(save)`). Fail: `challengeFailed` → scene `consequences` → Focus lost, required training → the Simulation Room → `ReturnPoint` back to the exact lesson. While a full-screen overlay is open the stage is suspended and events are buffered, then replayed on close. The world has no learning rules and stores only `save.play` (v9).
+**Quests** (`game/quests.ts`): state is derived (unavailable/available/accepted/in-progress/completed) from the save plus quest data; only "accepted" is stored. `GameStore` exposes arrow-property methods (the original bug was destructured methods losing `this`).
+**Performance rules**: shared geometries/materials (`userData.shared` are never disposed per scene); label textures cached and cleared on unload; scene disposal on travel; walls and occluders hidden rather than culling by distance; quality presets (shadows, pixel ratio) in the pause menu; per-save memoization of graph/world derivations; `describeReturn` split so the editor chunk is not in the startup bundle. Tools: `scripts/perf-probe.mjs`, `cpu-profile.mjs`, `heavy-save.ts`, `shot3d.mjs`.
+**Test hooks**: with `localStorage codequest.e2e = '1'` the page exposes `window.__cq3d` (teleport, travel, autopilot for the car, dynamic prop states). Players never get it.
+
 ## Security model (what is and isn't guaranteed)
 Player code is untrusted and runs only inside a Web Worker running WebAssembly CPython:
 - No DOM, no `localStorage`/`document.cookie` (workers don't have them), no host filesystem or OS access (Emscripten virtual FS only), no subprocess/socket access from Python itself.

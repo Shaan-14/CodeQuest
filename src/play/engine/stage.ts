@@ -263,7 +263,7 @@ export class Stage {
         for (const r of def.reactions ?? []) if (r.effect === ref) { this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true; }
       } else if (e.type === 'challengeFailed') {
         const station = this.env.stationOfChallenge(e.challengeId);
-        for (const c of def.consequences ?? []) if (c.station === station) { this.dyns.get(c.prop)?.play?.('malfunction'); this.env.onCaption(c.say); lost = true; }
+        for (const c of def.consequences ?? []) if (c.station === station) { this.dyns.get(c.prop)?.play?.('malfunction'); if (c.say) this.env.onCaption(c.say); lost = true; }
       } else if (e.type === 'questComplete') { this.audio.sfx('quest'); won = true; }
       else if (e.type === 'questAccepted') this.audio.sfx('quest');
     }
@@ -365,6 +365,7 @@ export class Stage {
     if (inp.wasPressed('Escape')) this.env.onPause();
     if (inp.wasPressed('m')) this.env.onAction?.('map');
     if (inp.wasPressed('j')) this.env.onAction?.('journal');
+    if (inp.wasPressed('h')) this.env.onAction?.('manual');
     // camera: mouse drag, wheel, Q/R keys (for players without a mouse)
     this.yaw -= inp.dragX; this.pitch = Math.max(0.12, Math.min(1.2, this.pitch + inp.dragY));
     if (inp.isDown('q')) this.yaw += dt * 1.8;

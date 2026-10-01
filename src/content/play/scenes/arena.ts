@@ -14,6 +14,7 @@ export const arena: SceneDef = {
     { kind: 'castleWall', x: 0, z: -14.8, p: { w: 30, h: 3.4 }, solid: { w: 30, d: 0.8 } },
     { kind: 'castleWall', x: -8.5, z: 10.8, p: { w: 13, h: 3.4 }, solid: { w: 13, d: 0.8 } }, { kind: 'castleWall', x: 8.5, z: 10.8, p: { w: 13, h: 3.4 }, solid: { w: 13, d: 0.8 } },
     { kind: 'archway', x: -14.4, z: 0, ry: Math.PI / 2, p: { w: 3.4, h: 3.6, text: 'COURTYARD', color: 0xb48cff, portal: false } },
+    { kind: 'shield', x: -7, z: 3, id: 'shield', p: { r: 3.4 } },
     { kind: 'orb', x: 0, z: -3, id: 'orb', solid: { w: 1.0, d: 1.0 } },
     { kind: 'hound', x: 0, z: -9.5, ry: 0, id: 'hound' },
     // six lanterns around the ring, dark until the DOM spell lights them
@@ -31,6 +32,7 @@ export const arena: SceneDef = {
   ],
   exits: [{ id: 'to-courtyard', label: 'the courtyard', x: -13.6, z: 0, to: 'lantern-courtyard', spawn: 'from-arena' }],
   reactions: [
+    { prop: 'shield', effect: 'arena.shield:raise', state: 'raise', say: 'A ward-shield rises around the lectern: your error-handling catches what would have hurt.' },
     { prop: 'orb', effect: 'arena.orb:spark', state: 'spark', say: 'The altar orb wakes: your first incantation runs.' },
     { prop: 'hound', effect: 'arena.hound:hit1', state: 'hit1', say: 'Your spell strikes the Gloomhound. It recoils.' },
     { prop: 'ring-0', effect: 'arena.lanterns:light', state: 'light', say: 'You changed the page itself: the ring’s lanterns light one after another.' },
@@ -42,6 +44,7 @@ export const arena: SceneDef = {
     { prop: 'hound', effect: 'arena.hound:defeat', state: 'defeat', say: 'The Gloomhound dissolves into motes of light. The Dueling Ring is safe.' },
   ],
   consequences: [
+    { prop: 'shield', station: 'spell-lectern', play: 'malfunction', say: '' },
     { prop: 'hound', station: 'spell-lectern', play: 'malfunction', say: 'The spell misfires. The Gloomhound lunges and your ward-shield cracks. Nothing is lost: look at what the spell actually did, then try again.' },
   ],
 };

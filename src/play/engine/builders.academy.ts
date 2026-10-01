@@ -163,6 +163,18 @@ const hound: Builder = (p, ctx) => {
   return { object: g, dyn };
 };
 
+/** The duelist's ward-shield: a dome around the lectern, raised by an error-handling spell; a failed spell cracks it (and the crack mends itself). */
+const shield: Builder = (p, ctx) => {
+  const g = new Group(); const r = num(p, 'r', 3);
+  const bubble = shape('sphere', r * 2, r * 2, r * 2, TEAL, { transparent: 0.0, cast: false, glow: 0.5 }); bubble.visible = false; g.add(bubble);
+  let up = false, crack = 0, t = 0;
+  const paint = () => { bubble.visible = up; bubble.material = mat(crack > 0 ? 0xff4d6d : TEAL, 0.5 + crack, { transparent: 0.16 + crack * 0.2 }); };
+  return { object: g, dyn: { id: p.id ?? 'shield', object: g, at: () => ({ x: p.x, y: 1.5, z: p.z }), states: () => (up ? ['raise'] : []),
+    setState(s, instant) { if (s === 'raise' && !up) { up = true; paint(); if (!instant) { ctx.audio.sfx('spell'); ctx.fx.burst('shield', p.x, 1.6, p.z, 40, 1.6); ctx.fx.flash(p.x, 1.6, p.z, TEAL, 8, 0.6); } } },
+    play(name) { if (name === 'malfunction' && up) { crack = 1; paint(); ctx.audio.sfx('crack'); ctx.fx.burst('sparks', p.x, 1.6, p.z, 20, 1.4); } },
+    update(dt) { t += dt; if (crack > 0) { crack = Math.max(0, crack - dt * 0.6); paint(); } if (up) bubble.rotation.y = t * 0.3; } } };
+};
+
 const castleWall: Builder = (p) => {
   const g = new Group(); const w = num(p, 'w', 6), h = num(p, 'h', 4);
   g.add(shape('box', w, h, 0.8, STONE));
@@ -182,4 +194,4 @@ const statue: Builder = () => { const g = new Group(); g.add(shape('box', 1.2, 0
 const crystal: Builder = (p) => { const g = new Group(); const h = num(p, 'h', 1.6); g.add(shape('cone', 0.7, h, 0.7, col(p, 'color', VIOLET), { glow: 0.9, transparent: 0.85 }), shape('cone', 0.45, h * 0.7, 0.45, col(p, 'color', VIOLET), { x: 0.5, z: 0.2, glow: 0.9, transparent: 0.85 })); return { object: g }; };
 const glowtree: Builder = (p) => { const g = new Group(); const s = num(p, 'scale', 1); g.add(shape('cyl', 0.4 * s, 2 * s, 0.4 * s, 0x5a4a6a), shape('sphere', 2.6 * s, 2.2 * s, 2.6 * s, 0x3c8f6a, { y: 1.8 * s }), shape('sphere', 0.22, 0.22, 0.22, LAMP, { x: 0.8 * s, y: 2.6 * s, z: 0.6 * s, glow: 1.2 }), shape('sphere', 0.22, 0.22, 0.22, TEAL, { x: -0.9 * s, y: 3.2 * s, z: 0.2 * s, glow: 1.2 })); return { object: g }; };
 
-export const academyBuilders: Record<string, Builder> = { tower, lantern, lectern, banner, portal, runes, dome, orb, well, hound, castleWall, bookshelf, desk, pond, hedge, statue, crystal, glowtree };
+export const academyBuilders: Record<string, Builder> = { shield, tower, lantern, lectern, banner, portal, runes, dome, orb, well, hound, castleWall, bookshelf, desk, pond, hedge, statue, crystal, glowtree };

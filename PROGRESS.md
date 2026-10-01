@@ -1,10 +1,27 @@
 # PROGRESS.md
 
-_Last updated: Phase 5 (nonlinear skill graph, adaptive curriculum, professional problem solving)._
+_Last updated: Phase 6 (playable 3D worlds). Phase 6 is the final planned phase._
 
 ## Current phase
-**Phase 5 (nonlinear skill graph, adaptive curriculum, professional problem solving): COMPLETE.** Phase 6 (visual worlds) has NOT been started; wait for explicit instruction.
-Save format v1 → … → v7 → **v8** (`daily` Focus bookkeeping, `explore` = last world / worlds visited); migrations tested, older saves load unchanged.
+**Phase 6 (a playable 3D world on top of the finished learning engine): COMPLETE.** There is no Phase 7; the post-game ideas in `docs/FUTURE_WORLDS.md` are suggestions only.
+Save format v1 → … → v8 → **v9** (`play`: scene, position, who you talked to, things seen, sound/motion/quality settings); migration tested.
+
+## What Phase 6 built
+- **The quest bug, properly.** "Accept Quest did nothing" was a lost `this`: `GameStore` methods were destructured by components. They are now arrow properties. Quests have five real states (unavailable, available, accepted, in progress, completed), persisted, derived in `game/quests.ts` and shown by one `QuestCard` everywhere, with a reason when unavailable. Tests in `game/quests.test.ts`.
+- **A 3D world** (three.js, lazy chunk; `src/play/`): walk (WASD/arrows, Shift run, Space jump, mouse/Q-R camera, E interact, M map, H Field Manual, Esc menu), collision, a procedural animated character and NPC rigs, contextual prompts, dialogue, quest markers, day/mood lighting, particles, optional synthesized audio with mute.
+- **Worlds**: Bytehaven Plaza (hub with gates and a dispatch board for the Daily); Robotics Academy (atrium, maintenance bay, manufacturing floor: Python); Simulation Room (the Training Grounds); Lanternhollow Academy (an ORIGINAL fantasy school: courtyard, spell classroom, arena with a shield that reacts to error-handling code; HTML/CSS/JS/DOM/events/APIs); Harborview Park (ballpark, analytics office; SQL/statistics/R; a seeded simulated game whose strengths come from the player's own analysis); Redline Raceway (garage, track; a drivable car with a slip model and checkpoints, timed laps, setup taken from the player's telemetry work); the Summit (finale).
+- **Code is how the world changes.** Terminals open the real lesson screen. A first pass emits the existing `worldEffect` event; scenes react through `deriveWorldState(save)` (no second state; identical after a reload). A failed challenge emits `challengeFailed`: a scene consequence plays, Focus is lost as before, and the Training Grounds (the Simulation Room) is the only way back.
+- **Everything the engine promised is unchanged**: real runtimes, hidden data, no multiple choice, Focus (100 = ready, no shortcut), hints are not failures, evidence-only mastery, Daily (optional, one attempt, no Focus cost), Field Manual (H), finite campaign (Summit ends it).
+- **Performance as a requirement.** Profiled first. Fixed: O(objectives × lessons × steps) scans (indexed maps, per-save memoization), the code editor loaded at startup through the training screens (split), world entry on a late-game save 500–585 ms → ~80–120 ms, startup JS 776 KB → 518 KB gzip. three.js and all scenes load only when the 3D view opens; shared geometries/materials, a texture cache, pooled particles, disposal on scene change, and quality presets.
+- **Accessibility and comfort**: reduced motion (OS setting or menu) removes camera shake/animations; everything the world says is also text (captions, dialogue, world notes); all overlays are keyboard operable with a focus-visible style; the classic view (same save) is one button or `?classic` away; WebGL failure falls back to it; on-screen touch controls appear on touch devices.
+
+## Phase 6 limitations (honest)
+- Art is procedural (primitives, no authored models/textures); characters are simple. It is cohesive, not lavish.
+- **Not every lesson has a terminal in the world**: stations cover a representative subset per world; the full 126 lessons remain reachable from the classic view and the in-world Field Manual, Daily and Training. Every station opens the same real lesson screen.
+- A duel HUD with hearts/cooldowns was designed but NOT built: the arena reacts to code (the shield rises, failures malfunction it) without a combat meter. Containers (`InteractAction` `container`) are supported by the engine but no chests are placed yet.
+- The curriculum content chunk is still one chunk (~464 KB gzip); only the 3D engine, editor, webR and Pyodide are on demand. Per-track curriculum loading remains future work.
+- Rendering was verified in headless Chromium with software WebGL (correctness and logic, not real GPU frame rates). Touch controls were tested for layout only; a tablet pass on real hardware was not possible.
+- No gamepad support; the character has no inverse kinematics, and NPC patrols use simple waypoints.
 
 ## What Phase 5 built
 - **A skill graph instead of a line** (`game/graph.ts`, data in `content/skills.ts`, `content/worlds.ts`, `Lesson.requires`). Six foundation worlds (Python, SQL, Web, Git, Spreadsheets, R) are open from the first minute; Statistics, Data Engineering, the Summit and cross-world lessons are gated by *demonstrated competencies* (`none < introduced < developing < demonstrated`, from evidence only). Every gate explains itself (`PrerequisitePanel`: what you have shown, what is missing, which open lesson teaches it, what it unlocks). Intro, map, shop/library gates, quests and the Summit no longer say "finish Python first".
@@ -133,7 +150,10 @@ Playtesting showed the first version of adaptive training was optional, duplicat
 - **Accessibility** is good in the web content, basic in the game shell and the spreadsheet grid (keyboard navigation of cells is minimal).
 - Some "hidden data" tweaks are deliberate; changing them can change content (re-run the content tests).
 
-## Recommended Phase 6 priorities (only when asked)
+## Post-game ideas (not planned work; see docs/FUTURE_WORLDS.md)
+_The Phase 5 list below is kept for history._
+
+### Phase 5 recommendations (history)
 1. A presentation layer that *consumes* `deriveWorldState(save)` / `worldEffect` events: one world at a time (robot/engineering yard first, then the original magic academy, API/baseball district, racing). Each attaches as a scene + target map; no new rule, challenge or saved data.
 2. Load curriculum and runtimes per track on demand.
 3. More independent and transfer problems in the newest worlds (Git, R, Statistics) and more boss versions per route.

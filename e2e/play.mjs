@@ -56,6 +56,7 @@ async function newGame(opts = {}) {
   await page.goto(BASE);
   if (!opts.save) { await tid(page, 'name-input').fill(opts.name ?? 'Ada'); await tid(page, 'begin').click(); }
   await page.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+  if (!opts.welcome && await tid(page, 'welcome-start').count()) await tid(page, 'welcome-start').click();
   return page;
 }
 const st = (p) => p.evaluate(() => window.__cq3d.state());
@@ -272,6 +273,24 @@ async function main() {
 
     console.log('3D world: the hub, the map and the settings');
 
+    await test('First visit: the welcome card appears once; the Field Manual opens with H; the dispatch board shows the Daily in-world', async () => {
+      const p = await newGame({ welcome: true });
+      await tid(p, 'play-welcome').waitFor();
+      await tid(p, 'welcome-start').click();
+      await tid(p, 'play-welcome').waitFor({ state: 'detached' });
+      await p.keyboard.press('h');
+      await tid(p, 'play-manual').waitFor();
+      await tid(p, 'manual-close').click();
+      await tp(p, -5, 5.2, 0);
+      await interact(p, 'daily-board');
+      await tid(p, 'play-daily').waitFor();
+      assert((await tid(p, 'dispatch-line').innerText()).includes('Dispatch'), 'the Daily is framed as a dispatch');
+      await tid(p, 'daily-overlay-close').click();
+      await p.reload();
+      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+      assert((await tid(p, 'play-welcome').count()) === 0, 'the welcome is not shown again');
+      await p.context().close();
+    });
     await test('Hub: walk through a gate to another world, open the world map, see every world with its state, and fast-travel', async () => {
       const p = await newGame();
       await tp(p, -19, 0, Math.PI / 2);
