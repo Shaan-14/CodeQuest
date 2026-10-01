@@ -310,6 +310,23 @@ async function main() {
 
     console.log('3D world: the hub, the map and the settings');
 
+    await test('Menu bar: pushing the mouse up reveals the clickable top bar; going back over the world captures the mouse again', async () => {
+      const p = await newGame();
+      const state = () => p.evaluate(() => [!!document.pointerLockElement, document.querySelector('[data-testid=play]').className]);
+      const push = async () => { await p.mouse.move(550, 400); for (let i = 0; i < 9; i++) await p.mouse.move(550, 400 - (i + 1) * 60); await p.waitForTimeout(600); };
+      await p.mouse.move(550, 400); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(400);
+      let [locked, cls] = await state(); assert(locked && cls.includes('mouse-captured'), 'the mouse is captured while playing');
+      await push();
+      [locked, cls] = await state(); assert(!locked && cls.includes('bar-revealed'), 'pushing up gives the cursor back');
+      await p.mouse.move(900, 40); await p.waitForTimeout(200);
+      await p.mouse.move(700, 300); await p.waitForTimeout(300);
+      [locked] = await state(); assert(locked, 'back over the world the mouse is captured again');
+      await push(); await p.mouse.move(1000, 40); await p.waitForTimeout(200);
+      await p.getByText('Skills').click({ timeout: 5000 });
+      await tid(p, 'play-panel').waitFor({ timeout: 5000 }).catch(() => p.getByText('Adventurer').waitFor({ timeout: 5000 }));
+      await p.context().close();
+    });
+
     await test('First visit: the welcome card appears once; the Field Manual opens with H; the dispatch board shows the Daily in-world', async () => {
       const p = await newGame({ welcome: true });
       await tid(p, 'play-welcome').waitFor();

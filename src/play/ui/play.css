@@ -181,3 +181,10 @@
 .welcome-go { font-size: 1.1rem; padding: .6rem 2.4rem; }
 @media (max-width: 720px) { .welcome-keys { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .welcome-card { animation: none; } }
+
+/* the mouse is captured: the menu bar rests quietly and comes back at full strength when the player pushes the mouse up to it */
+.play.mouse-captured .ghud-menu { opacity: .55; pointer-events: none; }
+.play.bar-revealed .ghud-menu, .play.bar-revealed .ghud-card { opacity: 1; box-shadow: 0 0 0 2px rgba(255,209,102,.7), 0 4px 18px rgba(0,0,0,.4); }
+.play-pushhint { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: .68rem; letter-spacing: .08em; color: rgba(223,227,255,.55); text-transform: uppercase; pointer-events: none; animation: pushIn 6s ease both; }
+@keyframes pushIn { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.play.cine-on .play-pushhint { display: none; }

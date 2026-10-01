@@ -12,6 +12,13 @@ export class Input {
   onLockLost?: () => void;
   onLockChange?: (locked: boolean) => void;
   private releasing = false;
+  /** The player pushed the mouse up past the top of the screen: the game gave the cursor back so the menu bar can be clicked. Moving back over the world captures it again. */
+  revealed = false;
+  onReveal?: (on: boolean) => void;
+  /** A virtual cursor row while captured: it drifts back to the middle, so only a sustained push upward (a "go to the menu" gesture) reaches the top. */
+  private vy = 0; private vyAt = 0;
+  /** While revealed: the cursor has been over the menu bar, so coming back to the world means "play again" (otherwise it would re-capture at once). */
+  private sawUi = false; private revealAt = 0;
   private el: HTMLElement;
   private onKey: (e: KeyboardEvent) => void;
   private onKeyUp: (e: KeyboardEvent) => void;
@@ -36,14 +43,28 @@ export class Input {
     window.addEventListener('keydown', this.onKey);
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('blur', this.onBlur);
-    const md = (e: PointerEvent) => { if (!this.enabled) return; if (!this.locked) this.requestLock(); this.dragging = true; el.setPointerCapture?.(e.pointerId); };
+    const onHud = (e: Event) => !!(e.target as HTMLElement | null)?.closest?.('.ghud-menu, .ghud-card');
+    const md = (e: PointerEvent) => { if (!this.enabled || onHud(e)) return; if (!this.locked) this.requestLock(); this.dragging = true; el.setPointerCapture?.(e.pointerId); };
     const mu = (e: PointerEvent) => { this.dragging = false; el.releasePointerCapture?.(e.pointerId); };
-    const mm = (e: PointerEvent) => { if ((this.dragging || this.locked) && this.enabled) { this.dragX += e.movementX * 0.006; this.dragY += e.movementY * 0.004; } };
+    const mm = (e: PointerEvent) => {
+      if (!this.enabled) return;
+      if (!this.locked && this.revealed) { if (this.sawUi && !onHud(e)) this.requestLock(); return; } // back over the world: capture again (the next click does it if the browser wants a gesture)
+      if (!(this.dragging || this.locked)) return;
+      this.dragX += e.movementX * 0.006; this.dragY += e.movementY * 0.004;
+      if (this.locked) {
+        const mid = window.innerHeight * 0.4, now = performance.now();
+        this.vy = mid + (this.vy - mid) * Math.exp(-Math.min(0.1, (now - this.vyAt) / 1000) * 1.2) + e.movementY; this.vyAt = now;
+        if (this.vy < 0) this.reveal();
+      }
+    };
+    const over = (e: PointerEvent) => { if (this.revealed && performance.now() - this.revealAt > 350 && (e.target as HTMLElement | null)?.closest?.('.ghud-menu, .ghud-card')) this.sawUi = true; };
+    window.addEventListener('pointermove', over, true);
+    this.cleanup.push(() => window.removeEventListener('pointermove', over, true));
     const wh = (e: WheelEvent) => { if (!this.enabled) return; e.preventDefault(); this.wheel += Math.sign(e.deltaY); };
     const pl = () => {
       const now = document.pointerLockElement === el;
       const lost = this.locked && !now;
-      this.locked = now; if (now) this.dragging = false;
+      this.locked = now; if (now) { this.dragging = false; this.vy = window.innerHeight * 0.4; this.vyAt = performance.now(); this.setRevealed(false); }
       this.onLockChange?.(now);
       if (lost && !this.releasing && this.enabled) this.onLockLost?.();
       this.releasing = false;
@@ -58,8 +79,11 @@ export class Input {
     if (!this.enabled || this.locked || typeof this.el.requestPointerLock !== 'function') return;
     try { const r = this.el.requestPointerLock() as unknown as Promise<void> | undefined; r?.catch?.(() => undefined); } catch { /* not allowed right now */ }
   }
+  private setRevealed(on: boolean): void { if (on) { this.sawUi = false; this.revealAt = performance.now(); } if (this.revealed !== on) { this.revealed = on; this.onReveal?.(on); } }
+  /** Hand the cursor back so the top bar can be used, without opening the pause menu. */
+  reveal(): void { if (document.pointerLockElement !== this.el) return; this.releasing = true; this.setRevealed(true); document.exitPointerLock(); }
   /** Give the mouse back (an overlay needs the cursor). */
-  releaseLock(): void { if (document.pointerLockElement === this.el) { this.releasing = true; document.exitPointerLock(); } }
+  releaseLock(): void { this.setRevealed(false); if (document.pointerLockElement === this.el) { this.releasing = true; document.exitPointerLock(); } }
 
   isDown(...keys: string[]): boolean { return keys.some((k) => this.down.has(k)); }
   /** True once per key press. */

@@ -104,6 +104,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const [daily, setDaily] = useState(false);
   const [manual, setManual] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [cine, setCine] = useState<CineState>(IDLE_CINE);
   const [guide, setGuide] = useState<GuideInfo | null>(null);
   const [objective, setObjective] = useState<Objective | null>(null);
@@ -179,6 +180,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         stageRef.current = stage;
         stage.input.onLockLost = () => setPaused(true);
         stage.input.onLockChange = setLocked;
+        stage.input.onReveal = setRevealed;
         stage.audio.setMuted(s.play.settings.muted);
         stage.setGuideVisible(guideEnabled());
         // resume where the player was (same scene, same spot), else the first place of the story
@@ -375,7 +377,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     );
   }
   return (
-    <div class={`play ${cine.active ? 'cine-on' : ''}`} ref={hostRef} data-testid="play" data-scene={sceneId} data-ready={ready ? '1' : '0'}>
+    <div class={`play ${cine.active ? 'cine-on' : ''} ${locked ? 'mouse-captured' : ''} ${revealed ? 'bar-revealed' : ''}`} ref={hostRef} data-testid="play" data-scene={sceneId} data-ready={ready ? '1' : '0'}>
       <canvas ref={canvasRef} role="img" aria-label={scene ? `3D view: ${scene.title}. ${scene.blurb} Use the keyboard to move; every event is also described in text.` : '3D view'} tabIndex={0} data-testid="play-canvas" />
       {!ready && <div class="play-loading" role="status">Loading the world…</div>}
       {ready && (
@@ -387,7 +389,8 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           {driving ? <DriveHud hud={hud} par={par.current} onExit={() => stopDrive.current?.()} /> : showControls ? <Controls /> : null}
           <CinematicOverlay cine={cine} />
           <GameHud onPanel={onPanel} onMap={() => setMapOpen(true)} onManual={() => setManual(true)} onMenu={() => setPaused(true)} />
-          {!locked && !overlayOpen.current && !touch && <div class="play-lockhint pill" data-testid="play-lockhint">Click or press a key to look around with the mouse · Esc to release it</div>}
+          {locked && !touch && <div class="play-pushhint" aria-hidden="true">▲ push the mouse up for the menu</div>}
+          {!locked && !revealed && !overlayOpen.current && !touch && <div class="play-lockhint pill" data-testid="play-lockhint">Click or press a key to look around with the mouse · Esc to release it</div>}
           {talk && ('conv' in talk ? <Dialogue conv={talk.conv} lines={talk.lines} onClose={closeTalk} /> : <Dialogue conv={{ npc: { name: talk.inspect.name, role: 'You look closely', icon: '🔍' }, lines: talk.inspect.lines, canOffer: false }} lines={talk.inspect.lines} onClose={closeTalk} />)}
           {gate && (
             <div class="play-terminal" role="dialog" aria-label="Prerequisite required" data-testid="play-gate">
