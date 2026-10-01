@@ -122,9 +122,12 @@ async function playLesson(p) {
 async function setCode(p, code) { await p.locator('.cm-content').first().click(); await p.keyboard.press('Control+A'); if (code === '') await p.keyboard.press('Delete'); else await p.keyboard.insertText(code); }
 /** Writes completed lessons into the real save and reloads (fast route to later steps). */
 async function seedLessons(p, ids) {
-  await p.evaluate((ids) => { const s = JSON.parse(localStorage.getItem('codequest.save')); for (const id of ids) s.learning.lessons[id] = { stepIndex: 99, completed: true }; localStorage.setItem('codequest.save', JSON.stringify(s)); }, ids);
+  // applied by an init script AFTER the page's own pagehide flush has saved, so the flush cannot overwrite the seeded lessons
+  const tag = 'seed-' + Math.random();
+  await p.addInitScript(([ids, tag]) => { if (sessionStorage.getItem(tag)) return; sessionStorage.setItem(tag, '1'); const s = JSON.parse(localStorage.getItem('codequest.save')); for (const id of ids) s.learning.lessons[id] = { stepIndex: 99, completed: true }; localStorage.setItem('codequest.save', JSON.stringify(s)); }, [ids, tag]);
   await p.reload();
   await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+  if (await tid(p, 'welcome-start').count()) await tid(p, 'welcome-start').click(); // a save seeded before the card was dismissed still lacks the flag
 }
 async function advanceToChallengeId(p, id) {
   for (let i = 0; i < 14; i++) {
@@ -278,10 +281,11 @@ async function main() {
       await tid(p, 'play-welcome').waitFor();
       await tid(p, 'welcome-start').click();
       await tid(p, 'play-welcome').waitFor({ state: 'detached' });
+      await p.waitForTimeout(400); // input is re-enabled one render after the card closes
       await p.keyboard.press('h');
       await tid(p, 'play-manual').waitFor();
       await tid(p, 'manual-close').click();
-      await tp(p, -5, 5.2, 0);
+      await tp(p, -5, 5.4, Math.PI);
       await interact(p, 'daily-board');
       await tid(p, 'play-daily').waitFor();
       assert((await tid(p, 'dispatch-line').innerText()).includes('Dispatch'), 'the Daily is framed as a dispatch');
