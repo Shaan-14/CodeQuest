@@ -51,7 +51,7 @@ export class Fx {
     g.setAttribute('position', new BufferAttribute(this.pos, 3));
     g.setAttribute('color', new BufferAttribute(this.col, 3));
     for (let i = 0; i < MAX; i++) this.pos[i * 3 + 1] = -999; // parked far below the world
-    const m = new PointsMaterial({ size: 0.26, map: spriteTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true });
+    const m = new PointsMaterial({ size: 0.26, map: spriteTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true, toneMapped: false });
     this.points = new Points(g, m);
     this.points.frustumCulled = false;
     scene.add(this.points);

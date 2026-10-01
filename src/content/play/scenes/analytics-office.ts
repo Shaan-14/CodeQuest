@@ -31,12 +31,12 @@ export const analyticsOffice: SceneDef = {
   ],
   exits: [{ id: 'to-ballpark', label: 'the ballpark', x: 0, z: 7, to: 'ballpark', spawn: 'from-office' }],
   reactions: [
-    { prop: 'roster-board', effect: 'office.roster:load', state: 'on', say: 'The roster board fills in: 38 players, 6 teams.' },
-    { prop: 'ranking-board', effect: 'office.ranking:sort', state: 'on', say: 'The ranking board lists the league’s best hitters, in order.' },
-    { prop: 'clean-board', effect: 'office.roster:clean', state: 'on', say: 'The data-quality board flags the players with missing stats instead of treating them as zero.' },
-    { prop: 'stats-board', effect: 'office.stats:summarise', state: 'on', say: 'The season board fills in: totals and averages.' },
-    { prop: 'positions-board', effect: 'office.positions:group', state: 'on', say: 'The position board shows how each group performs.' },
-    { prop: 'lineup-board', effect: 'field.lineup:set', state: 'on', say: 'LINEUP SET. The card goes to Coach Reyes.' },
+    { prop: 'roster-board', effect: 'office.roster:load', state: 'on', say: 'The roster board fills in: 38 players, 6 teams.', cinematic: 'office-roster' },
+    { prop: 'ranking-board', effect: 'office.ranking:sort', state: 'on', say: 'The ranking board lists the league’s best hitters, in order.', cinematic: 'office-ranking' },
+    { prop: 'clean-board', effect: 'office.roster:clean', state: 'on', say: 'The data-quality board flags the players with missing stats instead of treating them as zero.', cinematic: 'office-clean' },
+    { prop: 'stats-board', effect: 'office.stats:summarise', state: 'on', say: 'The season board fills in: totals and averages.', cinematic: 'office-stats' },
+    { prop: 'positions-board', effect: 'office.positions:group', state: 'on', say: 'The position board shows how each group performs.', cinematic: 'office-positions' },
+    { prop: 'lineup-board', effect: 'field.lineup:set', state: 'on', say: 'LINEUP SET. The card goes to Coach Reyes.', cinematic: 'office-lineup' },
   ],
   consequences: [
     { prop: 'roster-board', station: 'analytics-console', play: 'malfunction', say: 'The boards flicker and show nonsense for a moment: a query that did not ask what you meant it to. The data is fine; check the question.' },

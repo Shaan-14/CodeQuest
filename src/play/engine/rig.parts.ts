@@ -30,7 +30,8 @@ function cached(key: string, make: () => BufferGeometry): BufferGeometry { let g
 const q = (n: number) => Math.round(n * 1000) / 1000;
 export const sphereG = (r: number) => cached(`s${q(r)}`, () => new SphereGeometry(r, 16, 12));
 export const capsuleG = (r: number, len: number) => cached(`c${q(r)}|${q(len)}`, () => new CapsuleGeometry(r, len, 4, 10));
-export const boxG = (w: number, h: number, d: number, r = 0.02) => cached(`b${q(w)}|${q(h)}|${q(d)}|${q(r)}`, () => new RoundedBoxGeometry(w, h, d, 3, r));
+/** A rounded box. Bevel segments scale down with size: small pieces get 1 (a chamfer), others 2, so a busy scene stays cheap. */
+export const boxG = (w: number, h: number, d: number, r = 0.02) => cached(`b${q(w)}|${q(h)}|${q(d)}|${q(r)}`, () => new RoundedBoxGeometry(w, h, d, Math.min(w, h, d) < 0.12 ? 1 : 2, r));
 export const cylG = (rt: number, rb: number, h: number, seg = 14) => cached(`y${q(rt)}|${q(rb)}|${q(h)}|${seg}`, () => new CylinderGeometry(rt, rb, h, seg));
 export const torusG = (r: number, t: number) => cached(`t${q(r)}|${q(t)}`, () => new TorusGeometry(r, t, 8, 20));
 export const domeG = (r: number, theta: number, phiStart = 0, phiLen = Math.PI * 2, thetaStart = 0) => cached(`d${q(r)}|${q(theta)}|${q(phiStart)}|${q(phiLen)}|${q(thetaStart)}`, () => new SphereGeometry(r, 18, 10, phiStart, phiLen, thetaStart, theta));

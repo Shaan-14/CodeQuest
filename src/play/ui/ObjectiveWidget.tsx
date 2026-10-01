@@ -26,7 +26,7 @@ export function ObjectiveWidget({ objective, guide, fresh }: { objective: Object
         </div>
       </div>
       <div class="obj-text" data-testid="objective-text">{objective ? objective.text : 'Nothing is asked of you right now. Walk anywhere, talk to people, or open the map (M) to pick a world.'}</div>
-      {objective && guide && <div class="obj-where" data-testid="objective-where">{guide.via ? '🚪' : '📍'} {guide.label}{dist !== null ? ` · ${dist <= 3 ? 'you are here' : `${dist} m`}` : ''}</div>}
+      {objective && guide && <div class="obj-where" data-testid="objective-where">{guide.via ? '🚪' : '📍'} {guide.label}{dist !== null ? ` · ${dist <= 3 ? (guide.via ? 'right here' : 'you are here') : `${dist} m`}` : ''}</div>}
       {quest && (
         <div class="obj-steps" data-testid={`tracker-${quest.id}`}>
           {quest.objectives.map((o) => <div key={o.id} class={`step ${objectiveDone(save, o) ? 'done' : ''} ${o.id === next?.id ? 'now' : ''}`}>{objectiveDone(save, o) ? '☑' : o.id === next?.id ? '▶' : '☐'} {o.text}</div>)}

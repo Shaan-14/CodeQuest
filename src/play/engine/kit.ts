@@ -3,7 +3,7 @@
  * friendly), canvas-drawn labels, and small helpers. Everything it makes can be released with `disposeKit()` when the player leaves 3D.
  */
 import {
-  BoxGeometry, CanvasTexture, ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, SphereGeometry, SRGBColorSpace, TorusGeometry,
+  BoxGeometry, CanvasTexture, ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, type Texture, PlaneGeometry, SphereGeometry, SRGBColorSpace, TorusGeometry,
   type BufferGeometry, type Material, type Object3D,
 } from 'three';
 
@@ -21,13 +21,13 @@ export type GeoKey = keyof typeof geo;
 for (const g of Object.values(geo)) g.userData.shared = true;
 const mats = new Map<string, Material>();
 /** A flat-lit material for a colour (shared). `glow` adds emissive light so screens, lamps and magic read in any lighting. */
-export function mat(color: number, glow = 0, opts: { transparent?: number; flat?: boolean } = {}): Material {
-  const key = `${color}|${glow}|${opts.transparent ?? 1}|${opts.flat ?? false}`;
+export function mat(color: number, glow = 0, opts: { transparent?: number; flat?: boolean; rough?: number; metal?: number; map?: Texture } = {}): Material {
+  const key = `${color}|${glow}|${opts.transparent ?? 1}|${opts.flat ?? false}|${opts.rough ?? ''}|${opts.metal ?? ''}|${opts.map?.uuid ?? ''}`;
   let m = mats.get(key);
   if (!m) {
     m = opts.flat
       ? new MeshBasicMaterial({ color, transparent: opts.transparent !== undefined, opacity: opts.transparent ?? 1 })
-      : new MeshLambertMaterial({ color, emissive: glow ? color : 0x000000, emissiveIntensity: glow, transparent: opts.transparent !== undefined, opacity: opts.transparent ?? 1 });
+      : new MeshStandardMaterial({ color, ...(opts.map ? { map: opts.map } : {}), roughness: opts.rough ?? 0.72, metalness: opts.metal ?? 0.06, emissive: glow ? color : 0x000000, emissiveIntensity: glow, transparent: opts.transparent !== undefined, opacity: opts.transparent ?? 1 });
     m.userData.shared = true;
     mats.set(key, m);
   }
@@ -35,8 +35,8 @@ export function mat(color: number, glow = 0, opts: { transparent?: number; flat?
 }
 
 /** A primitive scaled to size (w,h,d), base on the ground at y (so heights read naturally). */
-export function shape(kind: GeoKey, w: number, h: number, d: number, color: number, o: { x?: number; y?: number; z?: number; glow?: number; transparent?: number; flat?: boolean; ry?: number; rx?: number; rz?: number; cast?: boolean } = {}): Mesh {
-  const m = new Mesh(geo[kind] as BufferGeometry, mat(color, o.glow ?? 0, { transparent: o.transparent, flat: o.flat }));
+export function shape(kind: GeoKey, w: number, h: number, d: number, color: number, o: { x?: number; y?: number; z?: number; glow?: number; transparent?: number; flat?: boolean; ry?: number; rx?: number; rz?: number; cast?: boolean; rough?: number; metal?: number; map?: Texture } = {}): Mesh {
+  const m = new Mesh(geo[kind] as BufferGeometry, mat(color, o.glow ?? 0, { transparent: o.transparent, flat: o.flat, rough: o.rough, metal: o.metal, map: o.map }));
   m.scale.set(w, h, d);
   m.position.set(o.x ?? 0, (o.y ?? 0) + h / 2, o.z ?? 0);
   if (o.ry) m.rotation.y = o.ry;
@@ -93,3 +93,16 @@ export function disposeKit(): void {
   for (const t of labelCache.values()) t.dispose();
   labelCache.clear();
 }
+
+/* ------------------------------------------------------------------ rounded, physically shaded pieces for the props */
+
+import { boxG, cylG, sphereG } from './rig.parts';
+export interface PieceOpts { x?: number; y?: number; z?: number; rx?: number; ry?: number; rz?: number; r?: number; glow?: number; rough?: number; metal?: number; map?: Texture; transparent?: number; cast?: boolean; flat?: boolean }
+const place = (m: Mesh, h: number, o: PieceOpts): Mesh => { m.position.set(o.x ?? 0, (o.y ?? 0) + h / 2, o.z ?? 0); if (o.rx) m.rotation.x = o.rx; if (o.ry) m.rotation.y = o.ry; if (o.rz) m.rotation.z = o.rz; m.castShadow = o.cast ?? true; m.receiveShadow = true; return m; };
+const matOf = (color: number, o: PieceOpts) => mat(color, o.glow ?? 0, { rough: o.rough, metal: o.metal, map: o.map, transparent: o.transparent, flat: o.flat });
+/** A rounded box (base on the ground at y). */
+export const rbox = (w: number, h: number, d: number, color: number, o: PieceOpts = {}): Mesh => place(new Mesh(boxG(w, h, d, o.r ?? Math.min(0.1, Math.min(w, h, d) * 0.2)), matOf(color, o)), h, o);
+/** A cylinder (radius top/bottom). */
+export const rcyl = (rt: number, rb: number, h: number, color: number, o: PieceOpts = {}): Mesh => place(new Mesh(cylG(rt, rb, h, 18), matOf(color, o)), h, o);
+/** A sphere of radius r (centre at y). */
+export const rsph = (r: number, color: number, o: PieceOpts & { sy?: number } = {}): Mesh => { const m = new Mesh(sphereG(r), matOf(color, o)); m.position.set(o.x ?? 0, o.y ?? 0, o.z ?? 0); if (o.sy) m.scale.y = o.sy; m.castShadow = o.cast ?? true; return m; };

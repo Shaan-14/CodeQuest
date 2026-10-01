@@ -39,14 +39,14 @@ let passed = 0; const failures = [];
 async function test(name, fn) {
   if (process.env.E2E_ONLY && !process.env.E2E_ONLY.split('|').some((k) => name.includes(k))) return;
   const t = Date.now();
-  try { await fn(); passed++; console.log(`  ✓ ${name} (${Date.now() - t}ms)`); } catch (e) { failures.push(name); try { await lastPage?.screenshot({ path: SHOTS + 'play-FAILED.png' }); } catch { /* page already closed */ } console.log(`  ✗ ${name}\n      ${String(e.message).split('\n').slice(0, 5).join('\n      ')}`); }
+  try { await fn(); passed++; console.log(`  ✓ ${name} (${Date.now() - t}ms)`); } catch (e) { failures.push(name); try { await lastPage?.screenshot({ path: SHOTS + 'play-FAILED.png' }); } catch { /* page already closed */ } console.log(`  ✗ ${name}\n      ${String(e.message).split('\n').slice(0, 5).join('\n      ')}${lastPage?.errors?.length ? '\n      page errors: ' + lastPage.errors.slice(0, 3).join(' | ').slice(0, 600) : ''}`); try { await lastPage?.context().close(); } catch { /* already closed */ } }
 }
 let browser; let lastPage = null;
 const tid = (p, id) => p.getByTestId(id);
 
 /** A new player in the 3D world. */
 async function newGame(opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: opts.reduced ? 'reduce' : 'no-preference' });
+  const ctx = await browser.newContext({ viewport: { width: 1100, height: 700 }, reducedMotion: opts.reduced ? 'reduce' : 'no-preference' });
   const page = await ctx.newPage();
   page.errors = []; lastPage = page;
   page.on('pageerror', (e) => page.errors.push(String(e)));
@@ -56,15 +56,31 @@ async function newGame(opts = {}) {
   await page.goto(BASE);
   if (!opts.save) { await tid(page, 'name-input').fill(opts.name ?? 'Ada'); await tid(page, 'begin').click(); }
   await page.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
-  if (!opts.welcome && await tid(page, 'welcome-start').count()) await tid(page, 'welcome-start').click();
+  if (!opts.welcome && await tid(page, 'welcome-start').count()) { await tid(page, 'welcome-start').click(); await page.waitForTimeout(600); } // input is re-enabled one render after the card closes
+  // software WebGL renders this scene at a few frames per second; the game caps a frame at 0.1 s, so run it faster to keep the timing-based checks meaningful
+  await page.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
   return page;
 }
 const st = (p) => p.evaluate(() => window.__cq3d.state());
 const save = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('codequest.save')));
 const tp = (p, x, z, ry = 0) => p.evaluate(([x, z, ry]) => window.__cq3d.teleport(x, z, ry), [x, z, ry]);
 const go = (p, scene, spawn) => p.evaluate(([s, sp]) => window.__cq3d.travel(s, sp), [scene, spawn]);
+/** A cinematic (letterbox, subtitles) locks the controls: skip it (Space) as a player may, and wait until the world is theirs again. */
+async function skipCine(p) {
+  await p.waitForTimeout(350);
+  for (let i = 0; i < 20; i++) {
+    if ((await tid(p, 'cine').getAttribute('data-active').catch(() => '0')) !== '1') return;
+    await p.keyboard.press('Space'); await p.waitForTimeout(350);
+  }
+}
+/** Wait for a cinematic to start and play to its end without skipping (the real thing). */
+async function watchCine(p, timeout = 60000) {
+  await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '1', null, { timeout: 15000 });
+  await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '0', null, { timeout });
+}
 /** Press E in the world and wait for the prompt target to be the one we expect. */
 async function interact(p, target) {
+  await skipCine(p);
   await p.locator(`[data-testid=play-prompt][data-target="${target}"]`).waitFor({ timeout: 8000 });
   await p.keyboard.press('e');
 }
@@ -126,7 +142,7 @@ async function seedLessons(p, ids) {
   const tag = 'seed-' + Math.random();
   await p.addInitScript(([ids, tag]) => { if (sessionStorage.getItem(tag)) return; sessionStorage.setItem(tag, '1'); const s = JSON.parse(localStorage.getItem('codequest.save')); for (const id of ids) s.learning.lessons[id] = { stepIndex: 99, completed: true }; localStorage.setItem('codequest.save', JSON.stringify(s)); }, [ids, tag]);
   await p.reload();
-  await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+  await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 }); await p.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
   if (await tid(p, 'welcome-start').count()) await tid(p, 'welcome-start').click(); // a save seeded before the card was dismissed still lacks the flag
 }
 async function advanceToChallengeId(p, id) {
@@ -169,16 +185,21 @@ async function main() {
 
     await test('A new player lands in the 3D world and can walk with WASD and the arrow keys (collision stops them at the wall)', async () => {
       const p = await newGame();
-      eq((await st(p)).scene, 'plaza', 'a new player starts in the plaza hub');
+      eq((await st(p)).scene, 'robotics-atrium', 'a new player starts in the Robotics Academy atrium');
+      // they are told what to do and where, and the world shows the way
+      await tid(p, 'objective-title').waitFor();
+      assert((await tid(p, 'objective-text').innerText()).includes('Juno'), 'the objective names who to talk to');
+      assert((await tid(p, 'objective-where').innerText()).includes('Maintenance Bay'), 'and where: the door to take');
+      assert((await st(p)).markers.length >= 0, 'markers exist');
       await go(p, 'maintenance-bay');
       const a = await st(p);
-      await p.keyboard.down('w'); await p.waitForTimeout(700); await p.keyboard.up('w');
+      await p.keyboard.down('w'); await p.waitForTimeout(1200); await p.keyboard.up('w');
       const b = await st(p);
       assert(b.z < a.z - 0.4, `W moves forward (north): ${a.z} -> ${b.z}`);
-      await p.keyboard.down('ArrowRight'); await p.waitForTimeout(500); await p.keyboard.up('ArrowRight');
+      await p.keyboard.down('ArrowRight'); await p.waitForTimeout(1000); await p.keyboard.up('ArrowRight');
       assert((await st(p)).x > b.x + 0.3, 'the right arrow moves right');
       // run into the north wall: position is clamped inside the room
-      await tp(p, 0, -6); await p.keyboard.down('w'); await p.keyboard.down('Shift'); await p.waitForTimeout(2500); await p.keyboard.up('Shift'); await p.keyboard.up('w');
+      await tp(p, 0, -6); await p.keyboard.down('w'); await p.keyboard.down('Shift'); await p.waitForTimeout(6000); await p.keyboard.up('Shift'); await p.keyboard.up('w');
       assert((await st(p)).z >= -9 + 0.3, 'cannot leave the room');
       assert((await st(p)).z <= -8, 'and stopped at the wall, not somewhere in the middle');
       await p.screenshot({ path: SHOTS + 'play-01-bay.png' });
@@ -212,18 +233,26 @@ async function main() {
       await tid(p, 'terminal-next').click();
       await tid(p, 'lesson').waitFor();
       await playLesson(p);
-      await tid(p, 'terminal-close').click();
+      assert((await tid(p, 'terminal-world-note').count()) === 1, 'the terminal says the world will show what the code did');
+      await tid(p, 'terminal-look').click();
       await tid(p, 'play-terminal').waitFor({ state: 'detached' });
-      // the world reacts
-      await p.waitForFunction(() => window.__cq3d.dynStates('bolt').includes('eyes'), null, { timeout: 8000 });
-      assert((await tid(p, 'play-caption').innerText()).toLowerCase().includes('display'), 'the caption says what changed');
+      // the world reacts: a cinematic (camera, light, sound, the mentor's reaction), then the quest completion, then control returns
+      await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '1', null, { timeout: 8000 });
+      await tid(p, 'cine-subtitle').waitFor({ timeout: 15000 });
       await p.screenshot({ path: SHOTS + 'play-03-bolt-eyes.png' });
+      await p.waitForFunction(() => window.__cq3d.dynStates('bolt').includes('eyes'), null, { timeout: 15000 });
+      await tid(p, 'cine-banner').waitFor({ timeout: 30000 });
+      assert((await tid(p, 'cine-banner').innerText()).includes('Silent in the Bay'), 'the quest completion is celebrated');
+      await p.screenshot({ path: SHOTS + 'play-03b-quest-complete.png' });
+      await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '0', null, { timeout: 30000 });
+      const before = await st(p); await p.keyboard.down('w'); await p.waitForTimeout(500); await p.keyboard.up('w');
+      assert((await st(p)).z < before.z - 0.3, 'the player has control again after the cinematic');
       s = await save(p);
       eq(s.quests['q-bay-briefing']?.status, 'complete', 'quest completes through code');
       assert(s.stats.xp > 0, 'reward paid');
       // persistence: reload; Bolt's eyes are still on, instantly
       await p.reload();
-      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 }); await p.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
       assert((await p.evaluate(() => window.__cq3d.dynStates('bolt'))).includes('eyes'), 'the repair persists across a reload');
       await p.context().close();
     });
@@ -247,7 +276,9 @@ async function main() {
       assert((await tid(p, 'terminal-world-note').innerText()).includes('Bolt-7'), 'the consequence is named inside the terminal');
       await tid(p, 'terminal-look').click();
       await tid(p, 'play-terminal').waitFor({ state: 'detached' });
-      assert((await tid(p, 'play-caption').innerText()).includes('convulses'), 'the world shows the consequence: ' + await tid(p, 'play-caption').innerText());
+      await tid(p, 'cine-subtitle').waitFor({ timeout: 15000 });
+      assert((await tid(p, 'cine-subtitle').innerText()).includes('did not do what the robot needed'), 'the world shows the consequence');
+      await skipCine(p);
       await p.screenshot({ path: SHOTS + 'play-04-malfunction.png' });
       assert(!(await p.evaluate(() => window.__cq3d.dynStates('bolt'))).includes('servo'), 'a failure repairs nothing');
       // the Mentor's single button leads to the Simulation Room
@@ -286,18 +317,20 @@ async function main() {
       await p.keyboard.press('h');
       await tid(p, 'play-manual').waitFor();
       await tid(p, 'manual-close').click();
+      await go(p, 'plaza');
       await tp(p, -5, 5.4, Math.PI);
       await interact(p, 'daily-board');
       await tid(p, 'play-daily').waitFor();
       assert((await tid(p, 'dispatch-line').innerText()).includes('Dispatch'), 'the Daily is framed as a dispatch');
       await tid(p, 'daily-overlay-close').click();
       await p.reload();
-      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 }); await p.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
       assert((await tid(p, 'play-welcome').count()) === 0, 'the welcome is not shown again');
       await p.context().close();
     });
     await test('Hub: walk through a gate to another world, open the world map, see every world with its state, and fast-travel', async () => {
       const p = await newGame();
+      await go(p, 'plaza');
       await tp(p, -19, 0, Math.PI / 2);
       await interact(p, 'exit:to-robotics');
       await p.waitForFunction(() => window.__cq3d.state().scene === 'robotics-atrium');
@@ -328,7 +361,7 @@ async function main() {
       await tid(p, 'play-pause').waitFor({ state: 'detached' });
       await p.waitForTimeout(3500); // the position is saved every few seconds
       await p.reload();
-      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 }); await p.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
       const after = await st(p);
       eq(after.scene, 'lantern-courtyard', 'back in the same place');
       assert(Math.hypot(after.x - 6, after.z - 5) < 1.5, `at the same spot: ${after.x},${after.z}`);
@@ -360,8 +393,9 @@ async function main() {
       await tid(p, 'lesson').waitFor();
       await playLesson(p);
       await tid(p, 'terminal-close').click();
-      await p.waitForFunction(() => window.__cq3d.dynStates('banner').includes('unfurl'), null, { timeout: 8000 });
-      assert((await tid(p, 'play-caption').innerText()).toLowerCase().includes('banner'), 'the caption names what changed');
+      await tid(p, 'cine-subtitle').waitFor({ timeout: 20000 });
+      assert((await tid(p, 'cine-subtitle').innerText()).includes('promise'), 'the tutor reacts to what the rune did');
+      await p.waitForFunction(() => window.__cq3d.dynStates('banner').includes('unfurl'), null, { timeout: 15000 });
       await p.screenshot({ path: SHOTS + 'play-06-banner.png' });
       await p.context().close();
     });
@@ -500,7 +534,7 @@ async function main() {
       assert((await save(p)).campaign.completedAt, 'the campaign is complete in the save');
       await tid(p, 'finale-continue').click();
       await p.reload();
-      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+      await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 }); await p.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
       assert((await p.evaluate(() => window.__cq3d.dynStates('b-great'))).includes('lit'), 'the beacon is lit again after a reload (the world is derived from evidence)');
       await p.context().close();
     });

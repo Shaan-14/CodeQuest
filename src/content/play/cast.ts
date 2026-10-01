@@ -8,7 +8,7 @@ const ROBOTICS: Npc3D[] = [
   {
     id: 'juno', icon: '🧑‍🏫', name: 'Mentor Juno', role: 'Head of the Robotics Academy',
     personality: 'Calm, dry-humoured, patient. Asks questions back. Believes engineers look before they touch.',
-    look: { body: 0xe8ecf7, head: 0xf2c9a0, accent: 0x2f9e8f, hair: 0xb8c0d8, hat: 'none' },
+    look: { outfit: 'coat', accessory: 'lanyard', hairStyle: 'bun', body: 0xe8ecf7, head: 0xf2c9a0, accent: 0x2f9e8f, hair: 0xb8c0d8, hat: 'none' },
     dialogue: [
       { when: { quest: { id: 'q-bay-awaken', status: ['completed'] } }, mood: 'cheer', lines: ['Bolt-7 is walking the bay again, and every line of his control program is yours. I have seen people quit on a robot like that.', 'Ori on the Manufacturing Floor has been asking for someone who can write control programs. The line went down with the surge too.'] },
       { when: { effect: 'bay.bolt:awake', quest: { id: 'q-bay-awaken', status: ['accepted', 'in-progress'] } }, marks: 'juno-debrief', mood: 'cheer', lines: ['He stood up. On your code.', 'Tell me honestly: what did you change that made the difference, and how did you know it would work?', 'Hold on to that answer. It is the real skill: not the program, but knowing why it works.'] },
@@ -26,7 +26,7 @@ const ROBOTICS: Npc3D[] = [
   {
     id: 'rowan', icon: '🧑‍🔧', name: 'Technician Rowan', role: 'Maintenance technician',
     personality: 'Hands-on, cheerful, a little messy. Talks to the robots. Treats every error message as a friendly hint.',
-    look: { body: 0xd98a2b, head: 0xd9a877, accent: 0xf2c14e, hair: 0x3a2a1a, hat: 'hardhat' },
+    look: { outfit: 'overalls', accessory: 'toolbelt', hairStyle: 'short', body: 0xd98a2b, head: 0xd9a877, accent: 0xf2c14e, hair: 0x3a2a1a, hat: 'hardhat' },
     dialogue: [
       { when: { quest: { id: 'q-bay-awaken', status: ['completed'] } }, mood: 'cheer', lines: ['Look at him go! I have been fixing robots for eleven years and I still get a lump in my throat.'] },
       { when: { quest: { id: 'q-bay-awaken', status: ['available'] } }, offer: 'q-bay-awaken', lines: ['He is almost whole. A reusable routine for the arm, and then the big one: his complete control program.', 'Everything you have written so far is a piece of it. Put it together, and watch that chassis.'] },
@@ -40,7 +40,7 @@ const ROBOTICS: Npc3D[] = [
   {
     id: 'ori-floor', icon: '🛠️', name: 'Engineer Ori', role: 'Line engineer, Manufacturing Floor',
     personality: 'Brisk, practical, allergic to guesswork. Judges a program by its worst night.',
-    look: { body: 0x2b6cb0, head: 0xc99267, accent: 0xff9f1c, hair: 0x1f1a1a, hat: 'cap' },
+    look: { outfit: 'jacket', accessory: 'lanyard', hairStyle: 'short', body: 0x2b6cb0, head: 0xc99267, accent: 0xff9f1c, hair: 0x1f1a1a, hat: 'cap' },
     dialogue: [
       { when: { quest: { id: 'q-floor-logs', status: ['completed'] } }, mood: 'cheer', lines: ['Dashboard is lit, line is steady, logs are readable. You kept a production line alive.', 'Whoever taught you to test your own code: buy them a coffee.'] },
       { when: { quest: { id: 'q-floor-logs', status: ['available'] } }, offer: 'q-floor-logs', lines: ['It runs. Good. It also jams every forty minutes and nobody knows why.', 'The answer is in the logs. Design your functions so you can trust them, find the bug, read the files, clean the data.'] },
@@ -54,7 +54,7 @@ const ROBOTICS: Npc3D[] = [
   {
     id: 'sana-sim', icon: '🔎', name: 'Analyst Sana', role: 'Simulation coordinator',
     personality: 'Methodical and kind. Believes every failure is data. Always asks: what did you expect to happen?',
-    look: { body: 0x2f9e8f, head: 0xd9a877, accent: 0xe9d8a6, hair: 0x2a1a12, hat: 'headband' },
+    look: { outfit: 'vest', accessory: 'satchel', hairStyle: 'long', body: 0x2f9e8f, head: 0xd9a877, accent: 0xe9d8a6, hair: 0x2a1a12, hat: 'headband' },
     dialogue: [
       { when: { notEffect: 'never:ever' }, lines: ['This is the Simulation Room. When something breaks in the world, come here. A failure is a measurement, not a verdict.', 'The terminals here build a short training plan from exactly what went wrong. Work it through and your Focus comes back.'] },
     ],
@@ -77,7 +77,7 @@ const HUB: Npc3D[] = [
   {
     id: 'pip', icon: '🧭', name: 'Pip', role: 'Guide of Bytehaven',
     personality: 'Bright, curious, always slightly out of breath. Has walked every road in Bytehaven and loves telling people they may choose their own.',
-    look: { body: 0xd98a2b, head: 0xf0c9a0, accent: 0x7dffb3, hair: 0xc94f6d, hat: 'cap', scale: 0.92 },
+    look: { outfit: 'jacket', accessory: 'backpack', hairStyle: 'long', body: 0xd98a2b, head: 0xf0c9a0, accent: 0x7dffb3, hair: 0xc94f6d, hat: 'cap', scale: 0.92 },
     dialogue: [
       { when: { bossPassed: 'summit' }, mood: 'cheer', lines: ['You did it. The whole plant is lit. I watched from the fountain and I have never seen Bytehaven so bright.', 'Go wherever you like now. Every road is still open, and some of them are more fun when nothing is at stake.'] },
       { when: { bossPassed: 'mastery-python' }, lines: ['A guardian beaten! The Summit Trail in the north-east opens for anyone who has shown enough in any three worlds. You do not need the same three as anybody else.'] },
@@ -95,7 +95,7 @@ const ACADEMY: Npc3D[] = [
   {
     id: 'teselle', icon: '🧙‍♀️', name: 'Warden Teselle', role: 'Warden of Lanternhollow Academy',
     personality: 'Dry, exact and quietly warm. Speaks as if every sentence had to pass an inspection. Hates magic done by guessing.',
-    look: { body: 0x4b3a7a, head: 0xd9b48f, accent: 0xffd98a, hair: 0xd8d8e8, hat: 'wizard', scale: 1.02 },
+    look: { outfit: 'robe', hairStyle: 'long', body: 0x4b3a7a, head: 0xd9b48f, accent: 0xffd98a, hair: 0xd8d8e8, hat: 'wizard', scale: 1.02 },
     dialogue: [
       { when: { quest: { id: 'q-lantern-duel', status: ['completed'] } }, mood: 'cheer', lines: ['The ring is quiet, the lanterns burn, and the Gloomhound has not been seen since. You have earned the thing we give to very few students: my complete trust.', 'The Summit beacon will need people like you. Go where you are needed.'] },
       { when: { quest: { id: 'q-lantern-briefing', status: ['completed'] } }, lines: ['You found the first fault, and you wrote the first fix. Bram will tell you what comes next. A ward is only as good as the rune under it.'] },
@@ -108,7 +108,7 @@ const ACADEMY: Npc3D[] = [
   {
     id: 'bram', icon: '🧑‍🎓', name: 'Tutor Bram Quillfeather', role: 'Tutor of Runecraft',
     personality: 'Gentle, scatterbrained and never wrong about a rune. Forgets where he put his spectacles; remembers every bug he has ever met.',
-    look: { body: 0x3f6a7a, head: 0xe0b48e, accent: 0xb48cff, hair: 0x8a8aa8, hat: 'hood' },
+    look: { outfit: 'robe', accessory: 'satchel', hairStyle: 'curly', body: 0x3f6a7a, head: 0xe0b48e, accent: 0xb48cff, hair: 0x8a8aa8, hat: 'hood' },
     dialogue: [
       { when: { quest: { id: 'q-lantern-wards', status: ['completed'] } }, mood: 'cheer', lines: ['Did you see the dome? Coloured, thick, every glyph in its place, and it fits the hall however the hall is shaped. That is what a ward is: a promise about how things will look, kept.'] },
       { when: { quest: { id: 'q-lantern-wards', status: ['accepted', 'in-progress'] } }, lines: ['The Ward Lectern is the second one. Change one thing at a time and look at the dome after each change. A ward you cannot watch is a ward you cannot trust.'] },
@@ -120,7 +120,7 @@ const ACADEMY: Npc3D[] = [
   {
     id: 'nim', icon: '🧒', name: 'Apprentice Nim', role: 'Second-year apprentice',
     personality: 'Quick, competitive, secretly worried. Finished the exams two years early and has never solved anything that was not on one.',
-    look: { body: 0xc2603a, head: 0xcf9a72, accent: 0x5ee6d0, hair: 0x1f1a1a, hat: 'headband', scale: 0.92 },
+    look: { outfit: 'jacket', accessory: 'scarf', hairStyle: 'short', body: 0xc2603a, head: 0xcf9a72, accent: 0x5ee6d0, hair: 0x1f1a1a, hat: 'headband', scale: 0.92 },
     dialogue: [
       { when: { quest: { id: 'q-lantern-duel', status: ['completed'] } }, mood: 'cheer', lines: ['You beat it. On a problem that was not on any exam. I have been trying to work out how, and I think the honest answer is that you looked before you cast.', 'Teach me?'] },
       { when: { quest: { id: 'q-lantern-duel', status: ['accepted', 'in-progress'] } }, lines: ['The Incantation Lectern is at the west side of the ring. Every spell that really works hits it. Every spell that does not, it notices.', 'Do not panic when it bites back. Read what your spell actually did, not what you meant it to do.'] },
@@ -136,7 +136,7 @@ const BALLPARK: Npc3D[] = [
   {
     id: 'reyes', icon: '🧢', name: 'Coach Reyes', role: 'Manager, Harborview Herons',
     personality: 'Loud, loyal and stubborn. Has picked his lineup by feel for twenty years and is starting to suspect feel is losing him games.',
-    look: { body: 0x1d4d8f, head: 0xc99267, accent: 0xffd166, hair: 0x5a5a66, hat: 'cap', scale: 1.05 },
+    look: { outfit: 'jacket', build: 'broad', hairStyle: 'short', body: 0x1d4d8f, head: 0xc99267, accent: 0xffd166, hair: 0x5a5a66, hat: 'cap', scale: 1.05 },
     dialogue: [
       { when: { seen: 'sim-win' }, mood: 'cheer', lines: ['We won. With a lineup I did not pick. I have been managing for twenty years and I have not felt this foolish or this happy in a long time.', 'Keep the numbers coming, Analyst.'] },
       { when: { quest: { id: 'q-park-lineup', status: ['accepted', 'in-progress'] }, effect: 'field.lineup:set' }, lines: ['That is a lineup. Nine names, nine positions, and every one of them is there because of a number. Step up to home plate and call for a game. I will keep my mouth shut. Mostly.'] },
@@ -149,7 +149,7 @@ const BALLPARK: Npc3D[] = [
   {
     id: 'dara', icon: '📊', name: 'Analyst Dara', role: 'Head of Analytics, Harborview Herons',
     personality: 'Exact, funny, allergic to anecdotes. Answers “why” with a query. Keeps a sticky note on her monitor: “What would change my mind?”',
-    look: { body: 0x7a3f8c, head: 0xb98560, accent: 0x7dffb3, hair: 0x1a1020, hat: 'headband' },
+    look: { outfit: 'coat', accessory: 'lanyard', hairStyle: 'long', body: 0x7a3f8c, head: 0xb98560, accent: 0x7dffb3, hair: 0x1a1020, hat: 'headband' },
     dialogue: [
       { when: { quest: { id: 'q-park-lineup', status: ['completed'] } }, mood: 'cheer', lines: ['A win, and you can tell me exactly why. That is the job. The numbers are only half of it; the other half is being able to defend them.'] },
       { when: { quest: { id: 'q-park-numbers', status: ['completed'] } }, lines: ['Clean roster, clean ranking. Coach Reyes is waiting outside with a lineup card and a lot of opinions.'] },
@@ -166,7 +166,7 @@ const RACING: Npc3D[] = [
   {
     id: 'marisol', icon: '🏎️', name: 'Crew Chief Marisol', role: 'Crew chief, Redline Raceway',
     personality: 'Fast-talking, blunt, always holding a stopwatch. Believes every driver complaint is a measurement waiting to be read.',
-    look: { body: 0xe63946, head: 0xc99267, accent: 0xffffff, hair: 0x2a1a12, hat: 'cap' },
+    look: { outfit: 'overalls', accessory: 'goggles', hairStyle: 'short', body: 0xe63946, head: 0xc99267, accent: 0xffffff, hair: 0x2a1a12, hat: 'cap' },
     dialogue: [
       { when: { quest: { id: 'q-race-fast', status: ['completed'] } }, mood: 'cheer', lines: ['Under par, on a car you set up from the numbers. That is the whole job: read it, fix it, drive it, check it.', 'Keep the flag. You earned it.'] },
       { when: { quest: { id: 'q-race-fast', status: ['accepted', 'in-progress'] } }, lines: ['Fuel load and aero are the last two. Then go and beat my par time. Not “a good lap”: my number. Measure it.'] },
@@ -184,7 +184,7 @@ const SUMMIT: Npc3D[] = [
   {
     id: 'aurel', icon: '🧓', name: 'Keeper Aurel', role: 'Keeper of the Summit beacon',
     personality: 'Old, unhurried, amused by everything. Has watched every engineer who came up this trail and remembers the ones who asked “why” more than the ones who were fast.',
-    look: { body: 0x6b4a8c, head: 0xd9b48f, accent: 0xffd166, hair: 0xe8e8f0, hat: 'hood', scale: 0.98 },
+    look: { outfit: 'robe', accessory: 'cape', hairStyle: 'long', body: 0x6b4a8c, head: 0xd9b48f, accent: 0xffd166, hair: 0xe8e8f0, hat: 'hood', scale: 0.98 },
     dialogue: [
       { when: { bossPassed: 'summit' }, mood: 'cheer', lines: ['There it is. The dawn.', 'The robots walk, the lanterns burn, the scoreboard is lit and the telemetry tells the truth. All of it because people learned to write things down precisely, then check them.', 'The trail is open to you any time. Some of the best days up here are the ones with nothing to fix.'] },
       { when: { any: [{ bossPassed: 'mastery-python' }, { bossPassed: 'mastery-sql' }, { bossPassed: 'mastery-data-eng' }, { bossPassed: 'mastery-web' }, { bossPassed: 'mastery-analytics' }, { bossPassed: 'mastery-sheets' }, { bossPassed: 'mastery-r' }] }, lines: ['Each guardian you defeat lights one of the seven beacons, whatever tools you used. Three are enough to reach the console and face the report itself.', 'Choose the tools you trust. Nobody is going to tell you which ones the problem needs.'] },

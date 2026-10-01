@@ -366,3 +366,7 @@ table.grid tr.total td { font-weight: 800; border-top: 2px solid var(--gold); }
 .routes legend { padding: 0 .4rem; font-weight: 600; }
 .route { display: flex; gap: .6rem; align-items: flex-start; padding: .4rem; border-radius: 8px; cursor: pointer; }
 .route.chosen { background: var(--panel2); outline: 2px solid #3a4f8f; }
+
+/* in the 3D world the toasts sit low on the left, small, out of the way of the objective and the menu */
+.play ~ .toasts, body:has(.play) .toasts { right: auto; left: 12px; bottom: 56px; width: min(280px, 60vw); }
+body:has(.play) .toast { border-radius: 12px; border-width: 2px; background: rgba(14,18,44,.92); box-shadow: 0 4px 16px rgba(0,0,0,.5); font-size: .9rem; }

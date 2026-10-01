@@ -2,8 +2,11 @@ import { useEffect } from 'preact/hooks';
 import { achievementDefs, items, areas, quests } from '../../content/world';
 import type { GameEvent } from '../../game/events';
 import { getStore, useGame } from '../../game/store';
+import { uiMode } from '../../play/mode';
 
 function describe(e: GameEvent): { icon: string; title: string; body?: string; kind: string } | null {
+  // in the 3D world these moments are cinematics (banner, camera, the person who gave the quest reacts), so a toast would only repeat them
+  if (uiMode() === '3d' && (e.type === 'questComplete' || e.type === 'levelUp' || e.type === 'worldEffect')) return null;
   switch (e.type) {
     case 'xp': return { icon: '✨', title: `+${e.amount} XP`, body: e.note, kind: 'xp' };
     case 'coins': return { icon: '🪙', title: `+${e.amount} coins`, kind: 'coins' };
@@ -63,7 +66,7 @@ function Toast({ id, event }: { id: number; event: GameEvent }) {
 
 export function Toasts() {
   const { toasts } = useGame();
-  const levelUp = toasts.find((t) => t.event.type === 'levelUp');
+  const levelUp = uiMode() === '3d' ? undefined : toasts.find((t) => t.event.type === 'levelUp');
   return (
     <>
       <div class="toasts" data-testid="toasts">

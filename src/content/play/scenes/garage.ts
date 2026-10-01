@@ -34,8 +34,8 @@ export const garage: SceneDef = {
     { id: 'to-track', label: 'the paddock and track', x: 12, z: 0, to: 'track', spawn: 'paddock' },
   ],
   reactions: [
-    { prop: 'car', effect: 'garage.car:tyres', state: 'tyres', say: '' }, { prop: 'car', effect: 'garage.car:brakes', state: 'brakes', say: '' },
-    { prop: 'car', effect: 'garage.car:fuel', state: 'fuel', say: '' }, { prop: 'car', effect: 'garage.car:aero', state: 'aero', say: '' },
+    { prop: 'car', effect: 'garage.car:tyres', state: 'tyres', say: '', cinematic: 'car-tyres' }, { prop: 'car', effect: 'garage.car:brakes', state: 'brakes', say: '', cinematic: 'car-brakes' },
+    { prop: 'car', effect: 'garage.car:fuel', state: 'fuel', say: '', cinematic: 'car-fuel' }, { prop: 'car', effect: 'garage.car:aero', state: 'aero', say: '', cinematic: 'car-aero' },
   ],
   consequences: [{ prop: 'car', station: 'telemetry-console', play: 'malfunction', say: 'The telemetry reading was wrong: the pit crew fit the wrong pressures and the car smokes on the lift. No harm done; read the data again.' }],
 };

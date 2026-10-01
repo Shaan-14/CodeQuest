@@ -11,7 +11,7 @@ const PORT = 4410;
 const root = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
 const dir = process.env.CHROMIUM_PATH ? null : (existsSync(root) ? readdirSync(root).find((d) => d.startsWith('chromium-')) : undefined);
 const exe = process.env.CHROMIUM_PATH || `${root}/${dir}/chrome-linux/chrome`;
-const srv = spawn('npx', ['vite', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
+const srv = spawn('node', ['node_modules/vite/bin/vite.js', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 let code = 0;
 try {
   for (let i = 0; i < 60; i++) { try { if ((await fetch(`http://localhost:${PORT}/`)).ok) break; } catch { /* not up yet */ } await new Promise((r) => setTimeout(r, 500)); }

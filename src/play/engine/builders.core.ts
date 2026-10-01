@@ -1,5 +1,6 @@
 import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, RepeatWrapping, CanvasTexture, SRGBColorSpace, MeshLambertMaterial, NearestFilter } from 'three';
-import { mat, shape, sign } from './kit';
+import { mat, rbox, shape, sign } from './kit';
+import { wallPanel } from './tex';
 import { col, flag, num, str } from './props';
 import type { Builder } from './builders';
 
@@ -38,10 +39,13 @@ export const coreBuilders: Record<string, Builder> = {
     return { object: m };
   },
   wall: (p) => {
-    const w = num(p, 'w', 4), h = num(p, 'h', 3), d = num(p, 'd', 0.3);
+    const w = num(p, 'w', 4), h = num(p, 'h', 3), d = num(p, 'd', 0.3), c = col(p, 'color', 0x596080), trim = col(p, 'trimColor', 0xf2c14e);
     const g = new Group();
-    g.add(shape('box', w, h, d, col(p, 'color', 0x596080)));
-    if (flag(p, 'trim', true)) g.add(shape('box', w + 0.04, 0.12, d + 0.06, col(p, 'trimColor', 0xf2c14e), { y: 0 }));
+    const tex = wallPanel(c, trim).clone(); tex.needsUpdate = true; tex.userData.shared = false; tex.wrapS = RepeatWrapping; tex.repeat.set(Math.max(1, w / 2), 1);
+    g.add(shape('box', w, h, d, 0xffffff, { map: tex, rough: 0.78 }));
+    g.add(rbox(w + 0.04, 0.14, d + 0.12, 0x2a2f45, { y: h - 0.14, r: 0.03, rough: 0.5, metal: 0.3 })); // cap rail
+    const band = p.p?.band;
+    if (typeof band === 'number') g.add(rbox(w - 0.2, 0.08, d + 0.1, band, { y: h - 0.55, r: 0.03, glow: 1.1 }));
     return { object: g };
   },
   sign: (p) => {

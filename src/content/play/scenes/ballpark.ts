@@ -46,7 +46,7 @@ export const ballpark: SceneDef = {
     { id: 'to-plaza', label: 'Bytehaven Plaza', x: 0, z: 25, to: 'plaza', spawn: 'from-ballpark' },
   ],
   reactions: [
-    { prop: 'team', effect: 'field.lineup:set', state: 'set' },
-    { prop: 'scoreboard', effect: 'field.lineup:set', state: 'on', say: 'The scoreboard lights up: LINEUP: SET BY DATA.' },
+    { prop: 'team', effect: 'field.lineup:set', state: 'set', cinematic: 'park-lineup' },
+    { prop: 'scoreboard', effect: 'field.lineup:set', state: 'on', say: 'The scoreboard lights up: LINEUP: SET BY DATA.', loadOnly: true },
   ],
 };

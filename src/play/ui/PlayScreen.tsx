@@ -14,7 +14,7 @@ import { holds } from '../logic/conditions';
 import type { Interactable } from '../logic/sceneTypes';
 import { canUseExit } from '../logic/travel';
 import type { Stage } from '../engine/stage';
-import { Caption, Controls, Dialogue, Prompt, Where } from './Overlays';
+import { Caption, Controls, Dialogue, Prompt } from './Overlays';
 import { TerminalOverlay } from './TerminalOverlay';
 import { TrainingOverlay } from './TrainingOverlay';
 import { MapOverlay } from './MapOverlay';
@@ -28,9 +28,10 @@ import { centreLine, locate, REDLINE } from '../logic/track';
 import { hasEffect } from '../logic/conditions';
 import { stationOfLesson } from '../../content/play/stations';
 import type { ReturnPoint } from '../../core/save';
-import { PauseMenu } from './PauseMenu';
+import { PauseMenu, guideEnabled } from './PauseMenu';
 import { GameHud } from './GameHud';
 import { CinematicOverlay } from './CinematicOverlay';
+import { LocationCard } from './LocationCard';
 import { ObjectiveWidget, type GuideInfo } from './ObjectiveWidget';
 import { nextWaypoint, objectiveFor, type Objective } from '../logic/objective';
 import { scenes } from '../../content/play/scenes';
@@ -107,6 +108,8 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const [guide, setGuide] = useState<GuideInfo | null>(null);
   const [objective, setObjective] = useState<Objective | null>(null);
   const [freshObj, setFreshObj] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  useEffect(() => { if (!ready) return; const t = window.setTimeout(() => setShowControls(false), 30000); return () => clearTimeout(t); }, [ready]);
   const lastObj = useRef('');
   const [welcome, setWelcome] = useState(() => !getStore().save.play.seen['play-welcome']);
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -176,6 +179,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         stage.input.onLockLost = () => setPaused(true);
         stage.input.onLockChange = setLocked;
         stage.audio.setMuted(s.play.settings.muted);
+        stage.setGuideVisible(guideEnabled());
         // resume where the player was (same scene, same spot), else the first place of the story
         const scene = getScene(s.play.scene ?? '') ?? getScene(DEFAULT_SCENE)!;
         stage.load(scene, s.play.scene === scene.id && s.play.pos ? s.play.pos : 'default');
@@ -352,11 +356,11 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       {!ready && <div class="play-loading" role="status">Loading the world…</div>}
       {ready && (
         <div class="play-overlay">
-          {scene && <Where title={scene.title} blurb={scene.blurb} />}
+          {scene && <LocationCard title={scene.title} blurb={scene.blurb} sceneKey={scene.id} />}
           <ObjectiveWidget objective={objective} guide={guide} fresh={freshObj} />
           <Caption text={caption} />
           {!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !driving && !boss && !finale && !daily && !manual && !welcome && <Prompt it={prompt} />}
-          {driving ? <DriveHud hud={hud} par={par.current} onExit={() => stopDrive.current?.()} /> : <Controls />}
+          {driving ? <DriveHud hud={hud} par={par.current} onExit={() => stopDrive.current?.()} /> : showControls ? <Controls /> : null}
           <CinematicOverlay cine={cine} />
           <GameHud onPanel={onPanel} onMap={() => setMapOpen(true)} onManual={() => setManual(true)} onMenu={() => setPaused(true)} />
           {!locked && !overlayOpen.current && !touch && <div class="play-lockhint pill" data-testid="play-lockhint">Click or press a key to look around with the mouse · Esc to release it</div>}

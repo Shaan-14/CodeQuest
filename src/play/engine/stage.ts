@@ -7,7 +7,7 @@
  * terminal/dialogue covers the view or the tab is hidden, and every scene's GPU resources are released when the player leaves it.
  */
 import {
-  BackSide, BufferAttribute, SphereGeometry, type Object3D, AmbientLight, Box3, Ray, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
+  ACESFilmicToneMapping, PMREMGenerator, PointLight, BackSide, BufferAttribute, SphereGeometry, type Object3D, AmbientLight, Box3, Ray, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
 } from 'three';
 import type { SaveData } from '../../core/save';
 import type { GameEvent } from '../../game/events';
@@ -18,6 +18,7 @@ import { markersFor, type Marker } from '../logic/markers';
 import { collidersOf, newBody, poseOf, stepBody, type Body } from '../logic/movement';
 import type { Collider, Interactable, SceneDef } from '../logic/sceneTypes';
 import type { QuestObjective } from '../../content/schema';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Audio } from './audio';
 import { builders, type BuildCtx, type Dyn } from './builders';
 import { Fx } from './fx';
@@ -58,7 +59,7 @@ export interface StageEnv {
   reducedMotion: boolean;
 }
 
-export interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number; /** A cinematic sends the NPC somewhere / turns it toward something. */ goal?: { x: number; z: number }; faceTarget?: { x: number; z: number }; activity?: 'work' | 'think'; greeted?: boolean }
+export interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number; /** A cinematic sends the NPC somewhere / turns it toward something. */ goal?: { x: number; z: number }; faceTarget?: { x: number; z: number }; activity?: 'work' | 'think'; greeted?: boolean; idleIn?: number }
 
 /** Props that are flat or fixed to walls: they never block the view, so they are never hidden. */
 const NEVER_HIDE = new Set(['wall', 'floor', 'ground', 'pond', 'sign', 'screen', 'statusScreen', 'banner', 'void']);
@@ -91,6 +92,7 @@ export class Stage {
   private propPos = new Map<string, { x: number; y: number; z: number }>();
   private world = new Group();
   private dyns = new Map<string, Dyn>();
+  private ticks: ((dt: number, t: number) => void)[] = [];
   private npcs: NpcRuntime[] = [];
   private colliders: Collider[] = [];
   /** Solid props that can open (a gate): their collider leaves when the prop opens. */
@@ -112,6 +114,7 @@ export class Stage {
   private raf = 0; private last = 0; private running = false; private t = 0;
   private stepClock = 0; private posClock = 0; private shake = 0;
   private sky: Mesh;
+  private lamps: PointLight[] = [];
   private hemi: HemisphereLight; private sun: DirectionalLight; private amb: AmbientLight;
   private onResize: () => void;
   private resizeObs: ResizeObserver | null = null;
@@ -179,15 +182,19 @@ export class Stage {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, env.quality === 'high' ? 2 : env.quality === 'medium' ? 1.5 : 1));
     this.renderer.shadowMap.enabled = env.quality === 'high';
     this.renderer.shadowMap.type = PCFShadowMap;
+    // filmic tone mapping and a soft studio environment (reflections on metal and glass) give the flat primitives depth and a cohesive look
+    this.renderer.toneMapping = ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.0;
+    const pmrem = new PMREMGenerator(this.renderer); this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; this.scene.environmentIntensity = 0.45; pmrem.dispose();
     this.hemi = new HemisphereLight(0xbcd2ff, 0x3a3f58, 0.9);
     this.amb = new AmbientLight(0xffffff, 0.25);
     this.sun = new DirectionalLight(0xffffff, 1.1);
     this.sun.castShadow = env.quality === 'high';
     this.sun.shadow.mapSize.set(1024, 1024);
     this.scene.add(this.hemi, this.amb, this.sun, this.sun.target, this.world);
+    for (let i = 0; i < 4; i++) { const l = new PointLight(0xffffff, 0, 14, 1.6); this.scene.add(l); this.lamps.push(l); }
     // a gradient sky dome (zenith colour above, horizon colour below) that follows the camera: there is always a sky to look at
     const skyGeo = new SphereGeometry(120, 18, 12); skyGeo.setAttribute('color', new BufferAttribute(new Float32Array(skyGeo.getAttribute('position').count * 3), 3));
-    this.sky = new Mesh(skyGeo, new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false }));
+    this.sky = new Mesh(skyGeo, new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false, toneMapped: false }));
     this.sky.renderOrder = -10; this.sky.frustumCulled = false; this.scene.add(this.sky);
     this.fx = new Fx(this.scene);
     this.fx.density = env.reducedMotion ? 0.35 : env.quality === 'low' ? 0.5 : 1;
@@ -228,6 +235,7 @@ export class Stage {
     this.hemi.intensity = look.night ? 0.55 : 0.95; this.amb.intensity = look.ambient ?? 0.25;
     this.sun.intensity = look.sun ?? (look.night ? 0.45 : 1.1);
     const sd = look.sunDir ?? [0.5, 1, 0.4]; this.sun.position.set(sd[0] * 30, sd[1] * 30, sd[2] * 30);
+    this.lamps.forEach((l, i) => { const d = look.lights?.[i]; if (d) { l.position.set(d.x, d.y, d.z); l.color.setHex(d.color); l.intensity = d.intensity; l.distance = d.dist ?? 14; } else l.intensity = 0; });
     const b = def.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
     if (this.sun.castShadow) { const s = Math.max(b.maxX - b.minX, b.maxZ - b.minZ) * 0.6; const sc = this.sun.shadow.camera; sc.left = -s; sc.right = s; sc.top = s; sc.bottom = -s; sc.updateProjectionMatrix(); this.sun.target.position.set(cx, 0, cz); }
     // ground
@@ -245,6 +253,7 @@ export class Stage {
       built.object.rotation.y = p.ry ?? 0;
       this.world.add(built.object);
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
+      if (built.tick) this.ticks.push(built.tick);
       if (p.id) this.propPos.set(p.id, { x: p.x, y: (p.y ?? 0) + 1, z: p.z });
       if (!NEVER_HIDE.has(p.kind)) { const box = new Box3().setFromObject(built.object); if (box.max.y - box.min.y > 0.7) this.occluders.push({ obj: built.object, box }); }
       if (MOUNTED.has(p.kind)) { const ry = p.ry ?? 0; this.mounted.push({ obj: built.object, nx: Math.sin(ry), nz: Math.cos(ry), px: p.x, pz: p.z }); }
@@ -277,7 +286,6 @@ export class Stage {
     for (const r of def.reactions ?? []) if (hasEffect(save, r.effect)) { this.dyns.get(r.prop)?.setState(r.state, true); if (r.state === 'open') this.openGate(r.prop); }
     this.refresh();
     this.audio.setAmbience(def.ambience ?? 'none');
-    this.env.onCaption(`${def.title}. ${def.blurb}`);
   }
 
   private unload(): void {
@@ -291,7 +299,7 @@ export class Stage {
     this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); });
     clearLabels();
     for (const n of this.npcs) this.scene.remove(n.rig.group);
-    this.npcs = []; this.dyns.clear(); this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = []; this.mounted = [];
+    this.npcs = []; this.dyns.clear(); this.ticks = []; this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = []; this.mounted = [];
     for (const m of this.markerMeshes.values()) this.scene.remove(m);
     this.markerMeshes.clear();
     this.director.reset(); this.controlLocked = false; this.playerGoal = null; this.playerFace = null; this.prompt = null; this.driver = null; this.hooks = []; this.chase = null; this.playerRig.group.visible = true; this.audio.engine(null); this.cinema = null;
@@ -323,7 +331,7 @@ export class Stage {
     for (const e of events) {
       if (e.type === 'worldEffect') {
         const ref = `${e.target}:${e.action}`;
-        for (const r of def.reactions ?? []) if (r.effect === ref) {
+        for (const r of def.reactions ?? []) if (r.effect === ref && !r.loadOnly) {
           const cine = r.cinematic ? this.env.cinematic?.(r.cinematic) : undefined;
           if (cine) { this.director.enqueue(cine); if (r.state === 'open') this.openGate(r.prop); continue; } // the cinematic itself sets the prop's state
           this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true;
@@ -378,7 +386,7 @@ export class Stage {
     const tick = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(tick);
-      const dt = Math.min(0.1, (now - this.last) / 1000) * this.timeScale; this.last = now; // capped, but high enough that a slow machine slows the picture, not the walking speed
+      const dt = Math.max(0, Math.min(0.1, (now - this.last) / 1000)) * this.timeScale; this.last = now; // never negative: the first frame's timestamp can precede start()'s clock // capped, but high enough that a slow machine slows the picture, not the walking speed
       this.frame(dt);
     };
     this.raf = requestAnimationFrame(tick);
@@ -452,6 +460,7 @@ export class Stage {
     // NPCs: patrol, and watch the player when close
     for (const n of this.npcs) this.updateNpc(n, dt);
     for (const d of this.dyns.values()) d.update?.(dt, this.t);
+    for (const f of this.ticks) f(dt, this.t);
     for (const h of this.hooks) h(dt, this.t);
     this.tweens.update(dt);
     this.fx.update(dt);
@@ -517,11 +526,11 @@ export class Stage {
     const wasAir = !b.onGround;
     stepBody(b, { dx, dz, run, jump }, this.colliders, def.bounds, dt);
     if (this.controlLocked && !this.playerGoal && this.playerFace) { const fy = Math.atan2(-(this.playerFace.x - b.x), -(this.playerFace.z - b.z)); let d = fy - b.ry; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; b.ry += d * Math.min(1, dt * 6); }
-    if (wasAir && b.onGround) this.audio.sfx('step');
+    if (wasAir && b.onGround) { this.audio.sfx('step'); this.fx.burst('dust', b.x, 0.06, b.z, 8, 0.6); }
     const speed = Math.hypot(b.vx, b.vz);
     const pose = poseOf(b, run);
     this.playerRig.update(dt, pose, speed);
-    if (speed > 0.6 && b.onGround) { this.stepClock += dt * (run ? 4 : 3); if (this.stepClock > 1) { this.stepClock = 0; this.audio.sfx('step'); } }
+    if (speed > 0.6 && b.onGround) { this.stepClock += dt * (run ? 4 : 3); if (this.stepClock > 1) { this.stepClock = 0; this.audio.sfx('step'); if (run) this.fx.burst('dust', b.x, 0.06, b.z, 3, 0.35); } }
     if (!wasAir && !b.onGround) this.audio.sfx('jump');
     this.playerRig.group.position.set(b.x, b.y, b.z); this.playerRig.setFacing(b.ry);
   }
@@ -547,6 +556,8 @@ export class Stage {
       else if (d > 9) n.greeted = false;
       if (n.activity) { if (d < 3.4) n.rig.release(); else if (d > 5) n.rig.hold(n.activity); }
     }
+    // idle life: now and then a thought, a nod or a shrug (not while busy, walking or being talked to)
+    if (!moving && !n.activity && !this.controlLocked && !n.faceTarget) { n.idleIn = (n.idleIn ?? 4 + Math.random() * 8) - dt; if (n.idleIn <= 0) { n.idleIn = 7 + Math.random() * 9; n.rig.play((['think', 'shrug', 'nod'] as const)[Math.floor(Math.random() * 3)]!); } }
     n.collider.x = n.x; n.collider.z = n.z;
     n.rig.group.position.set(n.x, 0, n.z); n.rig.setFacing(n.ry);
     n.rig.update(dt, moving ? 'walk' : 'idle', moving ? (n.goal ? 1.7 : 1.0) : 0);

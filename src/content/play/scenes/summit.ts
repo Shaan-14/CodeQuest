@@ -39,7 +39,7 @@ export const summit: SceneDef = {
   ],
   exits: [{ id: 'to-plaza', label: 'the trail down to the plaza', x: 0, z: 16.6, to: 'plaza', spawn: 'from-summit' }],
   reactions: [
-    ...GUARDIANS.map((g) => ({ prop: `b-${g.id}`, effect: `summit.beacon-${g.id}:light`, state: 'light', say: `The ${g.id === 'works' ? 'data engineering' : g.id} beacon lights: a guardian beaten.` })),
+    ...GUARDIANS.map((g) => ({ prop: `b-${g.id}`, effect: `summit.beacon-${g.id}:light`, state: 'light', cinematic: `summit-beacon-${g.id}`, say: `The ${g.id === 'works' ? 'data engineering' : g.id} beacon lights: a guardian beaten.` })),
     { prop: 'b-great', effect: 'summit.beacon:ignite', state: 'ignite' },
     { prop: 'outage-status', effect: 'summit.beacon:ignite', state: 'on' },
   ],

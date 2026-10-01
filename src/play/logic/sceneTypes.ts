@@ -97,7 +97,7 @@ export interface Condition {
 }
 
 /** When code causes `effect` (`target:action`), put `state` on the prop named `prop` (animated live, instant when the scene is loaded later). */
-export interface Reaction { prop: string; effect: string; state: string; /** Caption shown (and announced) when it happens live. */ say?: string; /** A cinematic (content/play/cinematics.ts) that shows this change with camera, animation, sound and NPC reactions instead of a bare state change. It must set the prop's state itself. */ cinematic?: string }
+export interface Reaction { prop: string; effect: string; state: string; /** Caption shown (and announced) when it happens live. */ say?: string; /** A cinematic (content/play/cinematics.ts) that shows this change with camera, animation, sound and NPC reactions instead of a bare state change. It must set the prop's state itself. */ cinematic?: string; /** Applied only when the place is loaded (restoring earned state); a live change is shown by another reaction's cinematic instead of twice. */ loadOnly?: boolean }
 /** When a graded attempt at a station's challenges FAILS, the prop reacts (sparks, a jam, a misfire) and the caption says what went wrong in the world. */
 export interface Consequence { prop: string; station: string; play: string; say: string; /** A cinematic that plays instead of the bare malfunction. */ cinematic?: string }
 
@@ -111,7 +111,7 @@ export interface SceneDef {
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   spawns: Record<string, { x: number; z: number; ry: number }>;
   /** Sky/fog/ground colours and light mood. */
-  look: { sky: number; fog: number; fogNear?: number; fogFar?: number; ground: number; ambient?: number; sun?: number; sunDir?: [number, number, number]; night?: boolean };
+  look: { sky: number; fog: number; fogNear?: number; fogFar?: number; ground: number; ambient?: number; sun?: number; sunDir?: [number, number, number]; night?: boolean; /** Up to four coloured point lights (lamps, screens, magic) that give a place its mood. */ lights?: { x: number; y: number; z: number; color: number; intensity: number; dist?: number }[] };
   props: Prop[];
   npcs: NpcPlacement[];
   interactables: Interactable[];

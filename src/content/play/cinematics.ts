@@ -1,4 +1,7 @@
 import type { Cinematic, Cue } from '../../play/logic/cinematic';
+import type { FxKind } from '../../play/engine/fx';
+import type { Sfx } from '../../play/engine/audio';
+import type { OneShot } from '../../play/engine/rig';
 import { quests } from '../world';
 import { cast } from './cast';
 
@@ -144,6 +147,79 @@ export const CINEMATICS: Record<string, Cinematic> = {
     ],
   },
 };
+
+/* ------------------------------------------------------------------ one beat per world change (every world uses the same shape) */
+
+interface Beat {
+  /** The prop that changes, and the state it enters. `also` lists other props set to a state at the same moment (a cascade of lanterns). */
+  prop: string; state: string; also?: { id: string; state: string }[];
+  /** The person who reacts (an NPC id in the scene) and what they say. */
+  npc?: string; who?: string; line?: string; anim?: OneShot;
+  dist?: number; yaw?: number; pitch?: number; height?: number;
+  fx?: FxKind; fxN?: number; sfx?: Sfx; flash?: number; shake?: number;
+  /** The player gestures as it happens (casting a spell). */
+  player?: OneShot;
+}
+
+/** Camera to the thing, a breath, the change with its light/sound/particles, the person's reaction and line, camera back. About 6-8 seconds. */
+function beat(id: string, b: Beat): Cinematic {
+  const cues: Cue[] = [
+    { t: 0, do: 'cam', at: { prop: b.prop }, dist: b.dist ?? 7, yaw: b.yaw ?? 0.3, pitch: b.pitch ?? 0.3, height: b.height ?? 1.5, blend: 1.4 },
+    ...(b.npc ? [{ t: 0.3, do: 'npc', id: b.npc, face: { prop: b.prop }, look: { prop: b.prop } } as Cue] : []),
+    ...(b.player ? [{ t: 0.9, do: 'player', anim: b.player, face: { prop: b.prop } } as Cue] : []),
+    ...(b.sfx ? [{ t: 1.3, do: 'sfx', name: b.sfx } as Cue] : []),
+    { t: 1.4, do: 'prop', id: b.prop, state: b.state },
+    ...(b.also ?? []).map((a, i): Cue => ({ t: 1.4 + 0.18 * (i + 1), do: 'prop', id: a.id, state: a.state })),
+    ...(b.fx ? [{ t: 1.5, do: 'fx', kind: b.fx, at: { prop: b.prop }, n: b.fxN ?? 26 } as Cue] : []),
+    ...(b.flash ? [{ t: 1.5, do: 'flash', at: { prop: b.prop }, color: b.flash, power: 11, dur: 0.7 } as Cue] : []),
+    ...(b.shake ? [{ t: 1.5, do: 'shake', amount: b.shake } as Cue] : []),
+    ...(b.npc && b.anim !== undefined ? [{ t: 2.3, do: 'npc', id: b.npc, anim: b.anim, mood: 'happy' } as Cue] : []),
+    ...(b.line ? [{ t: 2.5, do: 'say', who: b.who, text: b.line, for: 3.4 } as Cue] : []),
+  ];
+  const end = b.line ? 6.3 : 4.2;
+  return { id, cues: [...cues, { t: end, do: 'cam', at: 'player', blend: 1.4 }, ...(b.npc ? [{ t: end + 0.2, do: 'npc', id: b.npc, mood: 'neutral', look: null } as Cue] : [])], len: end + 1.6 };
+}
+
+const BEATS: Record<string, Beat> = {
+  // Lanternhollow: runes raise the hall
+  'acad-banner': { prop: 'banner', state: 'unfurl', npc: 'bram', who: 'Tutor Bram', line: 'A heading is a promise about what comes next. The hall just kept it.', anim: 'cheer', fx: 'magic', sfx: 'whoosh', flash: 0xbd93f9, dist: 8, height: 3 },
+  'acad-portal-frame': { prop: 'portal', state: 'frame', npc: 'bram', who: 'Tutor Bram', line: 'Stones rising in the order you wrote them. Lists keep their order, and so does the hall.', anim: 'nod', fx: 'dust', sfx: 'crack', shake: 0.25, dist: 8 },
+  'acad-portal-open': { prop: 'portal', state: 'open', npc: 'bram', who: 'Tutor Bram', line: 'A form that works opens a door. Mind what goes through it.', anim: 'cheer', fx: 'magic', fxN: 40, sfx: 'spell', flash: 0x8be9fd, dist: 8 },
+  'acad-crest': { prop: 'crest', state: 'on', npc: 'bram', who: 'Tutor Bram', line: 'The Trial of Runes, passed with no hints. The crest shines for you.', anim: 'cheer', fx: 'magic', sfx: 'success', flash: 0xffd166, dist: 7, height: 3 },
+  'acad-dome-color': { prop: 'dome', state: 'color', npc: 'bram', who: 'Tutor Bram', line: 'You chose the colour; the ward obeys. Selectors say which things, and the style says how.', anim: 'nod', fx: 'magic', sfx: 'spell', flash: 0x4fd1ff, dist: 12, height: 2 },
+  'acad-dome-thick': { prop: 'dome', state: 'thick', npc: 'bram', who: 'Tutor Bram', line: 'Padding, border, margin: every box has layers, and now the ward does too.', anim: 'nod', fx: 'shield', sfx: 'spell', dist: 12, height: 2 },
+  'acad-runes-align': { prop: 'runes', state: 'align', npc: 'bram', who: 'Tutor Bram', line: 'Flexbox: one line, one direction, and the glyphs fall in.', anim: 'cheer', fx: 'magic', sfx: 'whoosh', dist: 8 },
+  'acad-runes-grid': { prop: 'runes', state: 'grid', npc: 'bram', who: 'Tutor Bram', line: 'Rows and columns together. Grid is flexbox in two directions.', anim: 'cheer', fx: 'magic', sfx: 'whoosh', dist: 8 },
+  'acad-dome-adapt': { prop: 'dome', state: 'adapt', npc: 'bram', who: 'Tutor Bram', line: 'It fits the hall however the hall is shaped. That is responsive design.', anim: 'nod', fx: 'shield', sfx: 'spell', dist: 12, height: 2 },
+  'acad-dome-aegis': { prop: 'dome', state: 'aegis', npc: 'bram', who: 'Tutor Bram', line: 'The Aegis: complete, teal and whole. You built that with nothing but your own reasoning.', anim: 'cheer', fx: 'magic', fxN: 50, sfx: 'success', flash: 0x2dd4bf, dist: 12, height: 2 },
+  // the Dueling Ring
+  'arena-shield': { prop: 'shield', state: 'raise', npc: 'nim', who: 'Apprentice Nim', line: 'It caught the error! That is what handling one means: expecting it, and surviving it.', anim: 'cheer', fx: 'shield', fxN: 40, sfx: 'spell', flash: 0x2dd4bf, dist: 7 },
+  'arena-orb': { prop: 'orb', state: 'spark', npc: 'nim', who: 'Apprentice Nim', line: 'Your first incantation, running. The orb woke up!', anim: 'cheer', fx: 'magic', fxN: 36, sfx: 'spell', flash: 0xbd93f9, dist: 6 },
+  'arena-hit1': { prop: 'hound', state: 'hit1', npc: 'nim', who: 'Apprentice Nim', line: 'A clean hit! It recoiled!', anim: 'cheer', fx: 'sparks', sfx: 'hit', flash: 0xff79c6, shake: 0.3, player: 'cast', dist: 9 },
+  'arena-hit2': { prop: 'hound', state: 'hit2', npc: 'nim', who: 'Apprentice Nim', line: 'A click casts it. The Gloomhound staggers.', anim: 'cheer', fx: 'sparks', sfx: 'hit', flash: 0xff79c6, shake: 0.3, player: 'cast', dist: 9 },
+  'arena-hit3': { prop: 'hound', state: 'hit3', npc: 'nim', who: 'Apprentice Nim', line: 'The form spell landed! Listen to it howl.', anim: 'cheer', fx: 'sparks', sfx: 'hit', flash: 0xff79c6, shake: 0.35, player: 'cast', dist: 9 },
+  'arena-hit4': { prop: 'hound', state: 'hit4', npc: 'nim', who: 'Apprentice Nim', line: 'Right on time. It is nearly gone.', anim: 'cheer', fx: 'sparks', sfx: 'hit', flash: 0xff79c6, shake: 0.4, player: 'cast', dist: 9 },
+  'arena-oracle': { prop: 'oracle', state: 'answer', npc: 'nim', who: 'Apprentice Nim', line: 'Your request went out and an answer came back. The oracle talks to you!', anim: 'cheer', fx: 'magic', fxN: 40, sfx: 'spell', dist: 7 },
+  'arena-defeat': { prop: 'hound', state: 'defeat', npc: 'nim', who: 'Apprentice Nim', line: 'It is gone. The Dueling Ring is safe, and you did that with spells that really work.', anim: 'cheer', fx: 'confetti', fxN: 50, sfx: 'success', flash: 0xffffff, shake: 0.5, player: 'cast', dist: 10 },
+  // Harborview Park: the numbers become a team
+  'park-lineup': { prop: 'team', state: 'set', also: [{ id: 'scoreboard', state: 'on' }], npc: 'reyes', who: 'Coach Reyes', line: 'Nine names in the order the data chose. Take the field!', anim: 'cheer', fx: 'confetti', fxN: 40, sfx: 'cheer', dist: 24, pitch: 0.5, height: 1 },
+  // the analytics office: boards fill in
+  'office-roster': { prop: 'roster-board', state: 'on', npc: 'dara', who: 'Analyst Dara', line: 'Thirty-eight players, six teams, all in one table. Now we can ask it questions.', anim: 'nod', fx: 'magic', sfx: 'chime', dist: 6 },
+  'office-ranking': { prop: 'ranking-board', state: 'on', npc: 'dara', who: 'Analyst Dara', line: 'Ordered, best first. Sorting is how a pile of numbers starts to say something.', anim: 'nod', fx: 'magic', sfx: 'chime', dist: 6 },
+  'office-clean': { prop: 'clean-board', state: 'on', npc: 'dara', who: 'Analyst Dara', line: 'Missing is not zero. Good: you flagged the gaps instead of hiding them.', anim: 'cheer', fx: 'magic', sfx: 'chime', dist: 6 },
+  'office-stats': { prop: 'stats-board', state: 'on', npc: 'dara', who: 'Analyst Dara', line: 'Totals and averages: a whole season in one glance.', anim: 'nod', fx: 'magic', sfx: 'chime', dist: 6 },
+  'office-positions': { prop: 'positions-board', state: 'on', npc: 'dara', who: 'Analyst Dara', line: 'Group by position, and the pattern appears. That is aggregation.', anim: 'nod', fx: 'magic', sfx: 'chime', dist: 6 },
+  'office-lineup': { prop: 'lineup-board', state: 'on', npc: 'dara', who: 'Analyst Dara', line: 'Lineup set. The card goes to Coach Reyes: your analysis, on the field.', anim: 'cheer', fx: 'confetti', fxN: 30, sfx: 'success', dist: 6 },
+  // Redline Raceway: the data becomes a car that behaves differently
+  'car-tyres': { prop: 'car', state: 'tyres', npc: 'marisol', who: 'Crew Chief Marisol', line: 'Fresh rubber at the pressures your spreadsheet found. Look at the banding.', anim: 'nod', fx: 'sparks', sfx: 'servo', flash: 0xffd166, dist: 8, yaw: 0.9, pitch: 0.2, height: 0.8 },
+  'car-brakes': { prop: 'car', state: 'brakes', npc: 'marisol', who: 'Crew Chief Marisol', line: 'Brakes balanced: the discs glow because they are finally doing equal work.', anim: 'nod', fx: 'ember', sfx: 'servo', flash: 0xff7b00, dist: 6, yaw: 1.1, pitch: 0.18, height: 0.8 },
+  'car-fuel': { prop: 'car', state: 'fuel', npc: 'marisol', who: 'Crew Chief Marisol', line: 'The right load, no more: weight you do not need costs you tenths every lap.', anim: 'nod', fx: 'steam', sfx: 'servo', flash: 0xffa64d, dist: 7, yaw: 2.6, pitch: 0.2, height: 0.8 },
+  'car-aero': { prop: 'car', state: 'aero', npc: 'marisol', who: 'Crew Chief Marisol', line: 'Bigger wings: more grip through the corners, a little less at the end of the straight. That trade is yours.', anim: 'cheer', fx: 'magic', sfx: 'servo', flash: 0x4fd1ff, dist: 7, yaw: 2.4, pitch: 0.25, height: 1.2 },
+  'arena-lanterns': { prop: 'ring-0', state: 'light', also: [1, 2, 3, 4, 5].map((i) => ({ id: `ring-${i}`, state: 'light' })), npc: 'nim', who: 'Apprentice Nim', line: 'You changed the page itself, and the lanterns light one after another around the ring.', anim: 'cheer', fx: 'magic', fxN: 30, sfx: 'spell', dist: 14, height: 1.5, pitch: 0.45 },
+};
+// the Summit: a guardian's beacon lights (one cinematic per guardian)
+for (const g of ['python', 'sql', 'works', 'web', 'analytics', 'sheets', 'r']) BEATS[`summit-beacon-${g}`] = { prop: `b-${g}`, state: 'light', npc: 'aurel', who: 'Keeper Aurel', line: 'Another beacon answers. The mountain remembers what you can really do.', anim: 'cheer', fx: 'ember', fxN: 40, sfx: 'chime', flash: 0xffc27a, dist: 14, height: 3 };
+for (const [id, b] of Object.entries(BEATS)) CINEMATICS[id] = beat(id, b);
 
 /* ------------------------------------------------------------------ quest completions and level-ups */
 

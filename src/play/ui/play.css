@@ -140,3 +140,27 @@
 .obj-steps .step.done { color: #7dffb3; text-decoration: line-through; opacity: .75; } .obj-steps .step.now { color: #fff; font-weight: 700; }
 @media (max-width: 900px) { .objective { width: min(280px, 48%); font-size: .8rem; } }
 @media (prefers-reduced-motion: reduce) { .objective.fresh { animation: none; } .obj-compass svg { transition: none; } }
+
+/* ---------- location card ---------- */
+.loc-wrap { position: absolute; left: 0; right: 0; top: 22%; display: grid; justify-items: center; pointer-events: none !important; z-index: 3; }
+.loc-card { text-align: center; animation: locIn 3.6s ease both; padding: 0 2rem; max-width: 90%; }
+.loc-title { font-size: clamp(1.3rem, 3.2vw, 2.2rem); font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 0 #000, 0 0 28px rgba(255,209,102,.55); margin: .25rem 0; }
+.loc-blurb { color: #d7dcff; font-size: 1rem; text-shadow: 0 1px 4px #000; max-width: 60ch; margin: 0 auto; }
+.loc-rule { height: 2px; background: linear-gradient(90deg, transparent, #ffd166, transparent); }
+@keyframes locIn { 0% { opacity: 0; transform: translateY(8px) scaleX(.96); } 12% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .loc-card { animation: none; } }
+.play-where { display: none; }
+.play-prompt { font-size: 1.1rem; background: linear-gradient(180deg, rgba(22,26,62,.94), rgba(10,12,28,.94)); border-color: #ffd166 !important; box-shadow: 0 0 22px rgba(255,209,102,.25), 0 6px 18px rgba(0,0,0,.5); }
+.play-prompt kbd { box-shadow: 0 2px 0 #7a4b00, 0 0 12px rgba(255,209,102,.6); animation: kbdPulse 1.4s ease-in-out infinite; }
+@keyframes kbdPulse { 50% { box-shadow: 0 2px 0 #7a4b00, 0 0 20px rgba(255,209,102,.95); } }
+@media (prefers-reduced-motion: reduce) { .play-prompt kbd { animation: none; } }
+
+/* ---------- terminals and overlays that belong to the world ---------- */
+.play-terminal { background: radial-gradient(ellipse at 50% 0%, rgba(32,40,92,.98), rgba(7,9,22,.99) 70%); animation: termIn .32s cubic-bezier(.2,.9,.3,1) both; }
+.play-terminal::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px); }
+.play-terminal .term-head { background: linear-gradient(90deg, #121738, #1a2150 60%, #121738); border-bottom: 2px solid #4fd1ff; box-shadow: 0 6px 24px rgba(79,209,255,.18); }
+.play-terminal .term-head h2 { text-shadow: 0 0 14px rgba(79,209,255,.55); letter-spacing: .04em; }
+@keyframes termIn { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+.play-pause { background: radial-gradient(ellipse at center, rgba(14,18,44,.82), rgba(4,5,14,.9)); animation: termIn .22s ease both; }
+.play-pause .panel { border-color: #4a52a8; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+@media (prefers-reduced-motion: reduce) { .play-terminal, .play-pause { animation: none; } }

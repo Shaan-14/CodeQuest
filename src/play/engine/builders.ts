@@ -46,7 +46,11 @@ export interface Dyn {
   states?(): string[];
 }
 
-export interface Built { object: Object3D; dyn?: Dyn }
+export interface Built {
+  object: Object3D; dyn?: Dyn;
+  /** Per-frame animation for decoration that has no name (a spinning gear, a patrolling drone): no id needed. */
+  tick?: (dt: number, t: number) => void;
+}
 export type Builder = (p: Prop, ctx: BuildCtx) => Built;
 
 
@@ -55,9 +59,10 @@ export { num, col, str, flag };
 import { coreBuilders } from './builders.core';
 import { roboticsBuilders } from './builders.robotics';
 import { boltBuilders } from './builders.bolt';
+import { industrialBuilders } from './builders.industrial';
 import { academyBuilders } from './builders.academy';
 import { ballparkBuilders } from './builders.ballpark';
 import { racingBuilders } from './builders.racing';
 import { summitBuilders } from './builders.summit';
 
-export const builders: Record<string, Builder> = { ...coreBuilders, ...roboticsBuilders, ...boltBuilders, ...academyBuilders, ...ballparkBuilders, ...racingBuilders, ...summitBuilders };
+export const builders: Record<string, Builder> = { ...coreBuilders, ...roboticsBuilders, ...boltBuilders, ...industrialBuilders, ...academyBuilders, ...ballparkBuilders, ...racingBuilders, ...summitBuilders };
