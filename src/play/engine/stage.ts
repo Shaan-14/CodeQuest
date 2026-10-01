@@ -27,6 +27,7 @@ import { createRig, type Rig } from './rig';
 import { Tweens } from './tween';
 import { Director, type CineState } from './director';
 import { Guide } from './guide';
+import { batchStatic } from './batch';
 import { buildGrid, findPath, pathLength, type PathGrid } from '../logic/path';
 import type { Waypoint } from '../logic/objective';
 import type { Cinematic, Target } from '../logic/cinematic';
@@ -252,6 +253,7 @@ export class Stage {
       built.object.position.x += p.x; built.object.position.y += p.y ?? 0; built.object.position.z += p.z;
       built.object.rotation.y = p.ry ?? 0;
       this.world.add(built.object);
+      if (!built.dyn && !built.tick && p.kind !== 'floor') batchStatic(built.object);
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
       if (built.tick) this.ticks.push(built.tick);
       if (p.id) this.propPos.set(p.id, { x: p.x, y: (p.y ?? 0) + 1, z: p.z });

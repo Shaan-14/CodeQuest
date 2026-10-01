@@ -48,9 +48,10 @@ const wrap = (a: number) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Build a person or robot. About 1.74 m tall at scale 1. */
-export function createRig(look: NpcLook, o: { shadow?: boolean } = {}): Rig {
+export function createRig(look: NpcLook, o: { shadow?: boolean; /** The character has parts that come off or move on their own (Bolt's arm): merge per joint instead of skinning one mesh. */ detachable?: boolean } = {}): Rig {
   const robot = look.shape === 'robot';
-  const sk: Skeleton = robot ? buildRobot(look) : buildPerson(look);
+  const mode = o.detachable ? 'bake' : 'skin';
+  const sk: Skeleton = robot ? buildRobot(look, mode) : buildPerson(look, mode);
   const scale = look.scale ?? 1;
   const root = new Group();
   const model = sk.root; root.add(model); model.scale.setScalar(scale);

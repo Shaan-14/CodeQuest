@@ -8,6 +8,9 @@ import {
   type BufferGeometry, type Material,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { Color, Float32BufferAttribute, Skeleton as BoneSkeleton, SkinnedMesh, Uint16BufferAttribute, type Bone, type Object3D } from 'three';
+import { flat } from './batch';
 import type { NpcLook } from '../logic/dialogue';
 
 /* ------------------------------------------------------------------ shared resources */
@@ -121,7 +124,7 @@ function hair(sk: Skeleton, style: NonNullable<NpcLook['hairStyle']>, c: number)
 }
 
 /** Build a person: head, face, hair, outfit, accessories. `look` colours: body = clothing, head = skin, accent = trim, hair. */
-export function buildPerson(look: NpcLook): Skeleton {
+export function buildPerson(look: NpcLook, mode: 'skin' | 'bake' = 'skin'): Skeleton {
   const sk = frame();
   const skin = look.head, cloth = look.body, trim = look.accent, hairC = look.hair ?? 0x2a1a12;
   const outfit = look.outfit ?? DEFAULT_OUTFIT[look.hat ?? 'none'];
@@ -197,13 +200,14 @@ export function buildPerson(look: NpcLook): Skeleton {
   }
   if (acc === 'lanyard') sk.torso.add(part(boxG(0.014, 0.28, 0.012, 0.004), trim, { y: 0.42, z: -0.12 }), part(boxG(0.07, 0.09, 0.012, 0.004), 0xffffff, { y: 0.26, z: -0.123 }));
   void headM;
+  if (mode === 'skin') { if (!skinBake(sk).body) bake(sk); } else bake(sk);
   return sk;
 }
 
 /* ------------------------------------------------------------------ robots */
 
 /** Build a robot: rounded plating, a dark visor with glowing eyes, an antenna, segmented limbs. `body` = plating, `head` = head plating, `accent` = lights. */
-export function buildRobot(look: NpcLook): Skeleton {
+export function buildRobot(look: NpcLook, mode: 'skin' | 'bake' = 'skin'): Skeleton {
   const sk = frame();
   const plate = look.body, head = look.head, glow = look.accent, dark = 0x2a2f45, steel = 0x8fa3c7;
   sk.hips.add(part(boxG(0.3, 0.16, 0.2, 0.06), dark, { outline: true }));
@@ -228,7 +232,93 @@ export function buildRobot(look: NpcLook): Skeleton {
   }
   if (look.accessory === 'cape') { /* robots do not wear capes */ }
   sk.height = 1.74;
+  if (mode === 'skin') { if (!skinBake(sk).body) bake(sk); } else bake(sk);
   return sk;
 }
 
 export const ANKLE_HEIGHT = ANKLE;
+
+/**
+ * BAKING: the pieces of one joint never move relative to each other (a forearm's sleeve, cuff and hand), so they are merged into one mesh per
+ * material (and one for the outline hull). A character drops from ~55 draw calls to ~25 and looks exactly the same. Face parts and lights stay
+ * separate: they blink, speak and pulse.
+ */
+export function bake(sk: Skeleton): void {
+  const keep = new Set<Object3D>([...sk.eyes, ...sk.brows, sk.mouth, ...sk.lights]);
+  const joints = [sk.hips, sk.torso, sk.head, sk.thighL, sk.thighR, sk.shinL, sk.shinR, sk.upperL, sk.upperR, sk.foreL, sk.foreR, sk.skirt, sk.cape].filter((j): j is Group => !!j);
+  const isJoint = new Set<Object3D>(joints);
+  const holdsKept = (o: Object3D): boolean => { let hit = false; o.traverse((c) => { if (keep.has(c)) hit = true; }); return hit; };
+  for (const j of joints) {
+    j.updateMatrix();
+    const byMat = new Map<Material, BufferGeometry[]>(); const hull: BufferGeometry[] = []; const gone: Object3D[] = [];
+    for (const c of [...j.children]) {
+      const m = c as Mesh;
+      if (isJoint.has(c) || keep.has(c) || holdsKept(c) || !m.isMesh || Array.isArray(m.material)) continue;
+      m.updateMatrix();
+      const g = flat(m.geometry); g.applyMatrix4(m.matrix);
+      const list = byMat.get(m.material); if (list) list.push(g); else byMat.set(m.material, [g]);
+      const o = m.children.find((x) => x.userData.outline) as Mesh | undefined;
+      if (o) { o.updateMatrix(); const h = flat(o.geometry); h.applyMatrix4(m.matrix.clone().multiply(o.matrix)); hull.push(h); }
+      gone.push(c);
+    }
+    if (gone.length < 3) { for (const list of byMat.values()) for (const g of list) g.dispose(); for (const h of hull) h.dispose(); continue; }
+    for (const c of gone) j.remove(c);
+    for (const [material, list] of byMat) { const merged = list.length === 1 ? list[0]! : mergeGeometries(list, false); if (merged) { const mesh = new Mesh(merged, material); mesh.castShadow = true; j.add(mesh); } }
+    if (hull.length) { const merged = hull.length === 1 ? hull[0]! : mergeGeometries(hull, false); if (merged) { const mesh = new Mesh(merged, outlineMat); mesh.userData.outline = true; j.add(mesh); } }
+  }
+}
+
+
+/** A toon material that takes its colour from the vertices: a whole character shares one. */
+const vertexToon = new MeshToonMaterial({ vertexColors: true, gradientMap: ramp }); vertexToon.userData.shared = true;
+export const skinMaterial = vertexToon;
+
+/**
+ * SKINNING: every rigid piece of the character is merged into ONE skinned mesh (colours in the vertices) driven by the same joints the
+ * animation already moves, plus one for the outline hull. A person is then ~10 draw calls instead of ~55 and animates identically. Pieces that
+ * glow, and the face parts, stay separate (they pulse, blink and speak). Props that need to detach a limb (Bolt's arm) use `bake` instead.
+ */
+export function skinBake(sk: Skeleton): { body: SkinnedMesh | null; hull: SkinnedMesh | null } {
+  const joints = [sk.hips, sk.torso, sk.head, sk.thighL, sk.thighR, sk.shinL, sk.shinR, sk.upperL, sk.upperR, sk.foreL, sk.foreR, sk.skirt, sk.cape].filter((j): j is Group => !!j);
+  const keep = new Set<Object3D>([...sk.eyes, ...sk.brows, sk.mouth, ...sk.lights]);
+  const isJoint = new Set<Object3D>(joints);
+  const holdsKept = (o: Object3D): boolean => { let hit = false; o.traverse((c) => { if (keep.has(c)) hit = true; }); return hit; };
+  sk.root.updateWorldMatrix(true, true);
+  const inv = sk.root.matrixWorld.clone().invert();
+  const bodyGeos: BufferGeometry[] = [], hullGeos: BufferGeometry[] = []; const gone: Mesh[] = [];
+  const tint = new Color();
+  joints.forEach((j, bi) => {
+    for (const c of [...j.children]) {
+      const m = c as Mesh;
+      if (isJoint.has(c) || keep.has(c) || holdsKept(c) || !m.isMesh || Array.isArray(m.material)) continue;
+      const mat = m.material as MeshToonMaterial;
+      if (mat.emissiveIntensity > 0) continue; // glowing pieces stay as they are
+      m.updateMatrix(); m.updateWorldMatrix(true, false);
+      const toRoot = inv.clone().multiply(m.matrixWorld);
+      const add = (geo: BufferGeometry, matrix: typeof toRoot, colour: Color, into: BufferGeometry[]) => {
+        const g = flat(geo); g.applyMatrix4(matrix);
+        const n = g.getAttribute('position').count;
+        const col = new Float32Array(n * 3), idx = new Uint16Array(n * 4), w = new Float32Array(n * 4);
+        for (let i = 0; i < n; i++) { col[i * 3] = colour.r; col[i * 3 + 1] = colour.g; col[i * 3 + 2] = colour.b; idx[i * 4] = bi; w[i * 4] = 1; }
+        g.setAttribute('color', new Float32BufferAttribute(col, 3)); g.setAttribute('skinIndex', new Uint16BufferAttribute(idx, 4)); g.setAttribute('skinWeight', new Float32BufferAttribute(w, 4));
+        g.deleteAttribute('uv'); into.push(g);
+      };
+      add(m.geometry, toRoot, tint.copy(mat.color), bodyGeos);
+      const o = m.children.find((x) => x.userData.outline) as Mesh | undefined;
+      if (o) { o.updateMatrix(); add(o.geometry, toRoot.clone().multiply(o.matrix), tint.setHex(0x10142c), hullGeos); }
+      gone.push(m);
+    }
+  });
+  if (gone.length < 8) return { body: null, hull: null };
+  for (const m of gone) m.parent?.remove(m);
+  const skeleton = new BoneSkeleton(joints as unknown as Bone[]);
+  const make = (geos: BufferGeometry[], material: Material): SkinnedMesh | null => {
+    const merged = geos.length ? mergeGeometries(geos, false) : null; if (!merged) return null;
+    for (const g of geos) g.dispose();
+    const mesh = new SkinnedMesh(merged, material); mesh.frustumCulled = false; mesh.castShadow = true;
+    sk.root.add(mesh); mesh.updateMatrixWorld(true); mesh.bind(skeleton);
+    return mesh;
+  };
+  const hullMat = new MeshBasicMaterial({ vertexColors: true, side: BackSide }); hullMat.userData.shared = true;
+  return { body: make(bodyGeos, vertexToon), hull: make(hullGeos, hullMat) };
+}

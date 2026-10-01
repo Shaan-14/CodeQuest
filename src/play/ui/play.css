@@ -122,7 +122,7 @@
 .cine-banner.level { border-color: #8be9fd; box-shadow: 0 0 40px rgba(139,233,253,.45), inset 0 0 22px rgba(139,233,253,.18); } .cine-banner.level .cine-banner-kicker { color: #8be9fd; }
 @keyframes bannerIn { from { opacity: 0; transform: translate(-50%, -30%) scale(.7); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 .ghud-card, .ghud-menu, .play-where, .play-tracker, .play-controls, .play-prompt, .play-caption-wrap, .play-lockhint { transition: opacity .35s ease; }
-.play.cine-on .ghud-card, .play.cine-on .ghud-menu, .play.cine-on .play-where, .play.cine-on .play-tracker, .play.cine-on .play-controls, .play.cine-on .play-prompt, .play.cine-on .play-lockhint { opacity: 0; pointer-events: none; }
+.play.cine-on .ghud-card, .play.cine-on .ghud-menu, .play.cine-on .objective, .play.cine-on .play-where, .play.cine-on .play-tracker, .play.cine-on .play-controls, .play.cine-on .play-prompt, .play.cine-on .play-lockhint { opacity: 0; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .cine-bar { transition: none; } .cine-banner, .cine-sub { animation: none; } }
 
 /* ---------- objective widget ---------- */

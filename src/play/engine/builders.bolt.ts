@@ -16,7 +16,7 @@ const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
 const bolt: Builder = (p, ctx) => {
   const scale = num(p, 'scale', 1.25), tableTop = num(p, 'table', 0.95), outZ = num(p, 'outZ', 2.2);
-  const rig = createRig({ shape: 'robot', body: 0x8ea2c6, head: 0xa9bad8, accent: 0x4fd1ff, scale }, { shadow: false });
+  const rig = createRig({ shape: 'robot', body: 0x8ea2c6, head: 0xa9bad8, accent: 0x4fd1ff, scale }, { shadow: false, detachable: true });
   const sk = rig.skeleton;
   const root = new Group(), wrapper = new Group(), lay = new Group();
   root.add(wrapper); wrapper.add(lay); lay.add(rig.group);
