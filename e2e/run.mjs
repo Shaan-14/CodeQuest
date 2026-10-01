@@ -61,12 +61,11 @@ async function newPage(viewport = { width: 1280, height: 900 }) {
   const page = await ctx.newPage();
   lastPage = page;
   // the classic scenarios test the classic screens: the 3D world has its own suite (e2e/play.mjs)
-  await page.addInitScript(() => { try { localStorage.setItem('codequest.mode', 'classic'); } catch { /* the sandboxed player-code iframe has no storage: that is the point */ } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.errors = errors;
-  await page.goto(BASE);
+  await page.goto(BASE + '?classic'); // the classic screens are a developer view: reachable only with ?classic
   return page;
 }
 const tid = (page, id) => page.getByTestId(id);

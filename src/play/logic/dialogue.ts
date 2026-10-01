@@ -26,6 +26,13 @@ export interface NpcLook {
   hat?: 'hardhat' | 'cap' | 'wizard' | 'hood' | 'visor' | 'none' | 'helmet' | 'headband';
   /** A robot is not shaped like a person. */
   shape?: 'human' | 'robot';
+  /** Clothing cut (default follows the hat: hard hat → overalls, wizard/hood → robe). `body` is its colour. */
+  outfit?: 'jacket' | 'coat' | 'robe' | 'overalls' | 'vest';
+  accessory?: 'toolbelt' | 'backpack' | 'scarf' | 'goggles' | 'satchel' | 'cape' | 'lanyard';
+  hairStyle?: 'short' | 'long' | 'bun' | 'curly' | 'bald';
+  /** Trouser colour. */
+  legs?: number;
+  build?: 'slim' | 'regular' | 'broad';
   scale?: number;
 }
 

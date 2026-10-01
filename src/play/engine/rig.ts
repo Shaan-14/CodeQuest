@@ -1,135 +1,203 @@
 /**
- * CHARACTERS: one procedural rig for people and robots (no downloaded models: small, fast and original). A rig is a few primitives on pivots;
- * poses (idle, walk, run, jump) and one-shot animations (interact, damage, success, wave, cast, think) are functions of time, so every NPC,
- * the player and a robot share the same animation code.
+ * CHARACTERS: one rig for people and robots (built from rig.parts.ts). The pose is a pure function of a few smoothed weights, so there is no
+ * snapping: idle ⇄ walk ⇄ run ⇄ air crossfade, the stride follows the distance actually travelled (no foot sliding), the character turns
+ * smoothly toward where it goes, blinks, breathes, glances around and gestures while talking. One-shot and held gestures (wave, cheer, point,
+ * work...) are blended over whatever the body is doing. NPCs and the player share all of it.
  */
-import { Group, Mesh, MeshBasicMaterial, CircleGeometry } from 'three';
+import { CircleGeometry, Group, Mesh, MeshBasicMaterial } from 'three';
 import type { NpcLook } from '../logic/dialogue';
 import type { Pose } from '../logic/movement';
-import { mat, shape } from './kit';
+import { buildPerson, buildRobot, toon, type Skeleton } from './rig.parts';
 
-export type OneShot = 'interact' | 'damage' | 'success' | 'wave' | 'cast' | 'think' | 'cheer';
+export type OneShot = 'interact' | 'damage' | 'success' | 'wave' | 'cast' | 'think' | 'cheer' | 'nod' | 'shrug' | 'point' | 'work' | 'bow';
+export type Mood = 'neutral' | 'happy' | 'worried' | 'focused';
 
-const ONE_SHOT_LEN: Record<OneShot, number> = { interact: 0.6, damage: 0.7, success: 1.4, wave: 1.2, cast: 0.9, think: 1.6, cheer: 1.4 };
-const blobGeo = new CircleGeometry(0.45, 14);
-blobGeo.userData.shared = true;
-const blobMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false });
+const LEN: Record<OneShot, number> = { interact: 0.75, damage: 0.75, success: 1.5, wave: 1.6, cast: 1.0, think: 2.0, cheer: 1.6, nod: 0.9, shrug: 1.5, point: 1.8, work: 2, bow: 1.2 };
+const blobGeo = new CircleGeometry(0.42, 16); blobGeo.userData.shared = true;
+const blobMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }); blobMat.userData.shared = true;
 
 export interface Rig {
   group: Group;
-  /** Call every frame. `speed` is horizontal speed (m/s) so the legs match the ground. */
-  update(dt: number, pose: Pose, speed: number): void;
-  play(anim: OneShot): void;
-  /** Tint the whole character (damage flash). */
-  flash(on: boolean): void;
-  /** Turn the head toward a point in world space (NPCs watch the player). */
-  lookAt(x: number, z: number): void;
   height: number;
+  /** Advance the animation. `speed` is the horizontal speed in m/s (the stride follows it). */
+  update(dt: number, pose: Pose, speed: number): void;
+  /** Turn smoothly toward a heading (radians, 0 = north). `snap` jumps there (placing a character). */
+  setFacing(yaw: number, snap?: boolean): void;
+  facing(): number;
+  play(anim: OneShot): void;
+  /** Hold a gesture until `release()` (pointing, working at a machine). */
+  hold(anim: OneShot): void;
+  release(): void;
+  /** Gesturing and mouth movement while speaking. */
+  talk(on: boolean): void;
+  mood(m: Mood): void;
+  flash(on: boolean): void;
+  /** Turn the head toward a point in the world; `null` lets it wander naturally again. */
+  lookAt(x: number | null, z?: number): void;
+  /** Aim a pointing arm at a point (use with `hold('point')`). */
+  pointAt(x: number, z: number): void;
+  /** Light the robot's indicator lights (a colour pulse); no effect on people. */
+  glow(color: number, k: number): void;
 }
 
-const HAT: Record<string, (c: number) => Group> = {
-  hardhat: (c) => { const g = new Group(); g.add(shape('sphere', 0.44, 0.26, 0.44, c, { y: 0 }), shape('box', 0.5, 0.04, 0.5, c, { y: -0.02 })); return g; },
-  cap: (c) => { const g = new Group(); g.add(shape('sphere', 0.42, 0.22, 0.42, c, { y: 0 }), shape('box', 0.3, 0.03, 0.22, c, { y: 0, z: 0.24 })); return g; },
-  wizard: (c) => { const g = new Group(); g.add(shape('cone', 0.5, 0.75, 0.5, c, { y: 0.02 }), shape('cyl', 0.72, 0.04, 0.72, c, { y: 0 })); return g; },
-  hood: (c) => { const g = new Group(); g.add(shape('sphere', 0.5, 0.5, 0.52, c, { y: -0.12 })); return g; },
-  visor: (c) => { const g = new Group(); g.add(shape('box', 0.42, 0.1, 0.06, c, { y: 0.08, z: 0.19, glow: 0.9 })); return g; },
-  helmet: (c) => { const g = new Group(); g.add(shape('sphere', 0.46, 0.4, 0.46, c, { y: -0.05 })); return g; },
-  headband: (c) => { const g = new Group(); g.add(shape('cyl', 0.42, 0.06, 0.42, c, { y: 0.06 })); return g; },
-};
+const damp = (cur: number, target: number, rate: number, dt: number) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
+const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+const wrap = (a: number) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/** Build a person or robot. Units: about 1.7 m tall at scale 1. */
+/** Build a person or robot. About 1.74 m tall at scale 1. */
 export function createRig(look: NpcLook, o: { shadow?: boolean } = {}): Rig {
   const robot = look.shape === 'robot';
-  const s = look.scale ?? 1;
+  const sk: Skeleton = robot ? buildRobot(look) : buildPerson(look);
+  const scale = look.scale ?? 1;
   const root = new Group();
-  const body = new Group();
-  root.add(body);
-  if (o.shadow !== false) { const b = new Mesh(blobGeo, blobMat); b.rotation.x = -Math.PI / 2; b.position.y = 0.02; b.scale.setScalar(s); root.add(b); }
+  const model = sk.root; root.add(model); model.scale.setScalar(scale);
+  if (o.shadow !== false) { const b = new Mesh(blobGeo, blobMat); b.rotation.x = -Math.PI / 2; b.position.y = 0.02; b.scale.setScalar(scale * 1.15); root.add(b); }
+  const meshes: Mesh[] = [];
+  model.traverse((c) => { const m = c as Mesh; if (m.isMesh && !m.userData.outline) meshes.push(m); });
 
-  const legL = new Group(), legR = new Group(), armL = new Group(), armR = new Group(), headG = new Group();
-  const skin = look.head, cloth = look.body, trim = look.accent;
-  // torso and head
-  const torso = robot ? shape('box', 0.6, 0.62, 0.42, cloth, { y: 0.78 }) : shape('box', 0.52, 0.62, 0.3, cloth, { y: 0.78 });
-  body.add(torso);
-  if (!robot) body.add(shape('box', 0.54, 0.08, 0.32, trim, { y: 0.78 })); // belt / trim
-  else body.add(shape('box', 0.3, 0.2, 0.05, trim, { y: 0.98, z: 0.22, glow: 0.8 })); // chest light
-  headG.position.set(0, 1.42, 0);
-  if (robot) {
-    headG.add(shape('box', 0.44, 0.36, 0.4, skin, { y: -0.18 }), shape('box', 0.34, 0.1, 0.05, trim, { y: -0.06, z: 0.21, glow: 1.1 }), shape('cyl', 0.03, 0.22, 0.03, skin, { y: 0.16 }), shape('sphere', 0.08, 0.08, 0.08, trim, { y: 0.36, glow: 1 }));
-  } else {
-    headG.add(shape('sphere', 0.34, 0.36, 0.34, skin, { y: -0.18 }), shape('sphere', 0.05, 0.05, 0.05, 0x1b1b2f, { x: -0.08, y: -0.06, z: 0.15, cast: false }), shape('sphere', 0.05, 0.05, 0.05, 0x1b1b2f, { x: 0.08, y: -0.06, z: 0.15, cast: false }));
-    if (look.hair !== undefined) headG.add(shape('sphere', 0.37, 0.25, 0.37, look.hair, { y: -0.02, z: -0.03 }), shape('box', 0.3, 0.12, 0.06, look.hair, { y: -0.2, z: -0.17 }));
-    if (look.hat && look.hat !== 'none') { const hat = HAT[look.hat]!(trim); hat.position.set(0, 0.06, 0); headG.add(hat); }
-  }
-  body.add(headG);
-  // limbs on pivots (shoulder/hip), hanging down
-  const limb = (g: Group, x: number, y: number, w: number, h: number, c: number, hand?: number) => {
-    g.position.set(x, y, 0);
-    g.add(shape('box', w, h, w, c, { y: -h }));
-    if (hand !== undefined) g.add(shape('sphere', w * 1.1, w * 1.1, w * 1.1, hand, { y: -h - w * 0.5 }));
-    body.add(g);
+  const HIPS_Y = sk.hips.position.y;
+  let t = Math.random() * 10, phase = Math.random() * 6, w = 0, r = 0, air = 0, landT = 0, wasAir = false;
+  let facingTarget = 0, yaw = 0, headYaw = 0, headPitch = 0, talkW = 0, talking = false, flashing = false;
+  let lookX: number | null = null, lookZ = 0, pointYaw: number | null = null, pointW = 0;
+  let one: OneShot | null = null, oneT = 0, held = false, ow = 0;
+  let blink = 2 + Math.random() * 3, blinkT = 0, fidget = 3 + Math.random() * 4, fidgetYaw = 0, fidgetPitch = 0;
+  let browMood = 0, mouthMood = 0, moodTarget: Mood = 'neutral', moodBrow = 0, moodMouth = 0;
+  let glowK = 0, glowColor = look.accent;
+
+  const apply = (dt: number, pose: Pose, speed: number) => {
+    t += dt;
+    // --- smoothed weights
+    const moving = pose === 'walk' || pose === 'run';
+    w = damp(w, moving ? 1 : 0, 10, dt);
+    r = damp(r, pose === 'run' ? 1 : 0, 6, dt);
+    const inAir = pose === 'jump';
+    air = damp(air, inAir ? 1 : 0, 16, dt);
+    if (wasAir && !inAir) landT = 0.24; wasAir = inAir;
+    if (landT > 0) landT = Math.max(0, landT - dt);
+    // the stride follows the ground covered, so the feet do not slide
+    const stride = lerp(2.1, 3.4, r);
+    phase += (Math.max(speed, moving ? 1.2 : 0) / stride) * Math.PI * 2 * dt * (moving ? 1 : 0.0);
+    const s = Math.sin(phase), c = Math.cos(phase);
+
+    // --- locomotion targets
+    const A = lerp(0.55, 0.92, r), K = lerp(0.6, 1.4, r), AA = lerp(0.5, 1.0, r), E = lerp(0.3, 1.25, r);
+    let thL = A * s, thR = -A * s;
+    let shL = -K * Math.max(0, c) - 0.04, shR = -K * Math.max(0, -c) - 0.04;
+    let uL = -AA * s, uR = AA * s;
+    let fL = -(E + 0.3 * Math.max(0, -s) * r), fR = -(E + 0.3 * Math.max(0, s) * r);
+    let uLz = 0.06, uRz = -0.06;
+    // idle: weight shift, breathing, arms hang a little forward and sway
+    const breath = Math.sin(t * 1.9), shift = Math.sin(t * 0.55);
+    const iL = 0.04 * shift, iR = -0.04 * shift;
+    thL = lerp(iL, thL, w); thR = lerp(iR, thR, w);
+    shL = lerp(-0.03 + 0.03 * shift, shL, w); shR = lerp(-0.03 - 0.03 * shift, shR, w);
+    uL = lerp(0.06 + 0.03 * Math.sin(t * 1.1), uL, w); uR = lerp(0.06 + 0.03 * Math.sin(t * 1.1 + 1.3), uR, w);
+    fL = lerp(-0.2 - 0.03 * breath, fL, w); fR = lerp(-0.2 - 0.03 * breath, fR, w);
+    uLz = lerp(0.07 + 0.01 * breath, uLz + 0.03 * r, w); uRz = -uLz;
+    // airborne: legs tuck, arms rise
+    thL = lerp(thL, 0.5, air); thR = lerp(thR, -0.25, air); shL = lerp(shL, -0.95, air); shR = lerp(shR, -0.5, air);
+    uL = lerp(uL, -1.25, air); uR = lerp(uR, -1.25, air); fL = lerp(fL, -0.35, air); fR = lerp(fR, -0.35, air); uLz = lerp(uLz, 0.55, air); uRz = -uLz;
+
+    let hipsY = HIPS_Y - (0.014 + 0.03 * r) * w * Math.cos(2 * phase) * 1 - 0.004 * breath * (1 - w) - 0.1 * Math.sin((landT / 0.24) * Math.PI);
+    let hipsRz = 0.035 * s * w * (1 - 0.5 * r) + 0.006 * shift * (1 - w);
+    let hipsRy = -0.14 * s * w;
+    let torsoRy = 0.2 * s * w;
+    let torsoRx = -(0.03 + 0.26 * r) * w - 0.08 * air + 0.012 * breath * (1 - w) + 0.05 * Math.sin((landT / 0.24) * Math.PI);
+    let torsoRz = -0.02 * s * w;
+    let hy = headYaw, hp = headPitch, hrz = 0;
+    let upRx = [uL, uR], upRz = [uLz, uRz], fo = [fL, fR], foRz = [0, 0];
+
+    // --- talking: small gestures with the hands and a nodding head, a moving mouth
+    talkW = damp(talkW, talking ? 1 : 0, 6, dt);
+    if (talkW > 0.01) {
+      const g = talkW * (1 - w);
+      upRx[1] = lerp(upRx[1]!, -0.5 + 0.35 * Math.sin(t * 2.3) * Math.max(0, Math.sin(t * 0.9)), g * 0.8);
+      fo[1] = lerp(fo[1]!, -0.9 + 0.35 * Math.sin(t * 3.1), g * 0.8);
+      upRx[0] = lerp(upRx[0]!, -0.3 + 0.25 * Math.sin(t * 1.7 + 2) * Math.max(0, Math.sin(t * 0.7 + 1)), g * 0.5);
+      fo[0] = lerp(fo[0]!, -0.7 + 0.3 * Math.sin(t * 2.7 + 1), g * 0.5);
+      hp += 0.06 * Math.sin(t * 3.3) * talkW; hrz += 0.05 * Math.sin(t * 1.4) * talkW;
+    }
+
+    // --- gestures (one-shot or held) blended over the body
+    ow = damp(ow, one ? (held ? 1 : (oneT < LEN[one] - 0.3 ? 1 : 0)) : 0, 14, dt);
+    if (one) {
+      oneT += dt;
+      if (!held && oneT >= LEN[one] && ow < 0.02) one = null;
+      const m = ow, k = Math.min(1, oneT / 0.6);
+      const mix = (a: number, b: number) => lerp(a, b, m);
+      switch (one) {
+        case 'wave': upRx[1] = mix(upRx[1]!, -2.7); upRz[1] = mix(upRz[1]!, -0.3); fo[1] = mix(fo[1]!, -0.6); foRz[1] = mix(foRz[1]!, Math.sin(oneT * 9) * 0.55); hrz += 0.1 * m; break;
+        case 'interact': upRx[1] = mix(upRx[1]!, -1.15 * Math.sin(Math.min(1, oneT / 0.35) * Math.PI * 0.5)); fo[1] = mix(fo[1]!, -0.35); torsoRx = mix(torsoRx, -0.12); break;
+        case 'cheer': case 'success': upRx[0] = mix(upRx[0]!, -2.5); upRx[1] = mix(upRx[1]!, -2.5); upRz[0] = mix(upRz[0]!, 0.75); upRz[1] = mix(upRz[1]!, -0.75); fo[0] = mix(fo[0]!, -0.25); fo[1] = mix(fo[1]!, -0.25); hipsY += m * Math.abs(Math.sin(oneT * 6)) * 0.14; torsoRx = mix(torsoRx, 0.14); hp = mix(hp, -0.2); break;
+        case 'cast': upRx[0] = mix(upRx[0]!, -1.5); upRx[1] = mix(upRx[1]!, -1.5); fo[0] = mix(fo[0]!, -0.2); fo[1] = mix(fo[1]!, -0.2); torsoRx = mix(torsoRx, -0.18 * Math.sin(k * Math.PI)); break;
+        case 'think': upRx[1] = mix(upRx[1]!, -1.15); upRz[1] = mix(upRz[1]!, 0.25); fo[1] = mix(fo[1]!, -2.0); hrz += 0.14 * m; hp = mix(hp, 0.12); break;
+        case 'damage': torsoRx = mix(torsoRx, 0.42); hp = mix(hp, 0.35); upRz[0] = mix(upRz[0]!, 0.9); upRz[1] = mix(upRz[1]!, -0.9); hipsRz += Math.sin(oneT * 45) * 0.05 * (1 - k) * m; break;
+        case 'nod': hp = mix(hp, 0.28 * Math.sin(oneT * 9)); break;
+        case 'shrug': upRz[0] = mix(upRz[0]!, 0.35); upRz[1] = mix(upRz[1]!, -0.35); fo[0] = mix(fo[0]!, -1.2); fo[1] = mix(fo[1]!, -1.2); foRz[0] = mix(foRz[0]!, -0.5); foRz[1] = mix(foRz[1]!, 0.5); hrz += 0.12 * m; break;
+        case 'point': upRx[1] = mix(upRx[1]!, -1.5); upRz[1] = mix(upRz[1]!, -0.12); fo[1] = mix(fo[1]!, -0.1); torsoRx = mix(torsoRx, -0.05); break;
+        case 'work': upRx[0] = mix(upRx[0]!, -0.95); upRx[1] = mix(upRx[1]!, -0.95); fo[0] = mix(fo[0]!, -1.0 + 0.3 * Math.sin(t * 8)); fo[1] = mix(fo[1]!, -1.0 + 0.3 * Math.sin(t * 8 + 2.4)); torsoRx = mix(torsoRx, -0.15); hp = mix(hp, 0.22); break;
+        case 'bow': torsoRx = mix(torsoRx, -0.7 * Math.sin(Math.min(1, oneT / LEN.bow) * Math.PI)); break;
+      }
+    }
+    // pointing toward something (held or one-shot) turns the torso and head to it
+    pointW = damp(pointW, one === 'point' && pointYaw !== null ? 1 : 0, 8, dt);
+    if (pointYaw !== null && pointW > 0.02) { const rel = clamp(wrap(pointYaw - yaw), -1.3, 1.3); torsoRy += rel * 0.5 * pointW; hy += (rel * 0.5) * pointW; }
+
+    // --- head: look at something, else wander a little (gaze stays forward while the torso twists)
+    let wantYaw = 0, wantPitch = 0;
+    if (lookX !== null) { const dx = lookX - root.position.x, dz = lookZ - root.position.z; wantYaw = clamp(wrap(Math.atan2(-dx, -dz) - yaw), -1.1, 1.1); wantPitch = -0.05; }
+    else { fidget -= dt; if (fidget <= 0) { fidget = 2 + Math.random() * 5; fidgetYaw = (Math.random() - 0.5) * 0.9; fidgetPitch = (Math.random() - 0.5) * 0.25; } wantYaw = fidgetYaw * (1 - w); wantPitch = fidgetPitch * (1 - w); }
+    headYaw = damp(headYaw, wantYaw, 5, dt); headPitch = damp(headPitch, wantPitch, 5, dt);
+    hy = headYaw + (hy - headYaw) - torsoRy * 0.7 - hipsRy * 0.3 + 0;
+    hp = headPitch + (hp - headPitch) + 0.03 * Math.sin(2 * phase) * w - torsoRx * 0.5;
+
+    // --- write the pose
+    sk.hips.position.y = hipsY; sk.hips.rotation.set(0, hipsRy, hipsRz);
+    sk.torso.rotation.set(torsoRx, torsoRy, torsoRz);
+    sk.head.rotation.set(hp, hy, hrz);
+    sk.thighL.rotation.x = thL; sk.thighR.rotation.x = thR; sk.shinL.rotation.x = shL; sk.shinR.rotation.x = shR;
+    sk.upperL.rotation.set(upRx[0]!, 0, upRz[0]!); sk.upperR.rotation.set(upRx[1]!, 0, upRz[1]!);
+    sk.foreL.rotation.set(fo[0]!, 0, foRz[0]!); sk.foreR.rotation.set(fo[1]!, 0, foRz[1]!);
+    if (sk.skirt) { sk.skirt.rotation.x = 0.03 * s * w; sk.skirt.scale.set(1 + 0.05 * Math.abs(s) * w, 1, 1 + 0.1 * Math.abs(s) * w); }
+    if (sk.cape) sk.cape.rotation.x = 0.08 + 0.55 * clamp(speed / 5.6, 0, 1) * w + 0.04 * Math.sin(t * 5 + phase) * w + 0.015 * Math.sin(t * 1.3);
+
+    // --- face: blinking, mood, speech
+    blink -= dt; if (blink <= 0) { blinkT = 0.13; blink = 2.2 + Math.random() * 3.6; }
+    if (blinkT > 0) blinkT -= dt;
+    const lid = blinkT > 0 ? 0.12 : 1;
+    for (const e of sk.eyes) e.scale.y = (e.userData.sy ??= e.scale.y) * lid;
+    moodBrow = damp(moodBrow, moodTarget === 'worried' ? 1 : moodTarget === 'happy' ? -0.6 : moodTarget === 'focused' ? -1 : 0, 8, dt);
+    moodMouth = damp(moodMouth, moodTarget === 'happy' ? 1 : moodTarget === 'worried' ? -1 : 0, 8, dt);
+    browMood = moodBrow; mouthMood = moodMouth;
+    sk.brows.forEach((b, i) => { b.rotation.z = (i === 0 ? 1 : -1) * browMood * 0.28; b.position.y = (b.userData.y ??= b.position.y) + (browMood < 0 ? 0 : 0.006) * (browMood > 0 ? 1 : 0); });
+    const open = talkW > 0.05 ? (0.4 + 0.6 * Math.abs(Math.sin(t * 13) * Math.sin(t * 5.3 + 1))) * talkW : 0;
+    sk.mouth.scale.y = (sk.mouth.userData.sy ??= sk.mouth.scale.y) * (1 + open * 3.5 + Math.max(0, mouthMood) * 0.3);
+    sk.mouth.scale.x = (sk.mouth.userData.sx ??= sk.mouth.scale.x) * (1 + mouthMood * 0.35 - open * 0.25);
+    sk.mouth.rotation.z = mouthMood * -0.05 * 0;
+    // robot lights
+    if (glowK > 0 || robot) { const pulse = robot ? 0.5 + 0.5 * Math.sin(t * 2.2) : 0; for (const l of sk.lights) { const m = l.material as MeshBasicMaterial & { emissiveIntensity?: number }; if (m && 'emissiveIntensity' in m) { /* shared material: pulse via scale instead */ } l.scale.setScalar((l.userData.sc ??= l.scale.x) * (1 + 0.08 * pulse + glowK * 0.2)); } }
+    // smooth facing
+    yaw = damp(yaw, yaw + wrap(facingTarget - yaw), 12, dt); root.rotation.y = yaw;
   };
-  limb(armL, -0.36, 1.36, 0.14, 0.58, cloth, robot ? trim : skin);
-  limb(armR, 0.36, 1.36, 0.14, 0.58, cloth, robot ? trim : skin);
-  limb(legL, -0.14, 0.78, 0.17, 0.78, robot ? trim : 0x2a2f45);
-  limb(legR, 0.14, 0.78, 0.17, 0.78, robot ? trim : 0x2a2f45);
-  root.scale.setScalar(s);
-
-  let t = 0, oneShot: OneShot | null = null, oneT = 0, flashing = false;
-  const body0 = body.position.y;
 
   return {
     group: root,
-    height: 1.7 * s,
-    play(a) { oneShot = a; oneT = 0; },
+    height: sk.height * scale,
+    update: apply,
+    setFacing(y, snap = false) { facingTarget = y; if (snap) { yaw = y; root.rotation.y = y; } },
+    facing: () => yaw,
+    play(a) { one = a; oneT = 0; held = false; },
+    hold(a) { one = a; oneT = 0; held = true; },
+    release() { held = false; if (one) oneT = Math.max(oneT, LEN[one] - 0.3); },
+    talk(on) { talking = on; },
+    mood(m) { moodTarget = m; },
     flash(on) {
-      if (on === flashing) return;
-      flashing = on;
-      root.traverse((c) => {
-        const m = c as Mesh;
-        if (!m.isMesh || m.material === blobMat) return;
-        if (on) { m.userData.orig ??= m.material; m.material = mat(0xff4d4d, 0.9); } else if (m.userData.orig) m.material = m.userData.orig;
-      });
+      if (on === flashing) return; flashing = on;
+      for (const m of meshes) { if (on) { m.userData.orig ??= m.material; m.material = toon(0xff4d4d, 0.9); } else if (m.userData.orig) m.material = m.userData.orig; }
     },
-    lookAt(x, z) {
-      const dx = x - root.position.x, dz = z - root.position.z;
-      const target = Math.atan2(dx, dz) - root.rotation.y; // head yaw relative to body
-      let d = target;
-      while (d > Math.PI) d -= 2 * Math.PI;
-      while (d < -Math.PI) d += 2 * Math.PI;
-      headG.rotation.y += (Math.max(-0.9, Math.min(0.9, d)) - headG.rotation.y) * 0.15;
-    },
-    update(dt, pose, speed) {
-      t += dt;
-      let swing = 0, bob = 0, lean = 0, armUp = 0, squash = 0;
-      if (pose === 'walk' || pose === 'run') {
-        const f = pose === 'run' ? 11 : 7.5;
-        swing = Math.sin(t * f * (0.6 + speed * 0.08)) * (pose === 'run' ? 0.95 : 0.6);
-        bob = Math.abs(Math.sin(t * f * 0.5 * (0.6 + speed * 0.08))) * (pose === 'run' ? 0.07 : 0.04);
-        lean = pose === 'run' ? 0.22 : 0.05;
-      } else if (pose === 'jump') { swing = 0.7; armUp = 1.4; squash = 0; }
-      else { bob = Math.sin(t * 2) * 0.012; }
-      legL.rotation.x = swing; legR.rotation.x = -swing;
-      armL.rotation.x = -swing * 0.9 - armUp; armR.rotation.x = swing * 0.9 - armUp;
-      body.position.y = body0 + bob + squash;
-      body.rotation.x = lean;
-      let headBob = 0;
-      if (oneShot) {
-        oneT += dt;
-        const len = ONE_SHOT_LEN[oneShot];
-        const k = Math.min(1, oneT / len);
-        const pulse = Math.sin(k * Math.PI);
-        switch (oneShot) {
-          case 'interact': armR.rotation.x = -1.3 * pulse; break;
-          case 'damage': body.rotation.x = -0.5 * pulse; body.position.x = Math.sin(oneT * 50) * 0.04 * (1 - k); armL.rotation.z = 0.8 * pulse; armR.rotation.z = -0.8 * pulse; break;
-          case 'success': case 'cheer': armL.rotation.x = -2.6 * pulse; armR.rotation.x = -2.6 * pulse; body.position.y = body0 + Math.abs(Math.sin(k * Math.PI * 2)) * 0.22; break;
-          case 'wave': armR.rotation.x = -2.5; armR.rotation.z = Math.sin(oneT * 10) * 0.45 * pulse; break;
-          case 'cast': armR.rotation.x = -1.6 * pulse; armL.rotation.x = -1.6 * pulse; body.rotation.x = -0.15 * pulse; break;
-          case 'think': armR.rotation.x = -1.9 * pulse; headBob = Math.sin(oneT * 3) * 0.08; break;
-        }
-        if (k >= 1) { oneShot = null; armL.rotation.z = 0; armR.rotation.z = 0; body.position.x = 0; }
-      }
-      headG.rotation.x = headBob;
-    },
+    lookAt(x, z = 0) { lookX = x; lookZ = z; },
+    pointAt(x, z) { pointYaw = Math.atan2(-(x - root.position.x), -(z - root.position.z)); },
+    glow(color, k) { glowK = k; glowColor = color; void glowColor; },
   };
 }

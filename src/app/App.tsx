@@ -7,7 +7,7 @@ import { visitArea } from '../game/explore';
 import { requiredTraining } from '../game/training';
 import { isAreaUnlocked } from '../game/world';
 import { Hud, type PanelTab } from './components/Hud';
-import { setUiMode, uiMode } from '../play/mode';
+import { uiMode } from '../play/mode';
 import { Panel } from './components/Panel';
 import { Toasts } from './components/Toasts';
 import { Academy } from './screens/Academy';
@@ -72,7 +72,7 @@ export function App() {
   const goTraining = () => open('training-yard');
   const required = requiredTraining(save);
   let screen;
-  if (route.name === 'play') screen = <PlayScreen onClassic={() => { setUiMode('classic'); open('academy'); }} onOpenTraining={() => { setRoute({ name: 'area', id: 'training-yard' }); setLastArea('training-yard'); }} />;
+  if (route.name === 'play') screen = <PlayScreen onClassic={() => open('academy')} onPanel={setPanel} panelOpen={!!panel} />;
   else if (route.name === 'map') screen = <WorldMap current={lastArea} onOpen={open} />;
   else if (route.name === 'daily') screen = <DailyScreen onStart={() => setRoute({ name: 'daily-run' })} />;
   else if (route.name === 'daily-run') screen = <DailyRun onBack={() => setRoute({ name: 'daily' })} onGoTraining={goTraining} />;
@@ -97,8 +97,8 @@ export function App() {
 
   return (
     <div class="app">
-      <Hud onPlay={() => { setPanel(null); setUiMode('3d'); setRoute({ name: 'play' }); }} playing={route.name === 'play'} onMap={toMap} onPanel={setPanel} onDaily={() => { setPanel(null); setRoute({ name: 'daily' }); }} />
-      {required && route.name !== 'lesson' && route.name !== 'training-run' && route.name !== 'boss' && !(route.name === 'area' && route.id === 'training-yard') && (
+      {route.name !== 'play' && <Hud onPlay={() => { setPanel(null); setRoute({ name: 'play' }); }} playing={false} onMap={toMap} onPanel={setPanel} onDaily={() => { setPanel(null); setRoute({ name: 'daily' }); }} />}
+      {route.name !== 'play' && required && route.name !== 'lesson' && route.name !== 'training-run' && route.name !== 'boss' && !(route.name === 'area' && route.id === 'training-yard') && (
         <div class="banner required-banner" role="alert" data-testid="required-banner">
           <span>⏳ Not ready: Focus {save.stats.focus}/100. Train <strong>{weaknessNames(required)}</strong> to regain it before your next attempt.</span>
           <button class="btn small gold" onClick={goTraining} data-testid="banner-go-training">Go to the Training Grounds</button>
@@ -111,7 +111,7 @@ export function App() {
         </div>
       )}
       <div class="screen" key={route.name === 'map' ? 'map' : route.name === 'lesson' ? `l-${route.id}` : route.name === 'area' ? `a-${route.id}` : route.name === 'practice' ? 'practice' : route.name === 'training-run' ? `t-${route.planId}` : route.name === 'boss' ? `b-${route.id}` : route.name === 'daily' || route.name === 'daily-run' || route.name === 'play' ? route.name : `p-${route.challengeId}`}><Suspense fallback={Loading}>{screen}</Suspense></div>
-      {panel && <Panel tab={panel} onTab={setPanel} onClose={() => setPanel(null)} onReset={() => { setPanel(null); setRoute({ name: 'area', id: 'academy' }); setLastArea('academy'); }} />}
+      {panel && <Panel tab={panel} onTab={setPanel} onClose={() => setPanel(null)} onReset={() => { setPanel(null); setLastArea('academy'); setRoute(uiMode() === '3d' ? { name: 'play' } : { name: 'area', id: 'academy' }); }} />}
       <Toasts />
     </div>
   );

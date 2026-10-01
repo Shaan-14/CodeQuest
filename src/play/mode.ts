@@ -1,14 +1,10 @@
 /**
- * WHICH VIEW THE PLAYER USES. The same game, two presentations: the 3D world and the classic screens. It is a device preference (not part
- * of the save, so a save imported on another computer does not force a view that computer cannot run). `?classic` in the address forces classic.
+ * WHICH VIEW IS SHOWN. The 3D world is the game: every launch, new or returning, enters it. The classic screens remain underneath (lessons,
+ * the Field Manual and the skills view are the same components the world opens), and the whole classic UI is still reachable as a developer /
+ * debugging aid with `?classic` in the address. It is deliberately not a player-facing option: no button, menu or stored preference selects it.
  */
 export type UiMode = '3d' | 'classic';
-const KEY = 'codequest.mode';
 
 export function uiMode(): UiMode {
-  try {
-    if (new URLSearchParams(window.location.search).has('classic')) return 'classic';
-    return window.localStorage.getItem(KEY) === 'classic' ? 'classic' : '3d';
-  } catch { return '3d'; }
+  try { return new URLSearchParams(window.location.search).has('classic') ? 'classic' : '3d'; } catch { return '3d'; }
 }
-export function setUiMode(m: UiMode): void { try { window.localStorage.setItem(KEY, m); } catch { /* private window: the choice lasts for this session only */ } }

@@ -12,7 +12,7 @@ import {
 import type { SaveData } from '../../core/save';
 import type { GameEvent } from '../../game/events';
 import { hasEffect, holds } from '../logic/conditions';
-import type { Npc3D } from '../logic/dialogue';
+import type { Npc3D, NpcLook } from '../logic/dialogue';
 import { nearestInteractable } from '../logic/interact';
 import { markersFor, type Marker } from '../logic/markers';
 import { collidersOf, newBody, poseOf, stepBody, type Body } from '../logic/movement';
@@ -42,7 +42,7 @@ export interface StageEnv {
   onPause(): void;
   onPosition(scene: string, x: number, z: number, ry: number): void;
   onAction?(name: string): void;
-  playerLook: { body: number; head: number; accent: number; hair?: number };
+  playerLook: NpcLook;
   quality: Quality;
   reducedMotion: boolean;
 }
@@ -108,7 +108,7 @@ export class Stage {
   setPlayerVisible(v: boolean): void { this.playerRig.group.visible = v; }
   setChase(heading: number | null): void { this.chase = heading; }
   /** Put the player on foot at a place (leaving a car). */
-  placePlayer(x: number, z: number, ry: number): void { this.body.x = x; this.body.z = z; this.body.vx = 0; this.body.vz = 0; this.body.ry = ry; this.playerRig.group.position.set(x, 0, z); this.playerRig.group.rotation.y = ry; }
+  placePlayer(x: number, z: number, ry: number): void { this.body.x = x; this.body.z = z; this.body.vx = 0; this.body.vz = 0; this.body.ry = ry; this.playerRig.group.position.set(x, 0, z); this.playerRig.setFacing(ry, true); }
   get buildCtx(): BuildCtx { return this.ctx; }
   get sceneBounds(): SceneDef['bounds'] | undefined { return this.def?.bounds; }
   /** Show a caption from outside the stage (a simulated game narrates itself). */
@@ -135,7 +135,7 @@ export class Stage {
     this.fx.density = env.reducedMotion ? 0.35 : env.quality === 'low' ? 0.5 : 1;
     this.tweens.instant = env.reducedMotion;
     this.input = new Input(host);
-    this.playerRig = createRig({ ...env.playerLook, hat: 'none' });
+    this.playerRig = createRig(env.playerLook);
     this.scene.add(this.playerRig.group);
     this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced, mood: (k) => this.setMood(k), cinema: (v) => this.setCinema(v) };
     this.onResize = () => this.resize();
@@ -197,7 +197,7 @@ export class Stage {
     for (const pl of def.npcs) {
       const npc = this.env.getNpc(pl.npc); if (!npc) continue;
       const rig = createRig(npc.look);
-      rig.group.position.set(pl.x, 0, pl.z); rig.group.rotation.y = pl.ry ?? 0;
+      rig.group.position.set(pl.x, 0, pl.z); rig.setFacing(pl.ry ?? 0, true);
       this.scene.add(rig.group);
       const collider = { kind: 'circle' as const, x: pl.x, z: pl.z, r: 0.5 };
       this.colliders.push(collider);
@@ -209,7 +209,7 @@ export class Stage {
     this.body = newBody(s0.x, s0.z, s0.ry);
     this.yaw = s0.ry; this.pitch = 0.55;
     this.snapCamera();
-    this.playerRig.group.position.set(s0.x, 0, s0.z);
+    this.playerRig.group.position.set(s0.x, 0, s0.z); this.playerRig.setFacing(s0.ry, true);
     // state the player's code has already earned: instant, no animation
     for (const r of def.reactions ?? []) if (hasEffect(save, r.effect)) { this.dyns.get(r.prop)?.setState(r.state, true); if (r.state === 'open') this.openGate(r.prop); }
     this.refresh();
@@ -314,7 +314,7 @@ export class Stage {
   pause(): void { this.running = false; cancelAnimationFrame(this.raf); this.input.clear(); }
   /** Stop for good reason (terminal open): stops rendering entirely until `start()`. */
   suspend(): void { this.wantRun = false; this.pause(); }
-  setInputEnabled(on: boolean): void { this.input.enabled = on; if (!on) this.input.clear(); }
+  setInputEnabled(on: boolean): void { this.input.enabled = on; if (!on) { this.input.clear(); this.input.releaseLock(); } else this.input.requestLock(); }
 
   private snapCamera(): void {
     this.updateCamera(0, true);
@@ -339,7 +339,7 @@ export class Stage {
     const ex = b.x + dirX * flat;
     const ey = cy + Math.max(Math.sin(pitch) * dist, (dist * Math.cos(pitch) - flat) * 0.9 + Math.sin(pitch) * flat);
     const ez = b.z + dirZ * flat;
-    const k = snap ? 1 : Math.min(1, dt * 7);
+    const k = snap ? 1 : 1 - Math.exp(-dt * 9); // frame-rate independent follow: smooth, never laggy
     this.camPos.x += (ex - this.camPos.x) * k; this.camPos.y += (ey - this.camPos.y) * k; this.camPos.z += (ez - this.camPos.z) * k;
     this.camLook.x += (b.x - this.camLook.x) * k; this.camLook.y += (cy - this.camLook.y) * k; this.camLook.z += (b.z - this.camLook.z) * k;
     this.camera.position.copy(this.camPos);
@@ -417,7 +417,7 @@ export class Stage {
     this.playerRig.update(dt, pose, speed);
     if (speed > 0.6 && b.onGround) { this.stepClock += dt * (run ? 4 : 3); if (this.stepClock > 1) { this.stepClock = 0; this.audio.sfx('step'); } }
     if (!wasAir && !b.onGround) this.audio.sfx('jump');
-    const g = this.playerRig.group; g.position.set(b.x, b.y, b.z); g.rotation.y = b.ry;
+    this.playerRig.group.position.set(b.x, b.y, b.z); this.playerRig.setFacing(b.ry);
   }
 
   private updateNpc(n: NpcRuntime, dt: number): void {
@@ -434,9 +434,9 @@ export class Stage {
       n.ry += df * Math.min(1, dt * 3);
     }
     n.collider.x = n.x; n.collider.z = n.z;
-    n.rig.group.position.set(n.x, 0, n.z); n.rig.group.rotation.y = n.ry;
+    n.rig.group.position.set(n.x, 0, n.z); n.rig.setFacing(n.ry);
     n.rig.update(dt, moving ? 'walk' : 'idle', moving ? 1 : 0);
-    if (d < 6) n.rig.lookAt(this.body.x, this.body.z);
+    if (d < 6) n.rig.lookAt(this.body.x, this.body.z); else n.rig.lookAt(null);
   }
 
   /* ------------------------------------------------------------------ test and debug surface (read-only state; teleport only for e2e) */

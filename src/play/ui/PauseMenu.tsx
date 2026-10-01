@@ -2,8 +2,8 @@ import type { Stage, Quality } from '../engine/stage';
 import { setPlaySettings } from '../../game/play';
 import { getStore, useGame } from '../../game/store';
 
-/** Pause: settings that matter for comfort (sound, motion, quality) and the way back to the classic view. Saved with the game. */
-export function PauseMenu({ onResume, onClassic, stage }: { onResume: () => void; onClassic: () => void; stage: Stage | null }) {
+/** Pause: settings that matter for comfort (sound, motion, quality) Saved with the game. */
+export function PauseMenu({ onResume, stage }: { onResume: () => void; stage: Stage | null }) {
   const { save } = useGame();
   const s = save.play.settings;
   const set = (patch: Parameters<typeof setPlaySettings>[1]) => getStore().apply(setPlaySettings(getStore().save, patch));
@@ -21,7 +21,6 @@ export function PauseMenu({ onResume, onClassic, stage }: { onResume: () => void
           </select>
         </label>
         <p class="muted small">Quality changes apply the next time the world loads.</p>
-        <button class="btn" onClick={onClassic} data-testid="pause-classic">Switch to the classic view</button>
       </div>
     </div>
   );

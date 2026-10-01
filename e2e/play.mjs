@@ -333,8 +333,8 @@ async function main() {
       eq(after.scene, 'lantern-courtyard', 'back in the same place');
       assert(Math.hypot(after.x - 6, after.z - 5) < 1.5, `at the same spot: ${after.x},${after.z}`);
       await p.keyboard.press('Escape');
-      await tid(p, 'pause-classic').click();
-      await tid(p, 'academy').waitFor();
+      await tid(p, 'play-pause').waitFor();
+      assert((await tid(p, 'pause-classic').count()) === 0, 'the classic view is not a player-facing option');
       await p.context().close();
     });
 

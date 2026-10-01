@@ -12,7 +12,7 @@ const WORLD_DEEDS: { effect: string; text: string }[] = [
 ];
 
 /** The ending. It tells the player what they can DO (from their own evidence), never how many points they earned. */
-export function Finale({ onClose, onClassic }: { onClose: () => void; onClassic: () => void }) {
+export function Finale({ onClose }: { onClose: () => void }) {
   const { save } = useGame();
   const shown = skills.filter((s) => competencyOf(save, s.id) === 'demonstrated');
   const deeds = WORLD_DEEDS.filter((d) => hasEffect(save, d.effect));
@@ -30,7 +30,6 @@ export function Finale({ onClose, onClassic }: { onClose: () => void; onClassic:
         </section>
         <div style={{ display: 'flex', gap: '.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button class="btn gold" onClick={onClose} data-testid="finale-continue" autoFocus>Keep exploring</button>
-          <button class="btn" onClick={onClassic}>Open the classic view</button>
         </div>
       </div>
     </div>
