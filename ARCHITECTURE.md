@@ -282,6 +282,15 @@ src/game/play.ts, quests.ts   pure actions for play state and quest state
 **Performance rules**: shared geometries/materials (`userData.shared` are never disposed per scene); label textures cached and cleared on unload; scene disposal on travel; walls and occluders hidden rather than culling by distance; quality presets (shadows, pixel ratio) in the pause menu; per-save memoization of graph/world derivations; `describeReturn` split so the editor chunk is not in the startup bundle. Tools: `scripts/perf-probe.mjs`, `cpu-profile.mjs`, `heavy-save.ts`, `shot3d.mjs`.
 **Test hooks**: with `localStorage codequest.e2e = '1'` the page exposes `window.__cq3d` (teleport, travel, autopilot for the car, dynamic prop states). Players never get it.
 
+## Phase 6 polish pass (3D is the game)
+- **3D is the only normal mode** (`play/mode.ts`; classic only via `?classic` or as the WebGL-failure fallback). Mouse look uses pointer lock (`engine/input.ts`); Esc releases it and opens the pause menu.
+- **Character rig** (`engine/rig.parts.ts`, `rig.ts`): a skeleton of named joints; animation is a function of smoothed weights (idle/walk/run/air, stride follows distance), one-shot and hold gestures, talking, moods, blinking, head look. Meshes are baked into one skinned mesh per character (`skinBake`) so a person costs a few draw calls. NPCs and the player share it.
+- **Cinematics** (`logic/cinematic.ts`, `engine/director.ts`, `content/play/cinematics.ts`, `ui/CinematicOverlay.tsx`): data cue sheets (camera, say, prop, fx, flash, sfx, npc, player, shake, mood, banner). The Director queues them, locks control, supports skip (state-changing cues still apply) and an instant mode for reduced motion. A world reaction, quest completion or level-up maps to a cinematic id; `deriveWorldState` restores the end state on load without playing anything.
+- **Guidance** (`logic/path.ts`, `logic/objective.ts`, `engine/guide.ts`, `ui/ObjectiveWidget.tsx`): the objective comes from the quest model; a grid A* path drives an instanced chevron trail, a light column and a HUD bearing/distance. Toggle in the pause menu. It says where, never how.
+- **Racing replay** (`engine/demoLap.ts`): the AI driver (`logic/vehicle.ts aiDrive`) drives a lap with the player's setup and camera cuts, so a setup change is visible.
+- **Performance**: static batching (`engine/batch.ts`), shared cached geometry/materials, a 4-light pool, skinned characters. Measured draw calls: atrium 283 -> 155, bay 463 -> 230, characters in the bay 151 -> 33.
+- **Limits**: all art is procedural (primitives and canvas textures, no imported models); only lessons with stations show world effects; software WebGL was the only renderer available for testing, so frame times on real GPUs were not measured here.
+
 ## Security model (what is and isn't guaranteed)
 Player code is untrusted and runs only inside a Web Worker running WebAssembly CPython:
 - No DOM, no `localStorage`/`document.cookie` (workers don't have them), no host filesystem or OS access (Emscripten virtual FS only), no subprocess/socket access from Python itself.

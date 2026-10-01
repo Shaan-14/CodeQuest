@@ -28,6 +28,10 @@ Save format v1 → … → v8 → **v9** (`play`: scene, position, who you talke
 - **Fix**: the helpers moved to a leaf module `src/play/engine/props.ts` (re-exported by `builders.ts`); the tables import types only from `builders.ts` (`import type`).
 - **Regression tests**: `src/play/engine/modules.test.ts` fails on any runtime import cycle in `src/play` (it fails on the old code); `e2e/dev3d.mjs` starts the world on the Vite DEV server and visits all 13 scenes (it fails on the old code); it is part of `npm run e2e`.
 
+## Phase 6 polish pass
+Done: 3D-first flow with pointer lock; new character rig with skinned baking; reusable cinematic system and the Robotics repair sequence; objective widget, trail, light column and compass; dressed Robotics scenes, racing paddock/garage/car and replay lap; NPC idle/greeting/pointing; in-world UI. Fixed: the Welcome card reused a translating keyframe and slid off-screen.
+Not done / limited: Baseball camera choreography and SimOverlay restyle, Fantasy/Summit art are lighter than Robotics; no imported art; no real-GPU frame timing.
+
 ## Phase 6 limitations (honest)
 - Art is procedural (primitives, no authored models/textures); characters are simple. It is cohesive, not lavish.
 - **Not every lesson has a terminal in the world**: stations cover a representative subset per world; the full 126 lessons remain reachable from the classic view and the in-world Field Manual, Daily and Training. Every station opens the same real lesson screen.
