@@ -46,6 +46,7 @@ async function test(name, fn) {
     console.log(`  ✓ ${name} (${Date.now() - t}ms)`);
   } catch (e) {
     failures.push(name);
+    try { await lastPage?.screenshot({ path: new URL('./screenshots/FAILED.png', import.meta.url).pathname }); } catch { /* page closed */ }
     console.log(`  ✗ ${name}\n      ${String(e.message).split('\n').slice(0, 4).join('\n      ')}`);
   }
 }
@@ -53,13 +54,14 @@ function assert(cond, msg) { if (!cond) throw new Error(msg); }
 const eq = (a, b, msg) => assert(a === b, `${msg}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
 
 /* ---------------- helpers ---------------- */
-let browser;
+let browser; let lastPage = null;
 async function newPage(viewport = { width: 1280, height: 900 }) {
   // reducedMotion: the game honours it, and Playwright cannot click elements with endless CSS animations.
   const ctx = await browser.newContext({ viewport, reducedMotion: 'reduce' });
   const page = await ctx.newPage();
+  lastPage = page;
   // the classic scenarios test the classic screens: the 3D world has its own suite (e2e/play.mjs)
-  await page.addInitScript(() => localStorage.setItem('codequest.mode', 'classic'));
+  await page.addInitScript(() => { try { localStorage.setItem('codequest.mode', 'classic'); } catch { /* the sandboxed player-code iframe has no storage: that is the point */ } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -242,7 +244,8 @@ async function main() {
         if (await tid(page, 'training-predict').count()) { for (let i = 0; i < 4 && !(await tid(page, 'predict-right').count()); i++) await tid(page, `predict-${i}`).click(); await tid(page, 'training-read').click(); continue; }
         if (await tid(page, 'training-read').count()) { await tid(page, 'training-read').click(); continue; }
         if (await tid(page, 'training-start-step').count()) await tid(page, 'training-start-step').click();
-        await tid(page, 'briefing').waitFor({ timeout: 15000 });
+        await tid(page, 'briefing').or(tid(page, 'training-read')).or(tid(page, 'training-predict')).or(tid(page, 'training-complete')).first().waitFor({ timeout: 15000 });
+        if (!(await tid(page, 'briefing').count())) continue; // a reading/prediction card or the end arrived while we looked: handle it on the next pass
         const cid = await tid(page, 'briefing').getAttribute('data-challenge');
         await solveAny(page, cid);
         await tid(page, 'submit').click();
@@ -621,7 +624,7 @@ async function main() {
       await openPanel(page, 'menu');
       await tid(page, 'export').click();
       const exported = await tid(page, 'save-text').inputValue();
-      assert(exported.includes('"version":8'), 'exported');
+      assert(exported.includes('"version":9'), 'exported');
       await tid(page, 'import').click();
       assert((await page.getByRole('status').innerText()).includes('restored'), 'import ok');
       // reset
@@ -822,7 +825,9 @@ async function main() {
       await tid(page, 'daily-result').waitFor({ timeout: 30000 });
       assert(await page.locator('.result.fail').count() === 1, 'the wrong answer fails');
       const s = await readSave(page);
-      eq(s.stats.coins, before.stats.coins, 'no coins for a failure');
+      // the seeded, finished quest pays out the first time anything settles (a real rule since the quest fix); the Daily itself pays nothing
+      const questPaid = before.quests['wake-the-robot']?.status !== 'complete' && s.quests['wake-the-robot']?.status === 'complete' ? 60 : 0;
+      eq(s.stats.coins - questPaid, before.stats.coins, 'no coins for a failure');
       eq(s.stats.focus, before.stats.focus, 'a failed daily costs no Focus');
       eq(s.daily.current.status, 'failed', 'the attempt is closed');
       eq(s.daily.history.length, 1, 'history recorded');
@@ -1245,7 +1250,7 @@ async function main() {
       assert(await tid(page, 'prereq-missing').count() === 1, 'lists what is missing');
       await page.screenshot({ path: SHOTS + '61-prerequisite-panel.png' });
       const save = await readSave(page);
-      eq(save.version, 8, 'save version');
+      eq(save.version, 9, 'save version');
       assert(save.explore && save.explore.last, 'the last world is remembered');
       await page.context().close();
     });

@@ -51,7 +51,7 @@ async function newGame(opts = {}) {
   page.errors = []; lastPage = page;
   page.on('pageerror', (e) => page.errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') page.errors.push(m.text()); if (process.env.E2E_DEBUG && m.text().startsWith('DBG')) console.log('   ', m.text()); });
-  await page.addInitScript(() => localStorage.setItem('codequest.e2e', '1'));
+  await page.addInitScript(() => { try { localStorage.setItem('codequest.e2e', '1'); } catch { /* sandboxed iframe */ } });
   if (opts.save) await page.addInitScript((s) => { if (!localStorage.getItem('codequest.save')) localStorage.setItem('codequest.save', s); }, opts.save);
   await page.goto(BASE);
   if (!opts.save) { await tid(page, 'name-input').fill(opts.name ?? 'Ada'); await tid(page, 'begin').click(); }
@@ -148,7 +148,8 @@ async function playTraining(p) {
     if (await tid(p, 'training-predict').count()) { for (let i = 0; i < 4 && !(await tid(p, 'predict-right').count()); i++) await tid(p, `predict-${i}`).click(); await tid(p, 'training-read').click(); continue; }
     if (await tid(p, 'training-read').count()) { await tid(p, 'training-read').click(); continue; }
     if (await tid(p, 'training-start-step').count()) await tid(p, 'training-start-step').click();
-    await tid(p, 'briefing').waitFor({ timeout: 15000 });
+    await tid(p, 'briefing').or(tid(p, 'training-read')).or(tid(p, 'training-predict')).or(tid(p, 'training-complete')).first().waitFor({ timeout: 15000 });
+    if (!(await tid(p, 'briefing').count())) continue; // a reading/prediction card or the end arrived while we looked: handle it on the next pass
     const cid = await tid(p, 'briefing').getAttribute('data-challenge');
     await setCode(p, solutions[cid].valid[0]);
     await tid(p, 'submit').click();

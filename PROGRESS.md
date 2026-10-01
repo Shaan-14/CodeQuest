@@ -15,6 +15,13 @@ Save format v1 → … → v8 → **v9** (`play`: scene, position, who you talke
 - **Performance as a requirement.** Profiled first. Fixed: O(objectives × lessons × steps) scans (indexed maps, per-save memoization), the code editor loaded at startup through the training screens (split), world entry on a late-game save 500–585 ms → ~80–120 ms, startup JS 776 KB → 518 KB gzip. three.js and all scenes load only when the 3D view opens; shared geometries/materials, a texture cache, pooled particles, disposal on scene change, and quality presets.
 - **Accessibility and comfort**: reduced motion (OS setting or menu) removes camera shake/animations; everything the world says is also text (captions, dialogue, world notes); all overlays are keyboard operable with a focus-visible style; the classic view (same save) is one button or `?classic` away; WebGL failure falls back to it; on-screen touch controls appear on touch devices.
 
+## Phase 6 tests performed
+- `npm test`: 46 files, 5,919 tests passed (adds quest-state, movement/collision, interaction, dialogue, travel gates, baseball sim, vehicle physics, scene/cast/quest/station content validation, save v8 → v9 migration).
+- `npx tsc --noEmit` clean; `npm run build` succeeds.
+- `node e2e/run.mjs` (classic UI): 44 of 44. `node e2e/play.mjs` (3D, real Chromium with software WebGL): 12 of 12: first visit/welcome/Field Manual/dispatch board; robotics quest → real Python → robot repairs; failure → malfunction, Focus loss, Simulation Room, new problem, fix works; hub/map/fast travel; settings and position persistence across reload; fantasy academy quest and duel; baseball with and without analysis; racing setup, drive and timed lap; Summit finale and campaign completion, beacon lit again after reload.
+- Flakes fixed while testing (all in the harness): a training-step race (reading card rendered after the check), the e2e init script throwing inside the sandboxed iframe, seeded saves overwritten by the page-leave position flush, a seeded finished quest paying out on the first settle (a real rule since the quest fix).
+- Manual playtest was done through the e2e drivers and screenshots (`e2e/screenshots/play-*.png`) of every world; no human playtest on real GPU hardware.
+
 ## Phase 6 limitations (honest)
 - Art is procedural (primitives, no authored models/textures); characters are simple. It is cohesive, not lavish.
 - **Not every lesson has a terminal in the world**: stations cover a representative subset per world; the full 126 lessons remain reachable from the classic view and the in-world Field Manual, Daily and Training. Every station opens the same real lesson screen.
