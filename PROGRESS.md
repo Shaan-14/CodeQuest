@@ -28,6 +28,11 @@ Save format v1 → … → v8 → **v9** (`play`: scene, position, who you talke
 - **Fix**: the helpers moved to a leaf module `src/play/engine/props.ts` (re-exported by `builders.ts`); the tables import types only from `builders.ts` (`import type`).
 - **Regression tests**: `src/play/engine/modules.test.ts` fails on any runtime import cycle in `src/play` (it fails on the old code); `e2e/dev3d.mjs` starts the world on the Vite DEV server and visits all 13 scenes (it fails on the old code); it is part of `npm run e2e`.
 
+## Phase 6 finishing pass (flow, guidance, collision, motion)
+Done: a pass answers itself (cinematic over the lesson, lesson handed back, no NPC step); failures are not acted out; quests are taken up by doing the work; guidance is per world from the learning record (plaza = choose); colliders come from the drawn shape; movement has weight; the camera never sits inside geometry; world-integrity tools (`scripts/integrity3d.mjs`, `devshot --col`); planned industrial-arm motion with cinematics that await it; eight Manufacturing Floor cinematics, four camera styles, level-up as a banner; status screens fill in; a rebuilt ballpark.
+Verified: typecheck, 5962 unit tests, 3D e2e (13 tests), classic e2e (44), dev-server 3D visit of 13 scenes. Draw calls: ballpark 202 (the old one was sparse at 46), bay 243, atrium 178, garage 198, track 80.
+Limits: headless software-WebGL only (no real GPU timings, no hands-on playtest); Git/R/Statistics have no 3D world, so their guidance is not exercised; slopes and stairs do not exist in the scenes (kerbs up to 0.32 m only); the arm-repair sheet is about 9 s because it waits on a real machine.
+
 ## Phase 6 polish pass
 Done: 3D-first flow with pointer lock; new character rig with skinned baking; reusable cinematic system and the Robotics repair sequence; objective widget, trail, light column and compass; dressed Robotics scenes, racing paddock/garage/car and replay lap; NPC idle/greeting/pointing; in-world UI. Fixed: the Welcome card reused a translating keyframe and slid off-screen.
 Not done / limited: Baseball camera choreography and SimOverlay restyle, Fantasy/Summit art are lighter than Robotics; no imported art; no real-GPU frame timing.
