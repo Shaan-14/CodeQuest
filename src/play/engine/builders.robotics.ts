@@ -4,6 +4,8 @@ import { ease } from './tween';
 import { mat, rbox, rcyl, rsph, shape, sign, labelTexture } from './kit';
 import { col, num, str } from './props';
 import type { Builder, BuildCtx, Dyn } from './builders';
+import { ASSEMBLY_ARM, assemblyPoints, buildArm, plannerFor, type PartMaker } from './arm';
+import type { Move, V3 } from './armMotion';
 
 /** A working console: a desk with a bezelled, slanted screen showing the station's name, a keyboard strip and blinking status lights. */
 const consoleB: Builder = (p) => {
@@ -59,29 +61,56 @@ const conveyor: Builder = (p, ctx) => {
   return { object: g, dyn };
 };
 
-/** An assembly arm that works when `run`: swings, lowers, rises. Sparks on malfunction. */
+/** Centred, standard-shaded parts for the arm kit (the factory's look). */
+const kitMaker: PartMaker = {
+  box: (w, h, d, c, o = {}) => rbox(w, h, d, c, { x: o.x, y: (o.y ?? 0) - h / 2, z: o.z, rx: o.rx, rz: o.rz, glow: o.glow, rough: 0.4, metal: 0.3, r: 0.05 }),
+  cyl: (rt, rb, h, c, o = {}) => rcyl(rt, rb, h, c, { x: o.x, y: (o.y ?? 0) - h / 2, z: o.z, rx: o.rx, rz: o.rz, glow: o.glow, rough: 0.4, metal: 0.35 }),
+  sph: (r, c, o = {}) => rsph(r, c, { x: o.x, y: o.y, z: o.z, glow: o.glow, rough: 0.4, metal: 0.3 }),
+};
+
+/**
+ * An assembly arm. When the line is `run`ning it does a real pick-and-place cycle (armMotion.ts): swing over the belt, lower in a straight line,
+ * close the gripper and pause, lift, swing to the drop point, lower, release, lift and settle at rest before the next part. Joint moves are
+ * coordinated S-curves with travel limits; `precise` (cleaner functions) makes it faster and tidier. It stands still, folded, until the line runs.
+ */
 const arm: Builder = (p, ctx) => {
-  const g = new Group();
-  g.add(rcyl(0.62, 0.7, 0.28, 0x2b3048, { rough: 0.5, metal: 0.3 }), rcyl(0.34, 0.4, 0.7, 0x596080, { y: 0.28, metal: 0.4, rough: 0.35 }), rbox(0.5, 0.05, 0.05, 0xff9f1c, { y: 0.4, z: 0.4, glow: 0.9 }));
-  const shoulder = new Group(); shoulder.position.y = 0.95; g.add(shoulder);
-  shoulder.add(rsph(0.3, 0xf2c14e, { metal: 0.3, rough: 0.4 }));
-  const upper = new Group(); shoulder.add(upper);
-  upper.add(rbox(0.3, 1.6, 0.3, 0xf2c14e, { y: 0, rough: 0.4, metal: 0.3, r: 0.06 }), rcyl(0.1, 0.1, 0.36, 0x2b3048, { rz: Math.PI / 2, y: 1.6 }));
-  const fore = new Group(); fore.position.y = 1.6; upper.add(fore);
-  fore.add(rbox(0.26, 1.3, 0.26, 0xe8a93a, { y: -0.1, rough: 0.4, metal: 0.3, r: 0.05 }), rbox(0.5, 0.12, 0.2, 0x2b3048, { y: 1.15 }), rbox(0.08, 0.2, 0.08, 0xcfd6ea, { x: -0.16, y: 1.25 }), rbox(0.08, 0.2, 0.08, 0xcfd6ea, { x: 0.16, y: 1.25 }));
-  let on = false, t = 0, broken = false, precise = false;
+  const OPT = ASSEMBLY_ARM;
+  const facing = num(p, 'face', -Math.PI / 2); // toward the belt (south)
+  const { pick, drop, rest, beltY, clear } = assemblyPoints(p, num(p, 'beltZ', -1.5));
+  const rig = buildArm(kitMaker, OPT, facing);
+  const planner = plannerFor(OPT, { x: p.x, z: p.z }, facing, rest, 1);
+  const crate = rbox(0.34, 0.3, 0.34, 0xb8863b, { y: -0.3 - 0.3 }); crate.visible = false; rig.tool.add(crate);
+  let on = false, precise = false, broken = 0, grip = 1, gripTo = 1, cycle = 0;
+  const J = (to: V3, o: Partial<Move> = {}) => planner.plan({ kind: 'J', to, speed: precise ? 1.15 : 0.85, ...o });
+  const L = (to: V3, o: Partial<Move> = {}) => planner.plan({ kind: 'L', to, speed: precise ? 1.1 : 0.85, ...o });
+  const near = () => { const q = ctx.player(); return Math.hypot(q.x - p.x, q.z - p.z) < 14; };
+  const servo = () => { if (near()) ctx.audio.sfx('servo'); };
+  const plan = () => {
+    cycle++;
+    J({ x: pick.x, y: clear + 0.1, z: pick.z }, { onStart: servo, hold: 0.1 });
+    L({ x: pick.x, y: beltY + 0.1, z: pick.z }, { hold: 0.4, onDone: () => { gripTo = 0; crate.visible = true; } });
+    L({ x: pick.x, y: clear, z: pick.z }, { hold: 0.05 });
+    J({ x: drop.x, y: clear, z: drop.z }, { onStart: servo });
+    L({ x: drop.x, y: beltY + 0.2, z: drop.z }, { hold: 0.35, onDone: () => { gripTo = 1; crate.visible = false; } });
+    L({ x: drop.x, y: clear, z: drop.z }, { hold: 0.05 });
+    J(rest, { onStart: servo, hold: precise ? 0.5 : 1.0 + (cycle % 3) * 0.3 });
+  };
   const dyn: Dyn = {
-    id: p.id ?? 'arm', object: g, at: () => ({ x: p.x, y: 1.6, z: p.z }),
+    id: p.id ?? 'arm', object: rig.group, at: () => ({ x: p.x, y: 1.6, z: p.z }),
     states: () => [on ? 'run' : '', precise ? 'precise' : ''].filter(Boolean),
     setState(s) { if (s === 'run') on = true; if (s === 'precise') precise = true; },
-    play(name) { if (name === 'malfunction') { broken = true; ctx.fx.burst('sparks', p.x, 2.2, p.z, 26); ctx.fx.flash(p.x, 2.2, p.z, 0xffb347, 12, 0.5); ctx.audio.sfx('spark'); ctx.tweens.after(1.4, () => { broken = false; }); } },
+    busy: () => planner.busy,
+    play(name) { if (name === 'malfunction') { broken = 1.2; ctx.fx.burst('sparks', p.x, 2.2, p.z, 26); ctx.fx.flash(p.x, 2.2, p.z, 0xffb347, 12, 0.5); ctx.audio.sfx('spark'); } },
     update(dt) {
-      t += dt;
-      if (broken) { shoulder.rotation.y += Math.sin(t * 40) * 0.05; fore.rotation.x = Math.sin(t * 30) * 0.3; return; }
-      if (on) { const k = precise ? 0.6 : 1; shoulder.rotation.y = Math.sin(t * 0.9 * k) * 1.0; upper.rotation.x = 0.4 + Math.sin(t * 1.8) * 0.35; fore.rotation.x = -0.7 + Math.sin(t * 1.8 + 1) * 0.5; } else { upper.rotation.x = 0.15; fore.rotation.x = -0.3; }
+      if (on && !planner.busy && broken <= 0) plan();
+      const q = planner.update(dt);
+      if (broken > 0) { broken -= dt; q.yaw += Math.sin(broken * 50) * 0.05; q.el += Math.sin(broken * 37) * 0.1; }
+      rig.apply(q);
+      grip += (gripTo - grip) * (1 - Math.exp(-dt * 10)); rig.setGrip(grip);
     },
   };
-  return { object: g, dyn };
+  rig.apply(planner.q);
+  return { object: rig.group, dyn };
 };
 
 /** A sliding door: state `open` slides the panel into the wall. */

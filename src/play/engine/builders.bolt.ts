@@ -4,6 +4,8 @@
  * fetches the loose arm, carries it to the shoulder and welds it on, so the player SEES the machine do what their program told it to.
  */
 import { Group, Vector3, type Object3D } from 'three';
+import { buildArm, plannerFor, REPAIR_ARM, type PartMaker } from './arm';
+import type { Move, V3 } from './armMotion';
 import { createRig } from './rig';
 import { boxG, capsuleG, cylG, part, sphereG, toon } from './rig.parts';
 import { ease } from './tween';
@@ -113,84 +115,70 @@ const bolt: Builder = (p, ctx) => {
   return { object: root, dyn };
 };
 
-/** A two-link industrial arm on a turret with a gripper and a welding torch (solved with simple inverse kinematics each frame). */
+/** Centred toon parts for the arm kit (the bay's look: outlined, hand-drawn). */
+const toonMaker: PartMaker = {
+  box: (w, h, d, c, o = {}) => part(boxG(w, h, d, Math.min(0.1, Math.min(w, h, d) * 0.25)), c, { ...o, outline: true }),
+  cyl: (rt, rb, h, c, o = {}) => part(cylG(rt, rb, h), c, { ...o, outline: true }),
+  sph: (r, c, o = {}) => part(sphereG(r), c, { ...o, outline: true }),
+};
+
+/**
+ * The repair rig: a heavy two-link arm that fetches Bolt's loose arm, carries it to his shoulder and welds it on. It moves like a real machine
+ * (armMotion.ts): joint moves on S-curves for the big swings, straight-line moves for lowering onto a part, a pause for the grip to close, a weld
+ * that takes its time, joint limits and a faint servo settle after each stop. Each action is a short plan; `busy` tells a cinematic when the machine
+ * has finished, so the camera waits for the arm instead of guessing how long it takes.
+ */
 const repairrig: Builder = (p, ctx) => {
-  const L1 = 2.5, L2 = 2.3, H = 1.55, T = 0.55;
+  const OPT = REPAIR_ARM;
   const target = str(p, 'target', 'bolt');
-  const g = new Group();
-  g.add(part(cylG(0.95, 1.05, 0.28), 0x2a2f45, { y: 0.14, outline: true }), part(cylG(0.62, 0.7, 0.9), 0x39405c, { y: 0.7, outline: true }), part(boxG(0.5, 0.06, 0.06, 0.02), 0xff9f1c, { y: 0.45, z: 0.66, glow: 0.8 }));
-  const turret = new Group(); turret.position.y = H; g.add(turret);
-  turret.add(part(sphereG(0.5), 0xf2c14e, { outline: true }));
-  const upper = new Group(); turret.add(upper);
-  upper.add(part(boxG(L1, 0.42, 0.44, 0.1), 0xf2c14e, { x: L1 / 2, outline: true }), part(cylG(0.12, 0.12, 0.5), 0x2a2f45, { rx: Math.PI / 2 }));
-  const fore = new Group(); fore.position.x = L1; upper.add(fore);
-  fore.add(part(sphereG(0.36), 0xe8a93a, { outline: true }), part(boxG(L2, 0.34, 0.36, 0.08), 0xe8a93a, { x: L2 / 2, outline: true }), part(cylG(0.1, 0.1, 0.42), 0x2a2f45, { rx: Math.PI / 2 }));
-  const wrist = new Group(); wrist.position.x = L2; fore.add(wrist);
-  wrist.add(part(sphereG(0.24), 0x39405c, { outline: true }), part(boxG(0.16, T, 0.16, 0.03), 0x596080, { y: -T / 2, outline: true }));
-  const tool = new Group(); tool.position.y = -T; wrist.add(tool);
-  const fingerL = part(boxG(0.06, 0.28, 0.08, 0.02), 0xcfd6ea, { x: -0.1, y: -0.14 }), fingerR = part(boxG(0.06, 0.28, 0.08, 0.02), 0xcfd6ea, { x: 0.1, y: -0.14 });
-  tool.add(fingerL, fingerR);
-  const torch = part(cylG(0.035, 0.015, 0.3), 0x8be9fd, { y: -0.12, z: 0.15, rx: 0.4, glow: 0 }); tool.add(torch);
-  const lamp = part(sphereG(0.07), 0x2a3350, { y: 0.5, x: 0 }); turret.add(lamp); lamp.position.set(0, 0.6, 0);
-  let on = false, t = 0, weld = 0, welding: { x: number; y: number; z: number } | null = null, sparkClock = 0;
-  const base = { x: p.x, z: p.z };
-  const home = { x: p.x + 1.8, y: 3.4, z: p.z - 0.9 };
-  let pos = { ...home };
-  type Move = { to: { x: number; y: number; z: number }; dur: number; grip?: number; then?: () => void };
-  const queue: Move[] = []; let cur: (Move & { from: { x: number; y: number; z: number }; k: number; fromGrip: number }) | null = null;
-  let grip = 1; // 1 open, 0 closed
-  const solve = () => {
-    const dx = pos.x - base.x, dz = pos.z - base.z, d = Math.max(0.6, Math.hypot(dx, dz)), h = pos.y + T - H;
-    turret.rotation.y = Math.atan2(-dz, dx);
-    const D = Math.min(L1 + L2 - 0.05, Math.max(0.8, Math.hypot(d, h)));
-    const cosG = (L1 * L1 + L2 * L2 - D * D) / (2 * L1 * L2), gam = Math.acos(Math.max(-1, Math.min(1, cosG)));
-    const cosA = (L1 * L1 + D * D - L2 * L2) / (2 * L1 * D), alpha = Math.acos(Math.max(-1, Math.min(1, cosA)));
-    const th1 = Math.atan2(h, d) + alpha, th2 = -(Math.PI - gam);
-    upper.rotation.z = th1; fore.rotation.z = th2; wrist.rotation.z = -Math.PI / 2 - (th1 + th2);
-  };
-  solve();
-  const go = (to: { x: number; y: number; z: number }, dur: number, o: { grip?: number; then?: () => void } = {}) => queue.push({ to, dur: ctx.reduced ? 0.01 : dur, ...o });
+  const facing = Math.atan2(-(num(p, 'faceZ', p.z + 0.7) - p.z), num(p, 'faceX', p.x + 3.6) - p.x); // toward the repair table
+  const home = { x: p.x + 2.8, y: 3.0, z: p.z - 1.0 };
+  const rig = buildArm(toonMaker, OPT, facing);
+  const g = rig.group;
+  const lamp = part(sphereG(0.07), 0x2a3350, { y: 0.6 }); rig.turret.add(lamp);
+  const planner = plannerFor(OPT, { x: p.x, z: p.z }, facing, home, 2.4);
+  let on = false, t = 0, weld = 0, welding: { x: number; y: number; z: number } | null = null, sparkClock = 0, grip = 1, gripTo = 1;
+  const J = (to: V3, o: Partial<Move> = {}) => planner.plan({ kind: 'J', to, ...o });
+  const L = (to: V3, o: Partial<Move> = {}) => planner.plan({ kind: 'L', to, speed: 1.1, ...o });
+  const servo = () => ctx.audio.sfx('servo');
   const targetWhere = (name: string) => ctx.dyn(target)?.where?.(name) ?? null;
   const dyn: Dyn = {
     id: p.id ?? 'repairrig', object: g, at: () => ({ x: p.x, y: 2.4, z: p.z }), states: () => (on ? ['on'] : []),
     setState(s) { if (s === 'on') on = true; },
+    busy: () => planner.busy || weld > 0,
     play(name) {
-      if (name === 'wake') { on = true; ctx.audio.sfx('power'); lamp.material = toon(0x7dffb3, 1.2); go({ x: home.x, y: 3.0, z: home.z + 0.6 }, 1.1); }
+      if (name === 'wake') { on = true; ctx.audio.sfx('power'); lamp.material = toon(0x7dffb3, 1.2); J({ x: home.x - 0.3, y: 2.9, z: home.z + 0.3 }, { speed: 0.6, hold: 0.25 }); }
       else if (name === 'fetch') {
         const a = targetWhere('looseArm'); if (!a) return;
-        go({ x: a.x, y: a.y + 0.9, z: a.z }, 1.2, { grip: 1 });
-        go({ x: a.x, y: a.y + 0.28, z: a.z }, 0.7, { then: () => { grip = 0; ctx.audio.sfx('click'); ctx.dyn(target)?.run?.('releaseArm', tool as never); } });
-        go({ x: a.x, y: a.y + 1.2, z: a.z }, 0.8);
+        J({ x: a.x, y: a.y + 0.75, z: a.z }, { onStart: servo, hold: 0.1 });
+        L({ x: a.x, y: a.y + 0.3, z: a.z }, { speed: 0.9, hold: 0.35, onDone: () => { gripTo = 0; ctx.audio.sfx('click'); ctx.dyn(target)?.run?.('releaseArm', rig.tool as never); } });
+        L({ x: a.x, y: a.y + 0.8, z: a.z }, { speed: 1, hold: 0.05 });
       } else if (name === 'carry') {
         const s = targetWhere('socket'); if (!s) return;
-        go({ x: s.x, y: s.y + 1.3, z: s.z + 0.2 }, 1.3);
-        go({ x: s.x, y: s.y + 0.55, z: s.z }, 0.8);
+        J({ x: s.x, y: s.y + 0.95, z: s.z + 0.2 }, { onStart: servo, hold: 0.1 });
+        L({ x: s.x, y: s.y + 0.55, z: s.z }, { speed: 0.9, hold: 0.15 });
       } else if (name === 'weld') {
         const s = targetWhere('socket'); if (!s) return;
-        go({ ...s, y: s.y + 0.55 }, 0.1, { then: () => { ctx.dyn(target)?.run?.('seatArm'); weld = 1.8; welding = { x: s.x, y: s.y + 0.3, z: s.z }; ctx.audio.sfx('weld'); } });
-        go({ x: s.x + 0.12, y: s.y + 0.55, z: s.z }, 0.9); go({ x: s.x - 0.12, y: s.y + 0.55, z: s.z }, 0.9);
-      } else if (name === 'retract') { go({ x: home.x, y: 3.2, z: home.z + 0.6 }, 1.2, { grip: 1, then: () => { grip = 1; lamp.material = toon(0x2a3350, 0); } }); go(home, 0.9); }
+        L({ x: s.x, y: s.y + 0.55, z: s.z }, { speed: 1, hold: 0.1, onStart: () => { ctx.dyn(target)?.run?.('seatArm'); weld = 1.7; welding = { x: s.x, y: s.y + 0.3, z: s.z }; ctx.audio.sfx('weld'); } });
+        L({ x: s.x - 0.14, y: s.y + 0.55, z: s.z }, { speed: 0.55, hold: 0.15 });
+      } else if (name === 'retract') { gripTo = 1; L({ x: planner.tool.x, y: planner.tool.y + 0.7, z: planner.tool.z }, { speed: 1.1 }); J({ x: home.x, y: home.y, z: home.z }, { onStart: servo, hold: 0.1, onDone: () => { lamp.material = toon(0x2a3350, 0); } }); }
       else if (name === 'malfunction') { ctx.fx.burst('sparks', p.x, 2.6, p.z, 20); ctx.audio.sfx('fail'); }
     },
     update(dt) {
       t += dt;
-      if (!cur && queue.length) { const m = queue.shift()!; cur = { ...m, from: { ...pos }, k: 0, fromGrip: grip }; }
-      if (cur) {
-        cur.k = Math.min(1, cur.k + dt / cur.dur); const e = ease.inOut(cur.k);
-        pos = { x: lerp(cur.from.x, cur.to.x, e), y: lerp(cur.from.y, cur.to.y, e), z: lerp(cur.from.z, cur.to.z, e) };
-        if (cur.k >= 1) { const f = cur; cur = null; f.then?.(); }
-      } else if (on) pos = { x: pos.x, y: pos.y + Math.sin(t * 1.5) * 0.0015, z: pos.z };
-      solve();
-      fingerL.position.x = -0.05 - 0.05 * grip; fingerR.position.x = 0.05 + 0.05 * grip;
+      rig.apply(planner.update(dt));
+      grip += (gripTo - grip) * (1 - Math.exp(-dt * 9)); rig.setGrip(grip);
       if (weld > 0) {
         weld -= dt; sparkClock -= dt;
         const flick = Math.random() > 0.35;
-        torch.material = toon(0x9fe8ff, flick ? 2.2 : 0.4);
+        if (rig.torch) rig.torch.material = toon(0x9fe8ff, flick ? 2.2 : 0.4);
         if (sparkClock <= 0 && welding) { sparkClock = 0.1; ctx.fx.burst('sparks', welding.x, welding.y, welding.z, 6, 0.6); if (flick) ctx.fx.flash(welding.x, welding.y + 0.1, welding.z, 0x9fe8ff, 9, 0.12); }
-        if (weld <= 0) { torch.material = toon(0x8be9fd, 0); welding = null; }
+        if (weld <= 0) { if (rig.torch) rig.torch.material = toon(0x8be9fd, 0); welding = null; }
       }
     },
   };
+  rig.apply(planner.q);
+  void ctx.reduced;
   return { object: g, dyn };
 };
 

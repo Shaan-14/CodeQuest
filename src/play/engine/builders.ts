@@ -40,6 +40,8 @@ export interface Dyn {
   at(): { x: number; y: number; z: number };
   /** World position of a named part (a loose arm, a socket) so another prop can work on it. */
   where?(name: string): { x: number; y: number; z: number } | null;
+  /** Is the thing still in the middle of what it was asked to do (an arm mid-move)? A cinematic waits on this. */
+  busy?(): boolean;
   /** Run a longer scripted sequence (a simulated game, a race start). Resolves when it ends. */
   run?(name: string, arg?: unknown): Promise<void>;
   /** States entered so far (for tests and the accessibility summary). */

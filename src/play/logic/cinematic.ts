@@ -20,6 +20,8 @@ export type CueAction =
   | { do: 'say'; text: string; who?: string; for?: number }
   /** Put a prop into a state (the world change itself) and/or run one of its animations (`play`, optionally with an argument). */
   | { do: 'prop'; id: string; state?: string; play?: string }
+  /** Hold the clock of this sheet until the prop has finished what it was asked to do (an arm mid-move), for at most `max` seconds. */
+  | { do: 'await'; id: string; max?: number }
   | { do: 'fx'; kind: FxKind; at: Target; n?: number; scale?: number; y?: number }
   | { do: 'flash'; at: Target; color?: number; power?: number; dur?: number; y?: number }
   | { do: 'sfx'; name: Sfx }
@@ -62,7 +64,7 @@ export function referencedIds(c: Cinematic): { props: string[]; npcs: string[] }
   const props = new Set<string>(), npcs = new Set<string>();
   const t = (x: Target | 'player' | null | undefined) => { if (x && typeof x === 'object') { if ('prop' in x) props.add(x.prop); if ('npc' in x) npcs.add(x.npc); } };
   for (const q of c.cues) {
-    if (q.do === 'prop') props.add(q.id);
+    if (q.do === 'prop' || q.do === 'await') props.add(q.id);
     if (q.do === 'cam' || q.do === 'fx' || q.do === 'flash') t(q.at);
     if (q.do === 'npc') { npcs.add(q.id); t(q.face); t(q.point); t(q.look); }
     if (q.do === 'player') { t(q.face); t(q.look); }

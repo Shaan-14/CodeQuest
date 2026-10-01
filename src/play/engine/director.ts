@@ -10,14 +10,14 @@ export interface CineBanner { title: string; sub?: string; kind: 'quest' | 'leve
 export interface CineState { active: boolean; canSkip: boolean; subtitle: { who?: string; text: string } | null; banner: CineBanner | null }
 export const IDLE_CINE: CineState = { active: false, canSkip: false, subtitle: null, banner: null };
 
-interface Running { c: Cinematic; cues: Cue[]; t: number; len: number; skipped: boolean }
+interface Running { c: Cinematic; cues: Cue[]; t: number; len: number; skipped: boolean; /** The cue sheet's clock is held until this prop has finished what it was asked to do. */ wait?: { id: string; left: number } }
 interface Shot { x: number; y: number; z: number; yaw: number; pitch: number; dist: number; spin: number }
 
 export class Director {
   private queue: Cinematic[] = [];
   private cur: Running | null = null;
   private shot: Shot | null = null;
-  private subUntil = 0; private bannerUntil = 0; private gap = 0;
+  private subLeft = 0; private bannerUntil = 0; private gap = 0;
   private state: CineState = IDLE_CINE;
 
   constructor(private s: Stage, private onState: (st: CineState) => void) {}
@@ -52,10 +52,15 @@ export class Director {
   update(dt: number): void {
     const r = this.cur;
     if (!r) { if (this.queue.length && (this.gap -= dt) <= 0) this.next(); return; }
+    if (this.state.subtitle && (this.subLeft -= dt) <= 0) this.publish({ subtitle: null }); // lines time out on their own clock, so a long wait on a machine never leaves one hanging
+    if (r.wait) { // the sheet's clock waits for a machine to finish (an arm mid-move), however long it takes within its limit
+      r.wait.left -= dt;
+      if (this.s.dyn(r.wait.id)?.busy?.() && r.wait.left > 0) { if (this.shot && this.shot.spin) { this.shot.yaw += this.shot.spin * dt; this.s.setCinema(this.shot); } return; }
+      r.wait = undefined;
+    }
     const from = r.t; r.t += dt;
     for (const q of cuesBetween(r.cues, from, r.t)) this.fire(q, false);
     if (this.shot && this.shot.spin) { this.shot.yaw += this.shot.spin * dt; this.s.setCinema(this.shot); }
-    if (this.state.subtitle && r.t > this.subUntil) this.publish({ subtitle: null });
     if (this.state.banner && r.t > this.bannerUntil) this.publish({ banner: null });
     if (r.t >= r.len) this.end();
   }
@@ -91,10 +96,11 @@ export class Director {
         s.setCinema(this.shot);
         return;
       }
-      case 'say': if (instant) { s.env_caption?.(q.who ? `${q.who}: ${q.text}` : q.text); return; } this.subUntil = r.t + (q.for ?? 3); this.publish({ subtitle: { who: q.who, text: q.text } }); return;
+      case 'say': if (instant) { s.env_caption?.(q.who ? `${q.who}: ${q.text}` : q.text); return; } this.subLeft = q.for ?? 3; this.publish({ subtitle: { who: q.who, text: q.text } }); return;
       case 'prop': { const d = s.dyn(q.id); if (!d) return; if (q.state) d.setState(q.state, instant); if (q.play && !instant) d.play?.(q.play); return; }
       case 'fx': if (instant) return; { const p = this.at(q.at); s.fx.burst(q.kind, p.x, q.y ?? p.y, p.z, q.n ?? 20, q.scale ?? 1); } return;
       case 'flash': if (instant) return; { const p = this.at(q.at); s.fx.flash(p.x, q.y ?? p.y, p.z, q.color ?? 0xffd166, q.power ?? 12, q.dur ?? 0.4); } return;
+      case 'await': if (!instant) r.wait = { id: q.id, left: q.max ?? 10 }; return;
       case 'sfx': if (!instant) s.audio.sfx(q.name); return;
       case 'npc': {
         const n = s.npcRuntime(q.id); if (!n) return;

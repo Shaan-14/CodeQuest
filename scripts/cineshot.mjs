@@ -19,13 +19,17 @@ await p.getByTestId('name-input').fill('Ada'); await p.getByTestId('begin').clic
 await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 60000 });
 if (await p.getByTestId('welcome-start').count()) await p.getByTestId('welcome-start').click();
 await p.evaluate((sc) => window.__cq3d.travel(sc), scene);
+const TS = Number(process.env.TS ?? 1); await p.evaluate((k) => { window.__cq3d.stage.timeScale = k; }, TS);
 await p.evaluate(() => window.__cq3d.teleport(0, 4, 0));
+if (process.env.FIXED) { const [px, pz, ry, dist, pitch] = process.env.FIXED.split(',').map(Number); await p.evaluate(([px, pz, ry, dist, pitch]) => { const st = window.__cq3d.stage; window.__cq3d.teleport(px, pz, ry); st.setCinema = () => {}; st.dist = dist; st.pitch = pitch; }, [px, pz, ry, dist, pitch]); }
 const ev = (list) => list.split(',').filter(Boolean).map((s) => { const [t, a] = s.split(':'); return { type: 'worldEffect', target: t, action: a, challengeId: 'x' }; });
 if (pre) { // earlier effects, shown instantly by re-loading the scene is not possible without the save: play them and skip
   await p.evaluate((e) => { window.__cq3d.stage.react(e); }, ev(pre));
   await p.waitForTimeout(500); await p.keyboard.press('Space'); await p.waitForTimeout(800); await p.keyboard.press('Space'); await p.waitForTimeout(500);
 }
 await p.evaluate((e) => { window.__cq3d.stage.react(e); }, ev(effects));
-for (let i = 0; i < Number(count); i++) { await p.waitForTimeout(Number(every)); await p.screenshot({ path: `${out}-${String(i).padStart(2, '0')}.png` }); }
+for (let i = 0; i < Number(count); i++) { await p.waitForTimeout(Number(every)); await p.screenshot({ path: `${out}-${String(i).padStart(2, '0')}.png` }); const info = await p.evaluate(() => { const st = window.__cq3d.stage; return { t: +st.t.toFixed(1), cine: document.querySelector('[data-testid=cine]')?.getAttribute('data-active'), bolt: st.dyn('bolt')?.states?.().join(','), rigBusy: st.dyn('repair-rig')?.busy?.() }; }); console.log(i, JSON.stringify(info)); }
+const dur = await p.evaluate(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active'));
+console.log('cine still active at end:', dur);
 console.log('errors:', errs.join('\n') || 'none');
 await b.close(); srv.kill();

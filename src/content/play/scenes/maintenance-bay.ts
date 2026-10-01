@@ -37,7 +37,7 @@ export const maintenanceBay: SceneDef = {
     { kind: 'barrel', x: -10, z: 6, solid: { w: 0.7, d: 0.7 } }, { kind: 'barrel', x: -10.9, z: 5.2, p: { color: 0xc2603a }, solid: { w: 0.7, d: 0.7 } },
     { kind: 'hologram', x: -10, z: 2.6, solid: { w: 1.4, d: 1.4 } },
     // the repair rig beside the table: it fetches, carries and welds Bolt's arm back on when the player's fault log is fixed
-    { kind: 'repairrig', x: -8.6, z: -3.6, id: 'repair-rig', p: { target: 'bolt' }, solid: { w: 2.2, d: 2.2 } },
+    { kind: 'repairrig', x: -7.7, z: -3.5, id: 'repair-rig', p: { target: 'bolt' }, solid: { w: 2.2, d: 2.2 } },
     { kind: 'arm', x: 6.5, z: 3, id: 'bay-arm', solid: { w: 1.1, d: 1.1 } },
     { kind: 'shelf', x: -10, z: -8.55, p: { w: 2.6, h: 2.4, rows: 4 }, solid: { w: 2.6, d: 0.6 } }, { kind: 'shelf', x: -7.2, z: -8.55, p: { w: 2.0, h: 2.4, rows: 4 }, solid: { w: 2.0, d: 0.6 } },
     { kind: 'machine', x: 10, z: -7.4, p: { w: 2.4, h: 2.1, d: 1.5, color: 0x3f6fb0 }, solid: { w: 2.4, d: 1.5 } },
