@@ -9,7 +9,12 @@ export const WALK_SPEED = 3.2;
 export const RUN_SPEED = 5.6;
 export const JUMP_SPEED = 5.2;
 export const GRAVITY = 14;
-const ACCEL = 28; // how quickly velocity follows the wish (feels smooth, never slidy)
+/** Acceleration limits (m/s²). Speeding up is brisk, stopping is a touch quicker, and turning back on yourself is quickest of all, so the body has weight without ever feeling slidy. */
+const ACCEL = 20, DECEL = 28, TURN_ACCEL = 34;
+/** Air control: momentum carries through a jump, steering only nudges it. */
+const AIR_CONTROL = 0.4;
+/** A collider this low is a kerb or a step, not a wall: the body walks up onto it. */
+export const STEP_HEIGHT = 0.32;
 
 export interface Body {
   x: number; z: number; y: number;
@@ -51,9 +56,19 @@ export function pushOut(px: number, pz: number, r: number, c: Collider): [number
   return [px, c.z + hz + r];
 }
 
-/** Does a collider stop a body at this height? (A jump clears anything lower than the body's feet.) */
-const blocks = (c: Collider, y: number) => c.h === undefined || y < c.h - 0.05;
+/** Does a collider stop a body at this height? (A jump clears anything lower than the body's feet; a kerb is stepped onto, never a wall.) */
+const blocks = (c: Collider, y: number) => c.h === undefined || (c.h > STEP_HEIGHT && y < c.h - 0.05);
 
+/** The height of the ground under a body: the top of the highest kerb or step it stands on, else the floor. */
+export function groundAt(x: number, z: number, colliders: readonly Collider[]): number {
+  let g = 0;
+  for (const c of colliders) {
+    if (c.h === undefined || c.h > STEP_HEIGHT) continue;
+    const on = c.kind === 'circle' ? Math.hypot(x - c.x, z - c.z) < c.r + PLAYER_RADIUS * 0.3 : Math.abs(x - c.x) < c.w / 2 + PLAYER_RADIUS * 0.3 && Math.abs(z - c.z) < c.d / 2 + PLAYER_RADIUS * 0.3;
+    if (on && c.h > g) g = c.h;
+  }
+  return g;
+}
 /** The colliders of a scene: every solid prop, plus its walls. Computed once per scene. */
 export function collidersOf(scene: SceneDef): Collider[] {
   const out: Collider[] = [...(scene.walls ?? [])];
@@ -72,17 +87,29 @@ export function stepBody(b: Body, input: MoveInput, colliders: Collider[], bound
   const speed = input.run ? RUN_SPEED : WALK_SPEED;
   const wx = len > 1e-6 ? (input.dx / Math.max(1, len)) * speed : 0;
   const wz = len > 1e-6 ? (input.dz / Math.max(1, len)) * speed : 0;
-  const k = Math.min(1, ACCEL * dt / speed);
-  b.vx += (wx - b.vx) * k;
-  b.vz += (wz - b.vz) * k;
+  // velocity follows the wish with a LIMITED acceleration (a vector, so a change of direction is a real turn that bleeds speed, not a snap)
+  let dvx = wx - b.vx, dvz = wz - b.vz;
+  const dv = Math.hypot(dvx, dvz);
+  if (dv > 1e-6) {
+    const speeding = len > 1e-6 && wx * b.vx + wz * b.vz >= 0 && Math.hypot(wx, wz) >= Math.hypot(b.vx, b.vz) - 0.01;
+    const reversing = len > 1e-6 && wx * b.vx + wz * b.vz < -0.2;
+    let a = (reversing ? TURN_ACCEL : speeding ? ACCEL : DECEL) * dt;
+    if (!b.onGround) a *= AIR_CONTROL;
+    const k = Math.min(1, a / dv);
+    dvx *= k; dvz *= k;
+    b.vx += dvx; b.vz += dvz;
+  }
   if (len < 1e-6 && Math.hypot(b.vx, b.vz) < 0.05) { b.vx = 0; b.vz = 0; }
 
+  const ground = groundAt(b.x, b.z, colliders);
   if (input.jump && b.onGround) { b.vy = JUMP_SPEED; b.onGround = false; }
   b.vy -= GRAVITY * dt;
   b.y += b.vy * dt;
-  if (b.y <= 0) { b.y = 0; b.vy = 0; b.onGround = true; }
+  if (b.onGround && b.vy <= 0) { b.y += (ground - b.y) * Math.min(1, 22 * dt); b.vy = 0; } // stepping up onto a kerb and back down is smooth, never a pop
+  else if (b.y <= ground) { b.y = ground; b.vy = 0; b.onGround = true; }
 
   // Move in small steps so a fast body cannot tunnel through a thin wall.
+  const x0 = b.x, z0 = b.z;
   const dist = Math.hypot(b.vx, b.vz) * dt;
   const steps = Math.max(1, Math.ceil(dist / (PLAYER_RADIUS * 0.5)));
   const sx = (b.vx * dt) / steps, sz = (b.vz * dt) / steps;
@@ -92,13 +119,20 @@ export function stepBody(b: Body, input: MoveInput, colliders: Collider[], bound
     b.x = Math.max(bounds.minX + PLAYER_RADIUS, Math.min(bounds.maxX - PLAYER_RADIUS, nx));
     b.z = Math.max(bounds.minZ + PLAYER_RADIUS, Math.min(bounds.maxZ - PLAYER_RADIUS, nz));
   }
-  // Face where we are going (smoothly), never snapping while standing.
-  if (len > 1e-6) {
-    const target = Math.atan2(-wx, -wz);
+  // what the body ACTUALLY did is its velocity: pushing into a wall slows it to the slide along it (or to a stop), so the legs and the
+  // camera never run on the spot against a wall and nothing jitters
+  if (dt > 0) {
+    const ax = (b.x - x0) / dt, az = (b.z - z0) / dt, aSpeed = Math.hypot(ax, az), vSpeed = Math.hypot(b.vx, b.vz);
+    if (aSpeed < vSpeed - 1e-4) { b.vx = ax; b.vz = az; }
+  }
+  // Face where we are going (smoothly), never snapping while standing; against a wall, face where the player is pushing.
+  const moving = Math.hypot(b.vx, b.vz) > 0.5;
+  if (moving || len > 1e-6) {
+    const target = moving ? Math.atan2(-b.vx, -b.vz) : Math.atan2(-wx, -wz);
     let d = target - b.ry;
     while (d > Math.PI) d -= 2 * Math.PI;
     while (d < -Math.PI) d += 2 * Math.PI;
-    b.ry += d * Math.min(1, 14 * dt);
+    b.ry += d * (1 - Math.exp(-dt * (moving ? 13 : 9)));
   }
   return b;
 }

@@ -14,9 +14,10 @@ import type { GameEvent } from '../../game/events';
 import { hasEffect, holds } from '../logic/conditions';
 import type { Npc3D, NpcLook } from '../logic/dialogue';
 import { nearestInteractable } from '../logic/interact';
+import { fitColliders } from './collide';
 import { markersAt, type Marker } from '../logic/markers';
-import { collidersOf, newBody, poseOf, stepBody, type Body } from '../logic/movement';
-import type { Collider, Interactable, SceneDef } from '../logic/sceneTypes';
+import { collidersOf, newBody, poseOf, pushOut, stepBody, type Body } from '../logic/movement';
+import type { Collider, Interactable, Prop, SceneDef } from '../logic/sceneTypes';
 import type { QuestObjective } from '../../content/schema';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Audio } from './audio';
@@ -96,8 +97,11 @@ export class Stage {
   private ticks: ((dt: number, t: number) => void)[] = [];
   private npcs: NpcRuntime[] = [];
   private colliders: Collider[] = [];
+  /** Every placed prop with its built object (the integrity check compares what is seen with what blocks). */
+  readonly built: { p: Prop; obj: Object3D }[] = [];
   /** Solid props that can open (a gate): their collider leaves when the prop opens. */
-  private propColliders = new Map<string, Collider>();
+  private propColliders = new Map<string, Collider[]>();
+  private npcColliders = new Set<Collider>();
   /** Room walls: hidden while the camera is on the outside of them, so the room is never seen from behind a wall. */
   /** Tall solid props: hidden while they stand between the camera and the player, so nothing ever hides the character. */
   private occluders: { obj: Object3D; box: Box3 }[] = [];
@@ -246,6 +250,7 @@ export class Stage {
     this.world.add(ground);
     // props
     const save = this.env.getSave();
+    const fitted = new Map<Prop, Collider[]>();
     for (const p of def.props) {
       const make = builders[p.kind];
       if (!make) { console.warn('unknown prop kind', p.kind); continue; }
@@ -254,6 +259,8 @@ export class Stage {
       built.object.position.x += p.x; built.object.position.y += p.y ?? 0; built.object.position.z += p.z;
       built.object.rotation.y = p.ry ?? 0;
       this.world.add(built.object);
+      this.built.push({ p, obj: built.object });
+      const fit = fitColliders(built.object, p); if (fit.length) fitted.set(p, fit); // before static batching merges the parts: what blocks follows what is drawn
       if (!built.dyn && !built.tick && p.kind !== 'floor') batchStatic(built.object);
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
       if (built.tick) this.ticks.push(built.tick);
@@ -263,10 +270,14 @@ export class Stage {
       if (p.kind === 'wall') { const ry = p.ry ?? 0; const n = { x: Math.sin(ry), z: Math.cos(ry) }; const inside = Math.sign(n.x * (cx - p.x) + n.z * (cz - p.z)) || 1; this.walls.push({ obj: built.object, nx: n.x, nz: n.z, px: p.x, pz: p.z, inside }); }
     }
     this.grid = null; this.waypoint = null; this.guide.setTarget(null);
-    this.colliders = collidersOf({ ...def, props: def.props.filter((p) => !p.id) });
+    this.colliders = [...(def.walls ?? [])];
     this.propColliders.clear();
-    // a solid prop with an id remembers its collider so it can be removed when the prop opens
-    for (const p of def.props) if (p.id && p.solid) { const c = collidersOf({ ...def, props: [p], walls: [] })[0]; if (c) { this.colliders.push(c); this.propColliders.set(p.id, c); } }
+    for (const p of def.props) {
+      const own = fitted.get(p) ?? (p.solid ? collidersOf({ ...def, props: [p], walls: [] }) : []); // the declared footprint only where nothing could be measured (a wall, a door)
+      this.colliders.push(...own);
+      // a solid prop with an id remembers its colliders so they can be removed when the prop opens
+      if (p.id && own.length) this.propColliders.set(p.id, own);
+    }
     // NPCs
     for (const pl of def.npcs) {
       const npc = this.env.getNpc(pl.npc); if (!npc) continue;
@@ -274,7 +285,7 @@ export class Stage {
       rig.group.position.set(pl.x, 0, pl.z); rig.setFacing(pl.ry ?? 0, true);
       this.scene.add(rig.group);
       const collider = { kind: 'circle' as const, x: pl.x, z: pl.z, r: 0.5 };
-      this.colliders.push(collider);
+      this.colliders.push(collider); this.npcColliders.add(collider);
       this.npcs.push({ npc, rig, x: pl.x, z: pl.z, ry: pl.ry ?? 0, home: { x: pl.x, z: pl.z }, patrol: pl.patrol, leg: 0, collider, speed: 0, activity: pl.activity });
       if (pl.activity) rig.hold(pl.activity);
     }
@@ -302,7 +313,7 @@ export class Stage {
     this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); });
     clearLabels();
     for (const n of this.npcs) this.scene.remove(n.rig.group);
-    this.npcs = []; this.dyns.clear(); this.ticks = []; this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = []; this.mounted = [];
+    this.npcs = []; this.npcColliders.clear(); this.built.length = 0; this.dyns.clear(); this.ticks = []; this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = []; this.mounted = [];
     for (const m of this.markerMeshes.values()) this.scene.remove(m);
     this.markerMeshes.clear();
     this.director.reset(); this.controlLocked = false; this.playerGoal = null; this.playerFace = null; this.prompt = null; this.driver = null; this.hooks = []; this.chase = null; this.playerRig.group.visible = true; this.audio.engine(null); this.cinema = null;
@@ -354,7 +365,7 @@ export class Stage {
     return out;
   }
 
-  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.grid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => x !== c); this.propColliders.delete(prop); } }
+  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.grid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => !c.includes(x)); this.propColliders.delete(prop); } }
 
   /** Paint the sky dome: `zenith` at the top blending to `horizon` at eye level. */
   private paintSky(zenith: Color, horizon: Color): void {
@@ -424,6 +435,7 @@ export class Stage {
     const k = snap ? 1 : 1 - Math.exp(-dt * this.camRate); // frame-rate independent follow: smooth, never laggy
     this.camPos.x += (ex - this.camPos.x) * k; this.camPos.y += (ey - this.camPos.y) * k; this.camPos.z += (ez - this.camPos.z) * k;
     this.camLook.x += (b.x - this.camLook.x) * k; this.camLook.y += (cy - this.camLook.y) * k; this.camLook.z += (b.z - this.camLook.z) * k;
+    this.camPos.y = Math.max(this.camPos.y, 0.6); // never under the floor
     this.camera.position.copy(this.camPos);
     this.sky.position.copy(this.camPos);
     for (const w of this.walls) w.obj.visible = (w.nx * (this.camPos.x - w.px) + w.nz * (this.camPos.z - w.pz)) * w.inside > -0.5;
@@ -435,7 +447,7 @@ export class Stage {
       this.headPos.set(b.x, cy - 0.2, b.z);
       this.ray.origin.copy(this.camera.position); this.ray.direction.copy(this.headPos).sub(this.ray.origin);
       const len = this.ray.direction.length(); this.ray.direction.divideScalar(len || 1);
-      for (const o of this.occluders) { const h = this.ray.intersectBox(o.box, this.hit); o.obj.visible = !(h && h.distanceTo(this.ray.origin) < len - 0.4); }
+      for (const o of this.occluders) { const h = this.ray.intersectBox(o.box, this.hit); o.obj.visible = !((h && h.distanceTo(this.ray.origin) < len - 0.4) || o.box.containsPoint(this.camera.position)); } // and anything the camera itself is inside
     }
     if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 2); this.camera.position.x += (Math.random() - 0.5) * this.shake * 0.3; this.camera.position.y += (Math.random() - 0.5) * this.shake * 0.3; }
     this.camera.lookAt(this.camLook);
@@ -560,6 +572,8 @@ export class Stage {
     }
     // idle life: now and then a thought, a nod or a shrug (not while busy, walking or being talked to)
     if (!moving && !n.activity && !this.controlLocked && !n.faceTarget) { n.idleIn = (n.idleIn ?? 4 + Math.random() * 8) - dt; if (n.idleIn <= 0) { n.idleIn = 7 + Math.random() * 9; n.rig.play((['think', 'shrug', 'nod'] as const)[Math.floor(Math.random() * 3)]!); } }
+    // people do not walk through scenery or each other: they are pushed out of anything that blocks, like the player
+    if (moving) for (const c of this.colliders) { if (this.npcColliders.has(c)) continue; [n.x, n.z] = pushOut(n.x, n.z, 0.35, c); }
     n.collider.x = n.x; n.collider.z = n.z;
     n.rig.group.position.set(n.x, 0, n.z); n.rig.setFacing(n.ry);
     n.rig.update(dt, moving ? 'walk' : 'idle', moving ? (n.goal ? 1.7 : 1.0) : 0);
@@ -568,6 +582,9 @@ export class Stage {
 
   /* ------------------------------------------------------------------ test and debug surface (read-only state; teleport only for e2e) */
 
+  /** Read-only access for the integrity check. */
+  get solidColliders(): readonly Collider[] { const npc = new Set<Collider>(this.npcs.map((n) => n.collider)); return this.colliders.filter((c) => !npc.has(c)); }
+  get npcSpots(): { id: string; x: number; z: number }[] { return this.npcs.map((n) => ({ id: n.npc.id, x: n.x, z: n.z })); }
   snapshot(): { scene: string | null; x: number; z: number; ry: number; y: number; prompt: string | null; npcs: { id: string; x: number; z: number }[]; markers: string[]; fps: number } {
     return { scene: this.def?.id ?? null, x: this.body.x, z: this.body.z, ry: this.body.ry, y: this.body.y, prompt: this.prompt?.id ?? null, npcs: this.npcs.map((n) => ({ id: n.npc.id, x: n.x, z: n.z })), markers: this.markers.map((m) => m.id), fps: 0 };
   }

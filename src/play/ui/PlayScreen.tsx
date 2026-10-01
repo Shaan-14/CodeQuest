@@ -76,7 +76,7 @@ export const DEFAULT_SCENE = 'robotics-atrium';
 
 type Talk = { conv: Conversation; lines: string[] } | { inspect: { name: string; lines: string[] } } | null;
 
-declare global { interface Window { __cq3dHud?: DriveHudState | null; __cq3d?: { autopilot?: (on: boolean, scale?: number) => void; stage: Stage; state: () => unknown; drive?: () => Promise<void>; dynStates: (id: string) => string[]; teleport?: (x: number, z: number, ry?: number) => void; travel: (scene: string, spawn?: string) => void; open: (what: string) => void } } }
+declare global { interface Window { __cq3dHud?: DriveHudState | null; __cq3d?: { autopilot?: (on: boolean, scale?: number) => void; stage: Stage; state: () => unknown; drive?: () => Promise<void>; dynStates: (id: string) => string[]; teleport?: (x: number, z: number, ry?: number) => void; integrity?: () => Promise<unknown>; colliders?: (on?: boolean) => Promise<number>; travel: (scene: string, spawn?: string) => void; open: (what: string) => void } } }
 
 /**
  * The playable world screen: the 3D view plus everything drawn over it. All game rules stay where they were: quests, evidence, Focus and
@@ -198,6 +198,8 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         setReady(true);
         window.__cq3d = {
           stage, state: () => stage.snapshot(), travel, drive: () => startDriving(), dynStates: (id) => stage.dyn(id)?.states?.() ?? [],
+          colliders: localStorage.getItem('codequest.e2e') === '1' ? async (on) => (await import('../engine/integrity')).showColliders(stage, on) : undefined,
+          integrity: localStorage.getItem('codequest.e2e') === '1' ? async () => (await import('../engine/integrity')).meshIssues(stage) : undefined,
           teleport: localStorage.getItem('codequest.e2e') === '1' ? (x, z, ry) => stage.teleport(x, z, ry) : undefined,
           autopilot: localStorage.getItem('codequest.e2e') === '1' ? (on, scale) => { stage.timeScale = on ? (scale ?? 4) : 1; autopilot(stage, on); } : undefined,
           open: (w) => { if (w === 'pause') setPaused(true); if (w === 'sim') setSim(true); if (w === 'map') setMapOpen(true); if (w === 'daily') setDaily(true); if (w === 'manual') setManual(true); },

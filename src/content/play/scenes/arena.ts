@@ -23,9 +23,9 @@ export const arena: SceneDef = {
     { kind: 'well', x: 10.5, z: 6.5, id: 'oracle', p: { says: 'YOU ASKED.|I ANSWER.' }, solid: { w: 2.4, d: 2.4 } },
     { kind: 'crystal', x: -12.5, z: -10, p: { color: 0xff79c6, h: 2.2 } }, { kind: 'crystal', x: 12.5, z: -10, p: { color: 0x5ee6d0, h: 2.2 } },
   ],
-  npcs: [{ npc: 'nim', x: -9.5, z: 4.5, ry: 0.4 }],
+  npcs: [{ npc: 'nim', x: -11.2, z: 5.2, ry: 0.5 }],
   interactables: [
-    { id: 'talk-nim-arena', verb: 'Talk', label: 'Apprentice Nim', x: -9.5, z: 4.5, action: { type: 'talk', npc: 'nim' } },
+    { id: 'talk-nim-arena', verb: 'Talk', label: 'Apprentice Nim', x: -11.2, z: 5.2, action: { type: 'talk', npc: 'nim' } },
     { id: 'spell-lectern', verb: 'Use', label: 'the Incantation Lectern', x: -7, z: 3.7, action: { type: 'terminal', station: 'spell-lectern' } },
     { id: 'orb-look', verb: 'Inspect', label: 'the altar orb', x: 0, z: -1.5, range: 2.5, action: { type: 'inspect', id: 'altar-orb', text: 'A grey orb on a stone altar. It is waiting for an incantation to wake it.', after: { effect: 'arena.orb:spark', text: 'The orb hums violet. It is ready to carry your spells.' } } },
     { id: 'oracle-look', verb: 'Inspect', label: 'the oracle well', x: 9, z: 5, range: 2.5, action: { type: 'inspect', id: 'oracle-well', text: 'A deep well with a thin, waiting silence in it. A spirit lives at the bottom and answers questions, but only when you summon it by name, in the right language, across the river of the network.', after: { effect: 'arena.oracle:answer', text: 'The spirit of the well rises and speaks. Your summoning reached it and it answered: data from a server, in your hands.' } } },
