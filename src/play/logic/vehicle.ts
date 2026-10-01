@@ -78,30 +78,35 @@ export function stepCar(c: Car, d: Driving, setup: Setup, cl: CentreLine, dt: nu
   return c;
 }
 
-/** A simple driver AI: follows the centre-line, slows for corners. Used to measure a standing-start lap for a setup (the par time, and tests). */
-export function aiLap(setup: Setup, cl: CentreLine, maxSeconds = 240): { time: number; ok: boolean } {
+/** What a simple driver does this instant: follow the centre-line, slow for corners (setup grip and brakes decide how fast a corner can be taken). */
+export function aiDrive(car: Car, cl: CentreLine, setup: Setup, hint: number): { throttle: number; brake: number; steer: number; here: ReturnType<typeof locate> } {
   const N = cl.pts.length, step = cl.length / N;
+  const here = locate(cl, car.x, car.z, hint);
+  const speed = speedOf(car);
+  const ahead = cl.pts[(here.i + Math.max(3, Math.round((speed * 0.4) / step))) % N]!;
+  const want = Math.atan2(-(ahead.x - car.x), -(ahead.z - car.z));
+  let err = want - car.heading; while (err > Math.PI) err -= 2 * Math.PI; while (err < -Math.PI) err += 2 * Math.PI;
+  const steer = Math.max(-1, Math.min(1, -err * 1.7));
+  const far = cl.pts[(here.i + Math.round((14 + speed * 1.5) / step)) % N]!;
+  let bend = far.heading - cl.pts[here.i]!.heading; while (bend > Math.PI) bend -= 2 * Math.PI; while (bend < -Math.PI) bend += 2 * Math.PI;
+  const cornerSpeed = Math.max(13, 50 * (1 - Math.min(0.78, Math.abs(bend) * 0.95)) * (0.45 + 0.55 * setup.grip) * (0.8 + 0.2 * setup.brake));
+  return { throttle: speed < cornerSpeed ? 1 : 0, brake: speed > cornerSpeed + 3 ? Math.min(1, (speed - cornerSpeed) / 14) : 0, steer, here };
+}
+
+/** A standing-start lap by the driver AI: the par time, tests, and the lap shown in the replay. */
+export function aiLap(setup: Setup, cl: CentreLine, maxSeconds = 240): { time: number; ok: boolean } {
+  const N = cl.pts.length;
   const p0 = cl.pts[0]!;
   const car = newCar(p0.x, p0.z, p0.heading);
   let hint = 0, t = 0, late = false, worst = 0;
   const dt = 1 / 60;
   while (t < maxSeconds) {
-    const here = locate(cl, car.x, car.z, hint); hint = here.i;
-    worst = Math.max(worst, here.off);
-    const speed = speedOf(car);
-    const ahead = cl.pts[(here.i + Math.max(3, Math.round((speed * 0.4) / step))) % N]!;
-    const want = Math.atan2(-(ahead.x - car.x), -(ahead.z - car.z));
-    let err = want - car.heading; while (err > Math.PI) err -= 2 * Math.PI; while (err < -Math.PI) err += 2 * Math.PI;
-    const steer = Math.max(-1, Math.min(1, -err * 1.7));
-    const far = cl.pts[(here.i + Math.round((14 + speed * 1.5) / step)) % N]!;
-    let bend = far.heading - cl.pts[here.i]!.heading; while (bend > Math.PI) bend -= 2 * Math.PI; while (bend < -Math.PI) bend += 2 * Math.PI;
-    const cornerSpeed = Math.max(13, 50 * (1 - Math.min(0.78, Math.abs(bend) * 0.95)) * (0.45 + 0.55 * setup.grip) * (0.8 + 0.2 * setup.brake));
-    const throttle = speed < cornerSpeed ? 1 : 0;
-    const brake = speed > cornerSpeed + 3 ? Math.min(1, (speed - cornerSpeed) / 14) : 0;
-    stepCar(car, { throttle, brake, steer }, setup, cl, dt, hint);
+    const d = aiDrive(car, cl, setup, hint); hint = d.here.i;
+    worst = Math.max(worst, d.here.off);
+    stepCar(car, { throttle: d.throttle, brake: d.brake, steer: d.steer }, setup, cl, dt, hint);
     t += dt;
-    if (here.i > N * 0.8) late = true;
-    if (late && here.i < N * 0.1) return { time: t, ok: worst < cl.width };
+    if (d.here.i > N * 0.8) late = true;
+    if (late && d.here.i < N * 0.1) return { time: t, ok: worst < cl.width };
   }
   return { time: maxSeconds, ok: false };
 }

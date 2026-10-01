@@ -243,5 +243,48 @@ const hazardstrip: Builder = (p) => {
   return { object: m };
 };
 
-export const industrialBuilders: Record<string, Builder> = { optable, floorMetal, glowstrip, floorEmblem, gearsculpt, reception, monitorwall, dock, drone, shelf, warnlight, planter, machine, lamparm, vending, pipe, cable, kiosk, stack, cart, gateway, vent, hazardstrip };
+/** The pit building: a long garage block with a roof overhang, bay doors with glowing frames and a sponsor sign. */
+const pitbuilding: Builder = (p) => {
+  const g = new Group(); const w = num(p, 'w', 40), d = num(p, 'd', 8), h = num(p, 'h', 6), c = col(p, 'color', 0x4b5068), accent = col(p, 'accent', 0xe63946), bays = num(p, 'bays', 6);
+  g.add(rbox(w, h, d, c, { rough: 0.6, r: 0.15 }), rbox(w + 1.2, 0.5, d + 3.2, 0x2a2f45, { y: h, z: 1.5, r: 0.1, metal: 0.3 }), rbox(w + 1.2, 0.18, 0.4, accent, { y: h - 0.3, z: d / 2 + 2.9, glow: 0.8, r: 0.05 }));
+  const bw = (w - 4) / bays;
+  for (let i = 0; i < bays; i++) { const x = -w / 2 + 2 + bw * (i + 0.5); g.add(rbox(bw - 1.2, h - 2.2, 0.2, 0x1c2036, { x, y: 0.1, z: d / 2 + 0.05, r: 0.05, metal: 0.3 }), rbox(bw - 0.9, 0.18, 0.28, accent, { x, y: h - 2.2, z: d / 2 + 0.1, glow: 0.9, r: 0.04 }), rbox(0.14, h - 2.1, 0.28, accent, { x: x - (bw - 0.9) / 2, y: 0.1, z: d / 2 + 0.1, glow: 0.6 }), rbox(0.14, h - 2.1, 0.28, accent, { x: x + (bw - 0.9) / 2, y: 0.1, z: d / 2 + 0.1, glow: 0.6 })); }
+  g.add(sign(str(p, 'text', 'REDLINE').split('|'), Math.min(14, w * 0.4), 1.1, { bg: '#1b1b2f', fg: hexs(accent), y: h - 1.1, z: d / 2 + 0.3, font: 56 }));
+  return { object: g };
+};
+
+/** A flag on a pole that ripples. */
+const pennant: Builder = (p) => {
+  const g = new Group(); const h = num(p, 'h', 7), c = col(p, 'color', 0xe63946);
+  g.add(rcyl(0.07, 0.1, h, 0xcfd6ea, { metal: 0.5, rough: 0.3 }), rsph(0.11, 0xffd166, { y: h + 0.05, glow: 0.5 }));
+  const cloth = new Mesh(planeGeo, new MeshStandardMaterial({ color: c, roughness: 0.8, side: 2 })); cloth.scale.set(2.4, 1.4, 1); cloth.position.set(1.25, h - 0.8, 0); g.add(cloth);
+  return { object: g, tick: (_dt, t) => { cloth.rotation.y = Math.sin(t * 2 + p.x) * 0.25; cloth.scale.x = 2.4 + Math.sin(t * 3 + p.z) * 0.12; } };
+};
+
+/** An awning tent with posts and a striped roof (hospitality, a pit-lane shelter). */
+const tent: Builder = (p) => {
+  const g = new Group(); const w = num(p, 'w', 6), d = num(p, 'd', 4), c = col(p, 'color', 0xe63946);
+  for (const x of [-w / 2, w / 2]) for (const z of [-d / 2, d / 2]) g.add(rcyl(0.06, 0.06, 2.6, 0xcfd6ea, { x, z, metal: 0.4 }));
+  for (let i = 0; i < 6; i++) g.add(rbox(w / 6, 0.14, d + 0.8, i % 2 ? 0xf5f5f5 : c, { x: -w / 2 + (i + 0.5) * (w / 6), y: 2.6 + (i < 3 ? i : 5 - i) * 0.12, r: 0.03, rough: 0.9 }));
+  g.add(rbox(w - 0.6, 0.12, 0.9, 0x8a5a33, { y: 0.8, z: d / 2 - 0.6 }), rbox(0.6, 0.12, 0.6, 0xf5f5f5, { x: -1, y: 0.95, z: d / 2 - 0.6 }));
+  return { object: g };
+};
+
+/** A row of traffic cones. */
+const cones: Builder = (p) => {
+  const g = new Group(); const n = num(p, 'n', 6), step = num(p, 'step', 2);
+  for (let i = 0; i < n; i++) g.add(rcyl(0.04, 0.2, 0.6, 0xff7b00, { x: i * step, glow: 0.15 }), rbox(0.42, 0.04, 0.42, 0xff7b00, { x: i * step }), rcyl(0.1, 0.16, 0.08, 0xffffff, { x: i * step, y: 0.28 }));
+  return { object: g };
+};
+
+/** The timing tower: a tall block with a glass band, a glowing board and a roof deck. */
+const timingtower: Builder = (p) => {
+  const g = new Group(); const h = num(p, 'h', 14);
+  g.add(rbox(5, h, 4, 0x39405c, { rough: 0.5, metal: 0.3, r: 0.12 }), rbox(5.4, 0.5, 4.4, 0x2a2f45, { y: h }));
+  for (let i = 0; i < 3; i++) g.add(rbox(4.4, 1.2, 0.1, 0x8be9fd, { y: 3 + i * 3.4, z: 2.05, glow: 0.5, transparent: 0.7, r: 0.03 }));
+  g.add(sign(['LAP TIMES', '1  #7   0:38.3', '2  #3   0:39.1', '3  #11  0:40.4'], 4.2, 2.2, { bg: '#0a0f1c', fg: '#ffd166', y: h - 3, z: 2.08, font: 30 }));
+  return { object: g };
+};
+
+export const industrialBuilders: Record<string, Builder> = { pitbuilding, pennant, tent, cones, timingtower, optable, floorMetal, glowstrip, floorEmblem, gearsculpt, reception, monitorwall, dock, drone, shelf, warnlight, planter, machine, lamparm, vending, pipe, cable, kiosk, stack, cart, gateway, vent, hazardstrip };
 void shape; void wallPanel;

@@ -1,24 +1,23 @@
-/** First arrival in the world: what you can do, how it works, and the promises of the game. Shown once; the menu repeats the controls. */
+/** First arrival: the controls and the promises of the game, on one card. Shown once; the pause menu repeats the controls. */
 export function Welcome({ onStart }: { onStart: () => void }) {
   return (
-    <div class="play-terminal" role="dialog" aria-label="Welcome to Bytehaven" data-testid="play-welcome" style={{ background: 'rgba(6,8,20,.94)' }}>
-      <div class="term-body" style={{ maxWidth: '760px' }}>
+    <div class="welcome" role="dialog" aria-label="Welcome to Bytehaven" data-testid="play-welcome">
+      <div class="welcome-card">
+        <div class="welcome-kicker">CodeQuest</div>
         <h1>Welcome to Bytehaven</h1>
-        <p>Four worlds and a mountain. Walk around, talk to people, and change things with code you write yourself.</p>
-        <section class="panel">
-          <h3>Move and act</h3>
-          <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to walk · <kbd>Shift</kbd> to run · <kbd>Space</kbd> to jump · <kbd>E</kbd> to talk, inspect, use or enter · move the mouse to look around (or <kbd>Q</kbd>/<kbd>R</kbd>) · <kbd>M</kbd> map · <kbd>H</kbd> Field Manual · <kbd>Esc</kbd> menu.</p>
-        </section>
-        <section class="panel">
-          <h3>How this world works</h3>
-          <ul>
-            <li><strong>Your code changes the world.</strong> Terminals open real lessons with a real editor. A program that works moves something you can see; one that does not makes something go wrong. Nothing is ever lost.</li>
-            <li><strong>XP and levels are not skill.</strong> What you can actually do is recorded from your work, and the Skills view shows it.</li>
-            <li><strong>If a hard task goes wrong</strong> you lose some Focus and train in the Simulation Room before trying again: a different problem, never the same one. There is no shortcut and no punishment beyond that.</li>
-            <li><strong>A glowing diamond</strong> marks a person with work for you, or the next place the story leads. It never tells you how to solve anything.</li>
-          </ul>
-        </section>
-        <button class="btn gold" onClick={onStart} data-testid="welcome-start" autoFocus>Let’s go</button>
+        <p class="welcome-sub">Four worlds and a mountain. Walk, talk, and change the world with code you write yourself.</p>
+        <div class="welcome-keys" aria-label="Controls">
+          <div><span class="kbds"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>move<small>arrows work too · <kbd>Shift</kbd> run · <kbd>Space</kbd> jump</small></div>
+          <div><span class="kbds"><kbd>🖱</kbd></span>look around<small>just move the mouse · <kbd>Esc</kbd> to release it</small></div>
+          <div><span class="kbds"><kbd>E</kbd></span>talk · inspect · use<small><kbd>M</kbd> map · <kbd>H</kbd> Field Manual</small></div>
+        </div>
+        <ul class="welcome-promises">
+          <li><strong>Your code changes the world.</strong> Terminals open real lessons with a real editor. A program that works moves something you can see.</li>
+          <li><strong>XP and levels are not skill.</strong> What you can really do is recorded from your work, in the Skills view.</li>
+          <li><strong>If a hard task goes wrong</strong> you train in the Simulation Room and try a <em>different</em> problem. No shortcuts, no punishment.</li>
+          <li>A <strong>glowing trail</strong> and a light column show where the story goes next. They never say how to solve anything.</li>
+        </ul>
+        <button class="btn gold welcome-go" onClick={onStart} data-testid="welcome-start" autoFocus>Begin</button>
       </div>
     </div>
   );

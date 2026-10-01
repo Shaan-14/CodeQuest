@@ -23,7 +23,7 @@ import { DriveHud } from './DriveHud';
 import { BossOverlay } from './BossOverlay';
 import { Finale } from './Finale';
 import type { DriveHud as DriveHudState } from '../engine/drive';
-import { aiLap, setupFrom, TUNED } from '../logic/vehicle';
+import { aiLap, BASELINE, setupFrom, TUNED } from '../logic/vehicle';
 import { centreLine, locate, REDLINE } from '../logic/track';
 import { hasEffect } from '../logic/conditions';
 import { stationOfLesson } from '../../content/play/stations';
@@ -122,6 +122,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const [driving, setDriving] = useState(false);
   const stopDrive = useRef<(() => void) | null>(null);
   const par = useRef(0);
+  const demoStop = useRef<(() => void) | null>(null);
   const pending = useRef<import('../../game/events').GameEvent[]>([]);
   const overlayOpen = useRef(false);
   const captionTimer = useRef<number>(0);
@@ -238,7 +239,30 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     if (!panelOpen && !talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && finalePending.current) { finalePending.current = false; window.setTimeout(() => setFinale(true), s.reduced ? 500 : 7000); }
   }, [panelOpen, talk, terminal, paused, gate, training, mapOpen, sim, boss, finale, daily, manual, welcome, ready]);
 
-  function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); else if (panel === 'daily') setDaily(true); }
+  function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); else if (panel === 'daily') setDaily(true); else if (panel === 'setup') void watchLap(); }
+
+  /** The replay lap: the car drives itself round the circuit with the setup the player's analysis earned, under a director's camera. */
+  async function watchLap(): Promise<void> {
+    const stage = stageRef.current; if (!stage || demoStop.current) return;
+    if (stage.def?.id !== 'track') travel('track', 'paddock');
+    const st = getStore();
+    const done = { tyres: hasEffect(st.save, 'garage.car:tyres'), brakes: hasEffect(st.save, 'garage.car:brakes'), fuel: hasEffect(st.save, 'garage.car:fuel'), aero: hasEffect(st.save, 'garage.car:aero') };
+    const { startDemoLap } = await import('../engine/demoLap');
+    const cl = centreLine(REDLINE);
+    stage.dyn('paddock-car')?.object && (stage.dyn('paddock-car')!.object.visible = false);
+    demoStop.current = startDemoLap(stage, setupFrom(done), {
+      states: Object.entries(done).filter(([, v]) => v).map(([k]) => k),
+      onEnd: (r) => {
+        demoStop.current = null;
+        stage.dyn('paddock-car')?.object && (stage.dyn('paddock-car')!.object.visible = true);
+        if (r.cancelled || !r.ms) return;
+        const you = r.ms / 1000, stock = aiLap(BASELINE, cl).time;
+        const diff = stock - you;
+        stage.director.show({ banner: { title: `Lap ${you.toFixed(1)} s`, sub: diff > 0.2 ? `The stock car needs ${stock.toFixed(1)} s: your setup is ${diff.toFixed(1)} s faster.` : `The stock car needs ${stock.toFixed(1)} s. Find more in the telemetry.`, kind: 'info' } });
+        window.setTimeout(() => stage.director.show({ banner: null }), 6000);
+      },
+    });
+  }
 
   function interact(it: Interactable): void {
     const st = getStore();

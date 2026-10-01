@@ -236,7 +236,8 @@ export class Stage {
     this.hemi.intensity = look.night ? 0.55 : 0.95; this.amb.intensity = look.ambient ?? 0.25;
     this.sun.intensity = look.sun ?? (look.night ? 0.45 : 1.1);
     const sd = look.sunDir ?? [0.5, 1, 0.4]; this.sun.position.set(sd[0] * 30, sd[1] * 30, sd[2] * 30);
-    this.lamps.forEach((l, i) => { const d = look.lights?.[i]; if (d) { l.position.set(d.x, d.y, d.z); l.color.setHex(d.color); l.intensity = d.intensity; l.distance = d.dist ?? 14; } else l.intensity = 0; });
+    const lampBudget = this.env.quality === 'low' ? 0 : this.env.quality === 'medium' ? 3 : 4; // coloured point lights are the costly part of the look: fewer on slower settings
+    this.lamps.forEach((l, i) => { const d = i < lampBudget ? look.lights?.[i] : undefined; if (d) { l.position.set(d.x, d.y, d.z); l.color.setHex(d.color); l.intensity = d.intensity; l.distance = d.dist ?? 14; } else l.intensity = 0; });
     const b = def.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
     if (this.sun.castShadow) { const s = Math.max(b.maxX - b.minX, b.maxZ - b.minZ) * 0.6; const sc = this.sun.shadow.camera; sc.left = -s; sc.right = s; sc.top = s; sc.bottom = -s; sc.updateProjectionMatrix(); this.sun.target.position.set(cx, 0, cz); }
     // ground

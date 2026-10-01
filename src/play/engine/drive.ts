@@ -73,7 +73,7 @@ export function startDrive(stage: Stage, setup: Setup, hooks: DriveHooks, at?: {
       stage.audio.sfx('success'); hooks.onLap(ms, lap);
     }
     // look of the car
-    obj.position.set(car.x, 0, car.z); obj.rotation.y = car.heading;
+    obj.position.set(car.x, 0, car.z); obj.rotation.y = car.heading; obj.userData.spin = speedOf(car) / 0.46; built.tick?.(dt, clock);
     obj.rotation.z = -car.steer * Math.min(0.06, speedOf(car) * 0.002);
     // the player's body follows the car so the camera, prompts and the saved position are right
     stage.body.x = car.x; stage.body.z = car.z; stage.body.ry = car.heading;

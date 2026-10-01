@@ -26,6 +26,8 @@ export class Director {
   get running(): boolean { return this.cur !== null; }
   /** Add a cinematic to play after any already waiting. */
   enqueue(c: Cinematic): void { this.queue.push(c); if (!this.cur) this.next(); }
+  /** Show or hide the cinematic furniture (letterbox, subtitle) for a sequence that is not a cue sheet (a replayed lap). */
+  show(patch: Partial<CineState>): void { this.publish(patch); }
   private publish(patch: Partial<CineState>): void { this.state = { ...this.state, ...patch }; this.onState(this.state); }
 
   private next(): void {

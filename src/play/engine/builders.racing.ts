@@ -1,50 +1,66 @@
 /** Redline Raceway props: the car (whose look follows its setup), the circuit ribbon, barriers, pit-wall and garage items. */
 import { BufferAttribute, BufferGeometry, CanvasTexture, Group, Mesh, MeshBasicMaterial, RepeatWrapping, SRGBColorSpace } from 'three';
 import { centreLine, checkpoints, REDLINE } from '../logic/track';
-import { mat, shape, sign } from './kit';
+import { mat, rbox, rcyl, rsph, shape, sign } from './kit';
 import { col, num } from './props';
 import type { Builder, Dyn } from './builders';
 
 const RED = 0xe63946, WHITE = 0xf5f5f5, DARK = 0x1b1f2e;
 
-/** The race car: low body, cockpit, nose, wings and four wheels. Its parts show the setup: tyres (worn grey or fresh red-banded), brakes (glowing discs), fuel (exhaust), aero (big wings). */
+/** The race car: a glossy monocoque with sidepods, halo, wings and four wheels that spin. Its parts show the setup: tyres (a red sidewall band), brakes (glowing discs), fuel (a lit exhaust), aero (bigger wings). */
 const car: Builder = (p, ctx) => {
   const g = new Group(); const c = col(p, 'color', RED);
   const body = new Group(); g.add(body);
-  body.add(shape('box', 1.7, 0.45, 4.2, c, { y: 0.3 }), shape('box', 1.0, 0.4, 1.4, DARK, { y: 0.7, z: 0.2 }), shape('box', 0.9, 0.3, 1.8, c, { y: 0.3, z: -2.6 }));
-  body.add(shape('box', 0.25, 0.3, 0.25, WHITE, { x: 0, y: 0.92, z: 0.25 }));                       // head
-  body.add(sign([str(p, 'number', '7')], 0.8, 0.8, { bg: '#e63946', fg: '#ffffff', y: 0.72, z: 2.11, font: 90 }));
-  const wing = new Group(); wing.position.set(0, 0.6, 2.2); body.add(wing);
-  const wingTop = shape('box', 1.9, 0.08, 0.5, DARK, { y: 0.35 }); wing.add(shape('box', 0.1, 0.4, 0.3, DARK, { x: -0.6 }), shape('box', 0.1, 0.4, 0.3, DARK, { x: 0.6 }), wingTop);
-  const front = shape('box', 1.9, 0.06, 0.45, DARK, { y: 0.1, z: -3.4 }); body.add(front);
-  const wheels: Mesh[] = []; const discs: Mesh[] = []; const sidewalls: Mesh[] = [];
-  for (const [x, z] of [[-1.0, -1.4], [1.0, -1.4], [-1.05, 1.5], [1.05, 1.5]] as const) {
-    const w = shape('cyl', 0.8, 0.5, 0.8, 0x1a1a1a, { x, z, y: 0.0, rz: Math.PI / 2 }); w.position.y = 0.4; wheels.push(w); g.add(w);
-    const sw = shape('cyl', 0.82, 0.04, 0.82, 0x8a8a8a, { x: x + Math.sign(x) * 0.26, z, rz: Math.PI / 2 }); sw.position.y = 0.4; sidewalls.push(sw); g.add(sw);
-    const d = shape('cyl', 0.42, 0.06, 0.42, 0x555555, { x: x + Math.sign(x) * 0.32, z, rz: Math.PI / 2 }); d.position.y = 0.4; discs.push(d); g.add(d);
+  const gloss = { rough: 0.22, metal: 0.35 };
+  // tub, nose, sidepods, engine cover
+  body.add(rbox(0.95, 0.4, 3.2, c, { y: 0.22, z: -0.1, r: 0.16, ...gloss }), rcyl(0.14, 0.44, 1.7, c, { y: 0.42, z: -2.5, rx: -Math.PI / 2, ...gloss }), rbox(0.28, 0.05, 2.6, 0xf5f5f5, { y: 0.63, z: -0.3, r: 0.02 }));
+  for (const sx of [-1, 1]) body.add(rbox(0.6, 0.38, 1.9, c, { x: sx * 0.82, y: 0.2, z: 0.35, r: 0.14, ...gloss }), rbox(0.5, 0.2, 0.06, DARK, { x: sx * 0.82, y: 0.34, z: -0.62 }), rbox(0.1, 0.25, 1.2, WHITE, { x: sx * 1.13, y: 0.26, z: 0.35, r: 0.03 }));
+  body.add(rbox(0.55, 0.55, 1.2, c, { y: 0.55, z: 0.95, r: 0.18, ...gloss }), rbox(0.08, 0.65, 0.9, c, { y: 0.9, z: 1.3, r: 0.03 }));
+  // cockpit: opening, driver, halo
+  body.add(rbox(0.6, 0.12, 0.9, DARK, { y: 0.6, z: -0.25, r: 0.05 }), rsph(0.21, 0xf5c518, { y: 0.78, z: -0.15, ...gloss }), rbox(0.28, 0.09, 0.2, 0x10142c, { y: 0.8, z: -0.34, r: 0.03, glow: 0.2 }));
+  body.add(rbox(0.07, 0.4, 0.07, DARK, { y: 0.62, z: -0.75 }), rbox(0.06, 0.06, 0.8, DARK, { x: -0.3, y: 1.0, z: -0.4, r: 0.02 }), rbox(0.06, 0.06, 0.8, DARK, { x: 0.3, y: 1.0, z: -0.4, r: 0.02 }));
+  body.add(sign([str(p, 'number', '7')], 0.55, 0.55, { bg: '#e63946', fg: '#ffffff', y: 0.64, z: -1.75, font: 90 }));
+  (body.children[body.children.length - 1] as Mesh).rotation.x = -Math.PI / 2 + 0.05;
+  // wings
+  const rear = new Group(); rear.position.set(0, 0.95, 2.05); body.add(rear);
+  const rearPlane = rbox(1.9, 0.07, 0.55, DARK, { r: 0.03, ...gloss }); rear.add(rearPlane, rbox(0.06, 0.55, 0.5, c, { x: -0.95, y: -0.2, r: 0.02 }), rbox(0.06, 0.55, 0.5, c, { x: 0.95, y: -0.2, r: 0.02 }));
+  const front = new Group(); front.position.set(0, 0.12, -3.35); body.add(front);
+  const frontPlane = rbox(1.9, 0.06, 0.5, DARK, { r: 0.03, ...gloss }); front.add(frontPlane, rbox(0.06, 0.2, 0.5, c, { x: -0.95, y: -0.04, r: 0.02 }), rbox(0.06, 0.2, 0.5, c, { x: 0.95, y: -0.04, r: 0.02 }));
+  // wheels: tyre, rim, disc, a band that shows the tyre set
+  const wheels: Group[] = []; const bands: Mesh[] = []; const discs: Mesh[] = [];
+  for (const [x, z] of [[-1.05, -1.4], [1.05, -1.4], [-1.1, 1.5], [1.1, 1.5]] as const) {
+    const w = new Group(); w.position.set(x, 0.46, z); g.add(w); wheels.push(w);
+    const sx = Math.sign(x);
+    w.add(rcyl(0.46, 0.46, 0.55, 0x16161a, { rz: Math.PI / 2, y: -0.0, rough: 0.9, cast: true }));
+    w.children[0]!.position.y = 0; w.children[0]!.position.x = 0;
+    const band = rcyl(0.47, 0.47, 0.05, 0x8a8a8a, { rz: Math.PI / 2, x: sx * 0.28, rough: 0.7 }); bands.push(band); w.add(band);
+    w.add(rcyl(0.28, 0.28, 0.58, 0xcfd6ea, { rz: Math.PI / 2, metal: 0.6, rough: 0.3 }));
+    const d = rcyl(0.2, 0.2, 0.62, 0x555555, { rz: Math.PI / 2 }); discs.push(d); w.add(d);
+    for (let k = 0; k < 5; k++) { const sp = rbox(0.04, 0.5, 0.04, 0x8b95b5, { x: sx * 0.3, rx: (k / 5) * Math.PI, r: 0.01 }); w.add(sp); }
+    g.add(rbox(Math.abs(x) - 0.35, 0.05, 0.08, DARK, { x: x / 2 - sx * 0.05, y: 0.32, z, r: 0.01 }));
   }
-  const exhaust = shape('cyl', 0.2, 0.5, 0.2, 0x444444, { x: 0, y: 0.45, z: 2.2, rx: Math.PI / 2 }); body.add(exhaust);
+  const exhaust = rcyl(0.1, 0.13, 0.5, 0x444444, { x: 0, y: 0.5, z: 1.9, rx: Math.PI / 2 }); body.add(exhaust);
   const state = { tyres: false, brakes: false, fuel: false, aero: false };
   const paint = () => {
-    for (const s of sidewalls) s.material = mat(state.tyres ? RED : 0x6a6a6a);
-    for (const d of discs) d.material = mat(state.brakes ? 0xff7b00 : 0x555555, state.brakes ? 0.7 : 0);
-    exhaust.material = mat(state.fuel ? 0xffa64d : 0x444444, state.fuel ? 0.8 : 0);
-    wingTop.scale.set(state.aero ? 2.3 : 1.9, 0.08, state.aero ? 0.75 : 0.5); front.scale.set(state.aero ? 2.2 : 1.9, 0.06, state.aero ? 0.7 : 0.45);
+    for (const s of bands) s.material = mat(state.tyres ? RED : 0x6a6a6a, state.tyres ? 0.2 : 0);
+    for (const d of discs) d.material = mat(state.brakes ? 0xff7b00 : 0x555555, state.brakes ? 1.0 : 0);
+    exhaust.material = mat(state.fuel ? 0xffa64d : 0x444444, state.fuel ? 0.9 : 0);
+    rear.scale.set(state.aero ? 1.25 : 1, state.aero ? 1.4 : 1, state.aero ? 1.4 : 1); front.scale.set(state.aero ? 1.2 : 1, state.aero ? 1.5 : 1, state.aero ? 1.5 : 1);
   };
   paint();
-  let rot = 0;
+  let spin = 0, rev = 0, t = 0;
   const dyn: Dyn = {
     id: p.id ?? 'car', object: g, at: () => ({ x: p.x, y: 0.8, z: p.z }), states: () => Object.entries(state).filter(([, v]) => v).map(([k]) => k),
+    where(name) { return name === 'front-left' ? { x: p.x - 1.05, y: 0.5, z: p.z - 1.4 } : name === 'rear' ? { x: p.x, y: 0.7, z: p.z + 2 } : null; },
     setState(s, instant) {
       if (!(s in state) || state[s as keyof typeof state]) return;
       state[s as keyof typeof state] = true; paint();
-      if (!instant) { ctx.audio.sfx('success'); ctx.fx.burst('sparks', p.x, 0.8, p.z, 16); ctx.fx.flash(p.x, 1.2, p.z, 0xffd166, 7, 0.4); ctx.say(({ tyres: 'Fresh tyres go on: the pressures your spreadsheet found.', brakes: 'The brakes are balanced: the discs glow evenly.', fuel: 'The fuel load is right: the car is lighter and quicker.', aero: 'The new aero package goes on: bigger wings, more grip at speed.' } as Record<string, string>)[s] ?? ''); }
+      if (!instant) { ctx.audio.sfx('success'); ctx.fx.burst('sparks', p.x, 0.8, p.z, 16); ctx.fx.flash(p.x, 1.2, p.z, 0xffd166, 7, 0.4); ctx.say(({ tyres: 'Fresh tyres go on: the pressures your spreadsheet found.', brakes: 'The brakes are balanced: the discs glow as they do equal work.', fuel: 'The fuel load is exactly right: less weight, more speed.', aero: 'Bigger wings: more grip through the corners.' } as Record<string, string>)[s] ?? ''); rev = 1.6; }
     },
-    play(name) { if (name === 'malfunction') { ctx.audio.sfx('fail'); ctx.fx.burst('smoke', p.x, 0.6, p.z, 14); } },
-    update(dt) { rot += dt; void rot; },
+    play(name) { if (name === 'malfunction') { ctx.audio.sfx('fail'); ctx.fx.burst('smoke', p.x, 0.6, p.z, 14); } if (name === 'rev') rev = 2.4; },
+    update(dt) { t += dt; if (rev > 0) { rev -= dt; spin += dt * 38; if (Math.random() < dt * 8) ctx.fx.burst('ember', p.x, 0.5, p.z + 2.2, 2, 0.4); } else if (g.userData.spin) spin += g.userData.spin * dt; for (const w of wheels) w.rotation.x = spin; },
   };
-  void wheels; void num;
-  return { object: g, dyn };
+  return { object: g, dyn, tick: p.id ? undefined : (dt) => dyn.update?.(dt, t) }; // a car with an id is animated as a named prop; a driven or replayed one by its driver
 };
 const str = (p: { p?: Record<string, number | string | boolean> }, k: string, d: string) => { const v = p.p?.[k]; return typeof v === 'string' ? v : typeof v === 'number' ? String(v) : d; };
 
