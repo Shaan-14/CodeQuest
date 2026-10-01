@@ -84,6 +84,7 @@ Baseball is a recurring *theme* and source of examples, never the limit of the c
 - **Terminals open the real lesson screen**; failure still costs Focus and requires training in the Simulation Room (the Training Grounds, in-world), returning to the exact lesson. No in-world shortcut, shop item, hint seller or "retry" exists. The Daily stays optional/one attempt/no hints/no Focus cost; progress in the world is never labelled skill.
 - **Never put gameplay on the main thread that needs `eval`**, and keep world-only helpers (`__cq3d`) gated behind `localStorage codequest.e2e`.
 - **Performance is a requirement**: share geometries/materials, dispose on scene change, memoize per-save derivations, keep heavy chunks (three.js, editor, runtimes) out of startup. Re-measure (`scripts/perf-probe.mjs`) after touching `game/graph.ts`, `content/index.ts` or startup imports.
+- **No runtime import cycles in `src/play`** (a test enforces it): they only fail on the unbundled dev server, which the built-app e2e does not exercise. `e2e/dev3d.mjs` starts the world on the dev server too.
 - **Stay original**: the fantasy academy borrows nothing from any existing franchise.
 - Phase 6 is the last planned phase; do not start another without being asked.
 

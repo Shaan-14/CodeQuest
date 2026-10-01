@@ -22,6 +22,12 @@ Save format v1 → … → v8 → **v9** (`play`: scene, position, who you talke
 - Flakes fixed while testing (all in the harness): a training-step race (reading card rendered after the check), the e2e init script throwing inside the sandboxed iframe, seeded saves overwritten by the page-leave position flush, a seeded finished quest paying out on the first settle (a real rule since the quest fix).
 - Manual playtest was done through the e2e drivers and screenshots (`e2e/screenshots/play-*.png`) of every world; no human playtest on real GPU hardware.
 
+## Post-release fix: "Cannot access 'col' before initialization"
+- **Symptom** (reported from a normal browser on the dev server): "The 3D world cannot start here".
+- **Cause**: a circular import. `builders.ts` defined `col/num/str/flag` and imported the six builder tables, which import those helpers back. Unbundled ES modules (the Vite dev server) evaluated a table before `builders.ts` had initialised `col`: a TDZ error. The production bundle orders modules differently, so the built-app e2e (which only drove `vite preview`) never saw it.
+- **Fix**: the helpers moved to a leaf module `src/play/engine/props.ts` (re-exported by `builders.ts`); the tables import types only from `builders.ts` (`import type`).
+- **Regression tests**: `src/play/engine/modules.test.ts` fails on any runtime import cycle in `src/play` (it fails on the old code); `e2e/dev3d.mjs` starts the world on the Vite DEV server and visits all 13 scenes (it fails on the old code); it is part of `npm run e2e`.
+
 ## Phase 6 limitations (honest)
 - Art is procedural (primitives, no authored models/textures); characters are simple. It is cohesive, not lavish.
 - **Not every lesson has a terminal in the world**: stations cover a representative subset per world; the full 126 lessons remain reachable from the classic view and the in-world Field Manual, Daily and Training. Every station opens the same real lesson screen.

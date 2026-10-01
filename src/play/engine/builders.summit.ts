@@ -2,7 +2,8 @@
 import { Group } from 'three';
 import { ease } from './tween';
 import { mat, shape } from './kit';
-import { col, num, type Builder, type Dyn } from './builders';
+import { col, num } from './props';
+import type { Builder, Dyn } from './builders';
 
 /** A beacon tower. `light` lights its lamp (a guardian beaten); `ignite` (the great beacon) sends a beam into the sky and brings the dawn. */
 const beacon: Builder = (p, ctx) => {

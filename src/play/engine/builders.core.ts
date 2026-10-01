@@ -1,6 +1,7 @@
 import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, RepeatWrapping, CanvasTexture, SRGBColorSpace, MeshLambertMaterial, NearestFilter } from 'three';
 import { mat, shape, sign } from './kit';
-import { col, flag, num, str, type Builder } from './builders';
+import { col, flag, num, str } from './props';
+import type { Builder } from './builders';
 
 /** A checker/tile floor texture (cached per colour pair). */
 const tileCache = new Map<string, CanvasTexture>();

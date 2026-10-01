@@ -2,7 +2,8 @@
 import { BufferAttribute, BufferGeometry, CanvasTexture, Group, Mesh, MeshBasicMaterial, RepeatWrapping, SRGBColorSpace } from 'three';
 import { centreLine, checkpoints, REDLINE } from '../logic/track';
 import { mat, shape, sign } from './kit';
-import { col, num, type Builder, type Dyn } from './builders';
+import { col, num } from './props';
+import type { Builder, Dyn } from './builders';
 
 const RED = 0xe63946, WHITE = 0xf5f5f5, DARK = 0x1b1f2e;
 

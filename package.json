@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "node scripts/copy-pyodide.mjs && node scripts/copy-webr.mjs",
-    "e2e": "npm run build && npx vite-node scripts/e2e-fixtures.ts && node e2e/run.mjs && node e2e/play.mjs"
+    "e2e": "npm run build && npx vite-node scripts/e2e-fixtures.ts && node e2e/run.mjs && node e2e/play.mjs && node e2e/dev3d.mjs"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",

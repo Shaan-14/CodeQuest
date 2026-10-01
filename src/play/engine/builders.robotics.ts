@@ -2,7 +2,8 @@
 import { Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { ease } from './tween';
 import { mat, shape, sign, labelTexture } from './kit';
-import { col, num, str, type Builder, type BuildCtx, type Dyn } from './builders';
+import { col, num, str } from './props';
+import type { Builder, BuildCtx, Dyn } from './builders';
 
 const STAGE_ORDER = ['eyes', 'arm', 'power', 'voice', 'servo', 'ears', 'decide', 'senses', 'cycle', 'loop', 'routine', 'awake'] as const;
 

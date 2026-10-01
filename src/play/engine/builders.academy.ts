@@ -5,7 +5,8 @@
 import { Group, Mesh } from 'three';
 import { ease } from './tween';
 import { mat, shape, sign } from './kit';
-import { col, num, str, flag, type Builder, type Dyn } from './builders';
+import { col, num, str, flag } from './props';
+import type { Builder, Dyn } from './builders';
 
 const STONE = 0x8d8aa8, DARK = 0x3a3552, WOOD = 0x7a4f2b, LAMP = 0xffd98a, VIOLET = 0xb48cff, TEAL = 0x5ee6d0;
 

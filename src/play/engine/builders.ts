@@ -43,11 +43,9 @@ export interface Dyn {
 export interface Built { object: Object3D; dyn?: Dyn }
 export type Builder = (p: Prop, ctx: BuildCtx) => Built;
 
-export const num = (p: Prop, key: string, d: number): number => { const v = p.p?.[key]; return typeof v === 'number' ? v : d; };
-export const col = (p: Prop, key: string, d: number): number => { const v = p.p?.[key]; return typeof v === 'number' ? v : d; };
-export const str = (p: Prop, key: string, d: string): string => { const v = p.p?.[key]; return typeof v === 'string' ? v : d; };
-export const flag = (p: Prop, key: string, d = false): boolean => { const v = p.p?.[key]; return typeof v === 'boolean' ? v : d; };
 
+import { num, col, str, flag } from './props';
+export { num, col, str, flag };
 import { coreBuilders } from './builders.core';
 import { roboticsBuilders } from './builders.robotics';
 import { academyBuilders } from './builders.academy';

@@ -4,7 +4,8 @@ import type { Play } from '../logic/baseballSim';
 import { createRig, type Rig } from './rig';
 import { ease } from './tween';
 import { mat, shape, sign } from './kit';
-import { col, num, type Builder, type BuildCtx, type Dyn } from './builders';
+import { col, num } from './props';
+import type { Builder, BuildCtx, Dyn } from './builders';
 
 const GRASS1 = 0x3f8f4f, GRASS2 = 0x4ba05a, DIRT = 0xc08a52;
 
