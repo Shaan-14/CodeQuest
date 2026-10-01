@@ -245,8 +245,10 @@ async function main() {
       assert((await tid(p, 'cine-banner').innerText()).includes('Silent in the Bay'), 'the quest completion is celebrated');
       await p.screenshot({ path: SHOTS + 'play-03b-quest-complete.png' });
       await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '0', null, { timeout: 30000 });
+      await skipCine(p); // a level-up moment may follow the quest banner in the queue
+      await tp(p, 1.5, -3.4, 0); await p.waitForTimeout(300);
       const before = await st(p); await p.keyboard.down('w'); await p.waitForTimeout(500); await p.keyboard.up('w');
-      assert((await st(p)).z < before.z - 0.3, 'the player has control again after the cinematic');
+      assert((await st(p)).z < before.z - 0.3, 'the player has control again after the cinematic: ' + JSON.stringify([before, await st(p)]));
       s = await save(p);
       eq(s.quests['q-bay-briefing']?.status, 'complete', 'quest completes through code');
       assert(s.stats.xp > 0, 'reward paid');
