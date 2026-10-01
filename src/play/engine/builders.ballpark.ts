@@ -1,79 +1,201 @@
-/** Harborview Park props: the field, stands, fences, dugout, light towers and the TEAM (players who appear when the analysis sets a lineup, and play the simulated game). */
-import { CanvasTexture, Group, Mesh, MeshBasicMaterial, PlaneGeometry, RepeatWrapping, SRGBColorSpace, SphereGeometry } from 'three';
+/**
+ * Harborview Park props: a painted field with real proportions, the curved outfield wall and warning track, tiered stands with a crowd, dugouts,
+ * a backstop, the player tunnel and the TEAM (players who appear when the analysis sets a lineup, and play the simulated game).
+ */
+import { CanvasTexture, DoubleSide, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, RepeatWrapping, Shape, SphereGeometry, SRGBColorSpace } from 'three';
 import type { Play } from '../logic/baseballSim';
+import { BASE_PATH, FOUL_ANGLE, fencePoints, fenceRadius } from '../logic/ballparkGeom';
 import { createRig, type Rig } from './rig';
 import { ease } from './tween';
-import { mat, shape, sign } from './kit';
+import { mat, rbox, rcyl, shape, sign } from './kit';
 import { col, num } from './props';
 import type { Builder, BuildCtx, Dyn } from './builders';
 
-const GRASS1 = 0x3f8f4f, GRASS2 = 0x4ba05a, DIRT = 0xc08a52;
+const G1 = '#3c8a4b', G2 = '#47995a', DIRT = '#c4915a', TRACK = '#a8744a', OUTSIDE = '#2d6a3e';
 
-/** Positions (relative to home plate; north is -z). Baselines are 14 m, scaled to be walkable. */
-export const BASE = { home: [0, 0], first: [9.9, -9.9], second: [0, -19.8], third: [-9.9, -9.9] } as const;
-export const POS: Record<string, [number, number]> = { P: [0, -9.4], C: [0, 1.4], '1B': [8.5, -9], '2B': [4, -16.5], SS: [-4, -16.5], '3B': [-8.5, -9], LF: [-16, -26], CF: [0, -30], RF: [16, -26] };
-const FENCE_R = 38;
+/** Positions (relative to home plate; north is -z). The base path is BASE_PATH long and the mound sits at 0.67 of it, as on a real field. */
+const B = BASE_PATH / Math.SQRT2;
+export const BASE = { home: [0, 0], first: [B, -B], second: [0, -2 * B], third: [-B, -B] } as const;
+export const POS: Record<string, [number, number]> = { P: [0, -BASE_PATH * 0.672], C: [0, 1.4], '1B': [B * 0.86, -B * 0.9], '2B': [B * 0.42, -B * 1.62], SS: [-B * 0.42, -B * 1.62], '3B': [-B * 0.86, -B * 0.9], LF: [-17, -27], CF: [0, -31], RF: [17, -27] };
+const FENCE_R = fenceRadius(0);
 
-const crowdTexture = (() => {
-  let t: CanvasTexture | null = null;
-  return () => {
-    if (t) return t;
-    const c = document.createElement('canvas'); c.width = 128; c.height = 32; const g = c.getContext('2d')!;
-    g.fillStyle = '#26304d'; g.fillRect(0, 0, 128, 32);
-    const cols = ['#ff5d73', '#ffd166', '#06d6a0', '#4fd1ff', '#f2f2f2', '#b48cff', '#ff9f1c'];
-    for (let i = 0; i < 90; i++) { g.fillStyle = cols[i % cols.length]!; g.fillRect((i * 37) % 124, ((i * 13) % 6) * 5 + 2, 4, 4); }
-    t = new CanvasTexture(c); t.wrapS = RepeatWrapping; t.colorSpace = SRGBColorSpace; t.userData.shared = true;
-    return t;
-  };
-})();
-const planeGeo = new PlaneGeometry(1, 1); planeGeo.userData.shared = true;
+/* ------------------------------------------------------------------ the field, painted from above (one plane, one draw call) */
 
+const FIELD = { px: 12, x0: -64, z0: -72, size: 128 };
+function paintField(): CanvasTexture {
+  const { px, x0, z0, size } = FIELD, N = size * px;
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d')!;
+  const X = (x: number) => (x - x0) * px, Z = (z: number) => (z - z0) * px;
+  g.fillStyle = OUTSIDE; g.fillRect(0, 0, N, N);
+  // mown stripes, a band every 5 m across the line to centre field
+  for (let i = 0; i < size / 5; i++) { g.fillStyle = i % 2 ? G1 : G2; g.fillRect(0, Z(z0 + i * 5), N, 5 * px); }
+  const poly = (pts: { x: number; z: number }[], fill: string) => { g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(X(q.x), Z(q.z)) : g.moveTo(X(q.x), Z(q.z)))); g.closePath(); g.fillStyle = fill; g.fill(); };
+  const wall = fencePoints(1), inner = fencePoints(1, 4.2);
+  // beyond the wall is not the field
+  poly([...wall, { x: 64, z: z0 }, { x: -64, z: z0 }], OUTSIDE);
+  // the warning track: a dirt band along the wall
+  poly([...wall, ...inner.slice().reverse()], TRACK);
+  // the infield: a circle of dirt round the mound, a circle round home plate
+  const mound = { x: 0, z: -BASE_PATH * 0.672 };
+  const disc = (x: number, z: number, r: number, fill: string) => { g.beginPath(); g.arc(X(x), Z(z), r * px, 0, Math.PI * 2); g.fillStyle = fill; g.fill(); };
+  disc(mound.x, mound.z, BASE_PATH * 1.06, DIRT);
+  disc(0, 0, 4.6, DIRT);
+  // the infield grass, inside the base paths, with softly rounded corners
+  const half = B - 1.25 * Math.SQRT2 * 0.9, cz = -B;
+  g.beginPath();
+  const corner = (ax: number, az: number, bx: number, bz: number, cx: number, cz2: number) => { g.lineTo(X(ax), Z(az)); g.quadraticCurveTo(X(bx), Z(bz), X(cx), Z(cz2)); };
+  const k = 0.9;
+  g.moveTo(X(-k * 0.7), Z(cz + half * 0.55 + 0.2));
+  corner(-half + k, cz - k * 0.3, -half, cz, -half + k, cz - k);
+  corner(-k, cz - half + k * 0.4, 0, cz - half, k, cz - half + k * 0.4);
+  corner(half - k, cz - k, half, cz, half - k, cz + k * 0.3);
+  corner(k * 0.7, cz + half * 0.55 + 0.2, 0, cz + half, -k * 0.7, cz + half * 0.55 + 0.2);
+  g.closePath(); g.fillStyle = G2; g.fill();
+  // dirt cut-outs: home, the mound, and a circle round each base
+  disc(0, 0, 3.4, DIRT); disc(mound.x, mound.z, 2.9, DIRT);
+  for (const [x, z] of [BASE.first, BASE.second, BASE.third]) disc(x, z, 1.9, DIRT);
+  // grain, so nothing is a flat colour
+  for (let i = 0; i < 14000; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.06)'; g.fillRect(Math.random() * N, Math.random() * N, 2 + Math.random() * 3, 2 + Math.random() * 3); }
+  // chalk: the foul lines out to the poles, the batter's boxes, the catcher's box
+  g.strokeStyle = '#f4f4f0'; g.lineCap = 'butt';
+  const line = (x1: number, z1: number, x2: number, z2: number, w = 0.14) => { g.lineWidth = w * px; g.beginPath(); g.moveTo(X(x1), Z(z1)); g.lineTo(X(x2), Z(z2)); g.stroke(); };
+  for (const sgn of [-1, 1]) { const r = fenceRadius(sgn * FOUL_ANGLE); line(0, 0, sgn * Math.sin(FOUL_ANGLE) * r, -Math.cos(FOUL_ANGLE) * r); }
+  g.lineWidth = 0.1 * px;
+  for (const sgn of [-1, 1]) g.strokeRect(X(sgn > 0 ? 0.55 : -1.55), Z(-0.8), 1.0 * px, 1.8 * px);
+  g.strokeRect(X(-0.55), Z(1.25), 1.1 * px, 1.5 * px);
+  // coach's boxes, the on-deck circles
+  for (const sgn of [-1, 1]) { g.strokeRect(X(sgn * (B + 3.1) - 0.5), Z(-B + 3.1 - 0.5), 1, 1); g.beginPath(); g.arc(X(sgn * 5.2), Z(2.6), 0.9 * px, 0, Math.PI * 2); g.stroke(); }
+  const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+
+/** The whole playing field at home plate's origin: the painted ground, the mound, the bases and home plate. */
 const diamond: Builder = () => {
   const g = new Group();
-  // grass with mowing stripes
-  for (let i = 0; i < 10; i++) g.add(shape('box', 84, 0.02, 7, i % 2 ? GRASS1 : GRASS2, { z: -4 - i * 7, y: 0, cast: false }));
-  g.add(shape('cyl', 27, 0.04, 27, DIRT, { z: -10, y: 0.01, cast: false }));              // infield dirt
-  g.add(shape('cyl', 15.5, 0.05, 15.5, GRASS2, { z: -10, y: 0.015, cast: false }));       // inner grass
-  g.add(shape('cyl', 5, 0.05, 5, DIRT, { z: 0, y: 0.02, cast: false }));                  // home circle
-  g.add(shape('cyl', 3.2, 0.3, 3.2, DIRT, { z: POS.P![1], y: 0.0 }));                    // mound
-  for (const [x, z] of [BASE.first, BASE.second, BASE.third]) g.add(shape('box', 0.6, 0.12, 0.6, 0xffffff, { x, z, y: 0.05, ry: Math.PI / 4 }));
-  g.add(shape('box', 0.6, 0.06, 0.6, 0xffffff, { z: 0, y: 0.05 }));
-  // base paths and foul lines
-  for (const [x, z] of [[4.95, -4.95], [4.95, -14.85], [-4.95, -14.85], [-4.95, -4.95]] as const) g.add(shape('box', 14, 0.03, 0.8, DIRT, { x, z, y: 0.03, ry: (x > 0) === (z > -10) ? -Math.PI / 4 : Math.PI / 4, cast: false }));
-  g.add(shape('box', 0.15, 0.04, 40, 0xffffff, { x: 14.1, z: -20, y: 0.04, ry: Math.PI / 4 + Math.PI / 2 - Math.PI / 2, cast: false }));
+  const field = new Mesh(new PlaneGeometry(FIELD.size, FIELD.size), new MeshStandardMaterial({ map: paintField(), roughness: 0.96, metalness: 0 }));
+  field.rotation.x = -Math.PI / 2; field.position.set(FIELD.x0 + FIELD.size / 2, 0.012, FIELD.z0 + FIELD.size / 2); field.receiveShadow = true;
+  g.add(field);
+  const mz = POS.P![1];
+  g.add(rcyl(2.1, 3.0, 0.3, 0xc4915a, { z: mz, rough: 0.95, r: 0 }), rbox(0.9, 0.07, 0.17, 0xffffff, { z: mz, y: 0.3, rough: 0.5 }));
+  for (const [x, z] of [BASE.first, BASE.second, BASE.third]) g.add(rbox(0.62, 0.11, 0.62, 0xffffff, { x, z, y: 0.012, ry: Math.PI / 4, rough: 0.5, r: 0.02 }));
+  // home plate: the five-sided slab
+  const sh = new Shape(); sh.moveTo(-0.34, 0.0); sh.lineTo(0.34, 0.0); sh.lineTo(0.34, 0.34); sh.lineTo(0, 0.68); sh.lineTo(-0.34, 0.34); sh.closePath();
+  const plate = new Mesh(new ExtrudeGeometry(sh, { depth: 0.06, bevelEnabled: false }), mat(0xffffff, 0, { rough: 0.5 }));
+  plate.rotation.x = Math.PI / 2; plate.position.set(0, 0.075, -0.34); plate.receiveShadow = true;
+  g.add(plate);
   return { object: g };
 };
 
-/** The outfield fence: an arc of dark-green panels with a yellow top, and foul poles. */
+/* ------------------------------------------------------------------ the wall, the poles, the sign boards, the batter's eye */
+
+const ads = ['HERON BANK', 'GULL AIR', 'HARBOR COFFEE', 'TIDE & CO', 'NORTHLINE', 'PIER 9 PIZZA'];
 const fence: Builder = () => {
   const g = new Group();
-  const n = 26;
-  for (let i = 0; i < n; i++) {
-    const a = -Math.PI / 4 - 0.12 + (i / (n - 1)) * (Math.PI / 2 + 0.24);
-    const x = Math.sin(a) * FENCE_R, z = -Math.cos(a) * FENCE_R;
-    g.add(shape('box', 3.6, 3, 0.5, 0x1d4d3a, { x, z, ry: -a }), shape('box', 3.7, 0.18, 0.56, 0xffd166, { x, z, y: 3, ry: -a, glow: 0.4 }));
+  const pts = fencePoints(2.2);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]!, b = pts[i + 1]!, mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2, len = Math.hypot(b.x - a.x, b.z - a.z) + 0.06, ry = Math.atan2(-(b.z - a.z), b.x - a.x) * -1;
+    const yaw = -Math.atan2(b.z - a.z, b.x - a.x);
+    g.add(rbox(len, 2.3, 0.5, 0x1b5a3f, { x: mx, z: mz, ry: yaw, rough: 0.8, r: 0.04 }), rbox(len + 0.02, 0.14, 0.58, 0xffd23f, { x: mx, z: mz, y: 2.3, ry: yaw, rough: 0.5, r: 0.03 }));
+    if (i % 3 === 1) { const s = sign([ads[(i / 3 | 0) % ads.length]!], len * 0.95, 1.2, { bg: ['#103a7a', '#7a1028', '#0c4a3a', '#5a3a0c'][(i / 3 | 0) % 4]!, fg: '#ffffff', font: 38 }); s.position.set(mx + Math.sin(yaw) * -0.27, 1.2, mz + Math.cos(yaw) * -0.27); s.rotation.y = yaw + Math.PI; g.add(s); void ry; }
   }
+  // foul poles, with the netting of a real one
+  for (const sgn of [-1, 1]) { const q = pts[sgn < 0 ? 0 : pts.length - 1]!; g.add(rcyl(0.1, 0.12, 9, 0xffd23f, { x: q.x, z: q.z, rough: 0.4 }), rbox(0.05, 7, 1.4, 0xffd23f, { x: q.x, z: q.z, y: 2, rough: 0.5, r: 0.01, transparent: 0.35, cast: false })); }
+  // the batter's eye: a dark wall behind centre field with the scoreboard on it
+  const c = pts[Math.floor(pts.length / 2)]!;
+  g.add(rbox(22, 10.5, 1.2, 0x10201a, { x: c.x, z: c.z - 1.6, rough: 0.9 }), rbox(22.4, 0.3, 1.5, 0xffd23f, { x: c.x, z: c.z - 1.6, y: 10.5, rough: 0.5 }));
   return { object: g };
 };
 
-/** Stands: tiered rows with a crowd texture, so a full stadium is ~20 meshes. */
+/* ------------------------------------------------------------------ stands, with a crowd that stands out against the seats */
+
+let seatTex: CanvasTexture | null = null, crowdTex: CanvasTexture | null = null;
+const seatTexture = (): CanvasTexture => {
+  if (seatTex) return seatTex;
+  const c = document.createElement('canvas'); c.width = 128; c.height = 32; const g = c.getContext('2d')!;
+  g.fillStyle = '#1b2a55'; g.fillRect(0, 0, 128, 32);
+  for (let i = 0; i < 16; i++) { g.fillStyle = '#2f58b8'; g.fillRect(i * 8 + 1, 3, 6, 24); g.fillStyle = '#183478'; g.fillRect(i * 8 + 1, 22, 6, 5); }
+  seatTex = new CanvasTexture(c); seatTex.wrapS = RepeatWrapping; seatTex.colorSpace = SRGBColorSpace; seatTex.userData.shared = true; return seatTex;
+};
+/** Spectators as busts with an alpha edge: heads, shoulders, the odd raised arm, gaps where nobody came. */
+const crowdTexture = (): CanvasTexture => {
+  if (crowdTex) return crowdTex;
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d')!;
+  const shirts = ['#ff5d73', '#ffd166', '#06d6a0', '#f4f4f0', '#b48cff', '#ff9f1c', '#3aa0ff', '#d94a2b'], skins = ['#f0c9a0', '#d9a877', '#c99267', '#8d5a3b'], hair = ['#2a1a12', '#5a3a22', '#1f1a1a', '#c9a24d', '#7a7a7a'];
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 32; i++) {
+    if (rnd() < 0.14) continue;
+    const x = i * 8 + 4, h = 34 + rnd() * 6;
+    g.fillStyle = shirts[(rnd() * shirts.length) | 0]!; g.fillRect(x - 4, h + 6, 8, 24);
+    g.fillStyle = skins[(rnd() * skins.length) | 0]!; g.beginPath(); g.arc(x, h, 4, 0, Math.PI * 2); g.fill();
+    g.fillStyle = hair[(rnd() * hair.length) | 0]!; g.beginPath(); g.arc(x, h - 1.5, 4.2, Math.PI, 0); g.fill();
+    if (rnd() < 0.12) { g.fillStyle = skins[0]!; g.fillRect(x + 3, h - 12, 2, 12); }
+  }
+  crowdTex = new CanvasTexture(c); crowdTex.wrapS = RepeatWrapping; crowdTex.colorSpace = SRGBColorSpace; crowdTex.userData.shared = true; return crowdTex;
+};
+const planeGeo = new PlaneGeometry(1, 1); planeGeo.userData.shared = true;
+
+/** A grandstand: stepped concrete, a seat strip and a standing crowd on every row, a padded rail at the front, a back wall and a roof. The field is at local -z. */
 const stands: Builder = (p) => {
-  const g = new Group(); const w = num(p, 'w', 30), rows = num(p, 'rows', 6);
+  const g = new Group(); const w = num(p, 'w', 30), rows = num(p, 'rows', 7), rise = 0.62, run = 0.95;
+  const depth = rows * run;
+  g.add(rbox(w, 1.15, 0.3, 0x1d3f8c, { z: -0.3, rough: 0.7, r: 0.04 }), rbox(w, 0.08, 0.4, 0xffffff, { z: -0.3, y: 1.15, rough: 0.5, r: 0.02 }));
   for (let r = 0; r < rows; r++) {
-    g.add(shape('box', w, 0.6 + r * 0.9, 1.4, 0x39405c, { z: r * 1.4, y: 0 }));
-    const face = new Mesh(planeGeo, new MeshBasicMaterial({ map: crowdTexture() }));
-    face.scale.set(w, 0.8, 1); face.position.set(0, 0.6 + r * 0.9 + 0.4, r * 1.4 - 0.72); face.rotation.y = Math.PI;
-    g.add(face);
+    const top = 0.45 + (r + 1) * rise;
+    g.add(rbox(w, top, run, r % 2 ? 0x8d93a6 : 0x9aa0b3, { z: r * run + run / 2, rough: 0.9, r: 0.02 }));
+    const seats = new Mesh(planeGeo, new MeshBasicMaterial({ map: seatTexture() })); seats.scale.set(w, run * 0.62, 1); seats.rotation.x = -Math.PI / 2; seats.position.set(0, top + 0.012, r * run + run * 0.62); (seats.material as MeshBasicMaterial).map!.repeat.set(w / 8, 1);
+    g.add(seats);
+    const crowd = new Mesh(planeGeo, new MeshBasicMaterial({ map: crowdTexture(), transparent: true, alphaTest: 0.5, side: DoubleSide })); crowd.scale.set(w, 0.95, 1); crowd.position.set(0, top + 0.5, r * run + run * 0.62); crowd.rotation.y = Math.PI;
+    (crowd.material as MeshBasicMaterial).map!.repeat.set(w / 7, 1);
+    g.add(crowd);
   }
-  g.add(shape('box', w + 1, 0.3, rows * 1.4 + 1, 0x596080, { y: 0.6 + rows * 0.9 + 3.2, z: rows * 0.7 }));
+  const back = 0.45 + rows * rise;
+  g.add(rbox(w, back + 3.2, 0.4, 0x6c7388, { z: depth + 0.2, rough: 0.9, r: 0.03 }));
+  // the roof, on slim columns, with a lit underside
+  const roofY = back + 3.1;
+  g.add(rbox(w + 0.6, 0.3, depth + 1.2, 0x2a3350, { y: roofY, z: depth / 2 + 0.1, rough: 0.6, r: 0.05 }), rbox(w, 0.06, depth * 0.9, 0xfff3c0, { y: roofY - 0.05, z: depth / 2 + 0.1, glow: 0.8, flat: true, cast: false }));
+  const cols = Math.max(2, Math.round(w / 8));
+  for (let i = 0; i <= cols; i++) g.add(rcyl(0.14, 0.14, roofY - back, 0x596080, { x: -w / 2 + (w * i) / cols, z: depth * 0.95, y: back, rough: 0.5, metal: 0.3 }));
   return { object: g };
 };
 
-const dugout: Builder = () => { const g = new Group(); g.add(shape('box', 7, 0.3, 2.4, 0x596080, { y: 2.3 }), shape('box', 7, 1.6, 0.2, 0x39405c, { z: -1.1 }), shape('box', 6.2, 0.15, 0.7, 0x8a5a33, { y: 0.45, z: -0.6 }), shape('box', 0.2, 2.3, 0.2, 0x596080, { x: -3.4, z: 1 }), shape('box', 0.2, 2.3, 0.2, 0x596080, { x: 3.4, z: 1 })); return { object: g }; };
-const lightTower: Builder = (p) => { const g = new Group(); const h = num(p, 'h', 16); g.add(shape('cyl', 0.5, h, 0.5, 0x596080), shape('box', 4.5, 2.4, 0.4, 0xfff3c0, { y: h, glow: 1.2 }), shape('box', 4.7, 0.2, 0.5, 0x2a2f45, { y: h + 2.4 })); return { object: g }; };
+/** The tunnel the players use: out of the concourse, through the stands, onto the field. */
+const tunnel: Builder = (p) => {
+  const g = new Group(); const w = num(p, 'w', 5), d = num(p, 'd', 9), h = num(p, 'h', 3.4);
+  g.add(rbox(0.6, h, d, 0x4a5168, { x: -w / 2 - 0.3, rough: 0.9, r: 0.03 }), rbox(0.6, h, d, 0x4a5168, { x: w / 2 + 0.3, rough: 0.9, r: 0.03 }), rbox(w + 1.8, 0.5, d + 0.6, 0x39405c, { y: h, rough: 0.8, r: 0.04 }));
+  g.add(rbox(w, 0.04, d, 0x2a2f45, { y: 0.0, rough: 0.9, flat: true, cast: false }), rbox(w - 0.4, 0.06, 0.12, 0xffd23f, { y: h - 0.2, z: -d / 2 + 0.3, glow: 0.9, flat: true, cast: false }), rbox(w - 0.4, 0.06, 0.12, 0xffd23f, { y: h - 0.2, z: d / 2 - 0.3, glow: 0.9, flat: true, cast: false }));
+  const s = sign(['TO THE FIELD'], 3.4, 0.6, { bg: '#10203f', fg: '#ffd23f', font: 40 }); s.position.set(0, h + 0.2, d / 2 + 0.02); g.add(s);
+  const s2 = sign(['HARBORVIEW PARK'], 3.4, 0.6, { bg: '#10203f', fg: '#ffffff', font: 36 }); s2.position.set(0, h + 0.2, -d / 2 - 0.02); s2.rotation.y = Math.PI; g.add(s2);
+  return { object: g };
+};
 
-/** Home plate area props: batter's box lines. */
-const plate: Builder = () => { const g = new Group(); g.add(shape('box', 0.9, 0.05, 0.9, 0xffffff, { y: 0.04, ry: Math.PI / 4 }), shape('box', 0.08, 0.03, 1.8, 0xffffff, { x: -1.3, y: 0.04 }), shape('box', 0.08, 0.03, 1.8, 0xffffff, { x: 1.3, y: 0.04 }), shape('box', 2.6, 0.04, 0.08, 0xffffff, { z: -0.9, y: 0.04 }), shape('box', 2.6, 0.04, 0.08, 0xffffff, { z: 0.9, y: 0.04 })); return { object: g }; };
+/** A dugout: a roofed bench with a rail at the front, a back wall and steps, open toward the field (local -z). */
+const dugout: Builder = () => {
+  const g = new Group();
+  g.add(rbox(8, 2.1, 0.35, 0x1d3f8c, { z: 1.1, rough: 0.8, r: 0.04 }), rbox(0.35, 2.1, 2.5, 0x1d3f8c, { x: -3.9, rough: 0.8, r: 0.04 }), rbox(0.35, 2.1, 2.5, 0x1d3f8c, { x: 3.9, rough: 0.8, r: 0.04 }));
+  g.add(rbox(8.6, 0.3, 3.0, 0xe8ecf7, { y: 2.1, rough: 0.6, r: 0.05 }), rbox(7.2, 0.14, 0.6, 0x8a5a33, { y: 0.55, z: 0.7, rough: 0.8, r: 0.02 }), rbox(7.6, 0.03, 2.2, 0x2a2f45, { y: 0.0, flat: true, cast: false }));
+  g.add(rbox(7.6, 0.1, 0.12, 0xffffff, { y: 1.05, z: -1.2, rough: 0.4, r: 0.02 }), rbox(7.6, 0.08, 0.1, 0xffffff, { y: 0.5, z: -1.2, rough: 0.4, r: 0.02 }));
+  for (const x of [-3.6, -1.2, 1.2, 3.6]) g.add(rcyl(0.05, 0.05, 1.1, 0xffffff, { x, z: -1.2, rough: 0.4 }));
+  return { object: g };
+};
+
+/** The backstop behind home plate: a padded wall, tall posts and netting. */
+const backstop: Builder = (p) => {
+  const g = new Group(); const w = num(p, 'w', 16), h = num(p, 'h', 7.5);
+  g.add(rbox(w, 1.2, 0.35, 0x1d3f8c, { rough: 0.7, r: 0.04 }), rbox(w, 0.08, 0.45, 0xffffff, { y: 1.2, rough: 0.5, r: 0.02 }));
+  for (let i = 0; i <= 4; i++) g.add(rcyl(0.1, 0.1, h, 0x39405c, { x: -w / 2 + (w * i) / 4, y: 0.1, rough: 0.5, metal: 0.4 }));
+  const net = new Mesh(planeGeo, new MeshBasicMaterial({ color: 0xcfd6ea, transparent: true, opacity: 0.16, side: DoubleSide, depthWrite: false })); net.scale.set(w, h - 1.3, 1); net.position.set(0, 1.3 + (h - 1.3) / 2, 0); g.add(net);
+  for (const sgn of [-1, 1]) { const wing = new Mesh(planeGeo, new MeshBasicMaterial({ color: 0xcfd6ea, transparent: true, opacity: 0.16, side: DoubleSide, depthWrite: false })); wing.scale.set(4.5, h - 2.5, 1); wing.position.set(sgn * (w / 2 + 1.9), 1.3 + (h - 2.5) / 2 - 0.4, -1.6); wing.rotation.y = sgn * 0.9 + Math.PI / 2 * 0; g.add(wing); }
+  return { object: g };
+};
+
+/** A light tower: a tall pole carrying banks of lamps. */
+const lightTower: Builder = (p) => {
+  const g = new Group(); const h = num(p, 'h', 18);
+  g.add(rcyl(0.3, 0.55, h, 0x596080, { rough: 0.5, metal: 0.4 }), rbox(5.2, 3.0, 0.5, 0x2a2f45, { y: h, rough: 0.6 }));
+  for (let r = 0; r < 3; r++) for (let i = 0; i < 6; i++) g.add(rbox(0.65, 0.5, 0.2, 0xfff3c0, { x: -2.1 + i * 0.84, y: h + 0.3 + r * 0.9, z: 0.3, glow: 1.4, flat: true, cast: false }));
+  return { object: g };
+};
 
 /**
  * THE TEAM. Before the analysis sets a lineup nobody is in position. When `set` happens nine players jog to their positions, in uniform, each
@@ -157,4 +279,4 @@ const team: Builder = (p, ctx) => {
 };
 
 void sign; void mat; void col; void (null as unknown as BuildCtx);
-export const ballparkBuilders: Record<string, Builder> = { diamond, fence, stands, dugout, lightTower, plate, team };
+export const ballparkBuilders: Record<string, Builder> = { diamond, fence, stands, dugout, lightTower, backstop, tunnel, team };

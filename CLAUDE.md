@@ -88,6 +88,13 @@ Baseball is a recurring *theme* and source of examples, never the limit of the c
 - **Stay original**: the fantasy academy borrows nothing from any existing franchise.
 - Phase 6 is the last planned phase; do not start another without being asked.
 
+## Educational design rules added in the Phase 6 finishing pass (keep them)
+- **A world reaction is the reward for a pass, never an errand.** The first independent pass that changes the world plays its reaction at once over the lesson and hands the lesson back. A failure is never acted out in the world (no malfunction cutscene); Focus and training are the only consequence. Do not add buttons, NPC steps or "go and talk to" gates between a pass and the next lesson.
+- **Guidance is derived, never scripted.** The objective comes from `objectiveFor(save, scene)`: the plaza never names a lesson; a world names its own next step from the learning record (training, due review, next open lesson, story activity). Never hard-code a lesson order in the 3D layer and never add a second source of "where do I go" (markers, trail and HUD all read the same objective).
+- **Collision comes from what is drawn.** New props get colliders from their meshes (`engine/collide.ts`), not from hand-typed sizes. After dressing a scene run `node scripts/integrity3d.mjs` and fix what it reports (walk-through, floating, spawn or NPC inside a solid) rather than adding invisible boxes. Ring-shaped props need explicit wall chains.
+- **Machines are planned, not tweened**: use `armMotion.ts` (joint S-curves, limits, holds) for anything articulated, and let a cinematic `await` the machine.
+- **Cinematics are short and earned**: a pass answers in a few seconds, only milestones get longer sheets (`cinematics.test.ts` caps a sheet at 11.5 s), a level-up is a banner.
+
 ## Focus rules (keep them)
 - **100 Focus = ready to attempt; below 100 = train first.** Enforced in the game layer (`submitChallenge`, `submitBoss`, `submitDaily`, `revealHint` refuse below 100), never only in the UI. There is **no Rest, no Focus item and no other shortcut**: Focus is earned back only by completing steps of a required training plan (`game/focus.ts`). Never add a way to restore Focus outside training; never let Focus exceed 100.
 - **Failure levels are data** (`FAILURE_LEVELS`, `HINTED_PASS_LOSS`, `STEP_WEIGHT` in `game/focus.ts`): 1 small task, 2 difficult task, 3 independent challenge, 4 mini-boss, 5 mastery boss/Summit. Guided (learning-mode) exercises and Practice Yard attempts cost nothing. A required plan's steps share exactly the Focus that was lost (the last step, the proof, takes the remainder), so the plan is sized to the Focus needed and ends at 100.

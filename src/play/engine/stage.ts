@@ -357,7 +357,11 @@ export class Stage {
           this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true; out.quick = true;
         }
       } else if (e.type === 'questComplete') { const cine = this.env.cinematic?.(`quest:${e.id}`); if (cine) { this.director.enqueue(cine); out.cinematic = true; } else { this.audio.sfx('quest'); won = true; } }
-      else if (e.type === 'levelUp') { const cine = this.env.cinematic?.(`level:${e.level}`); if (cine) { this.director.enqueue(cine); out.cinematic = true; } }
+      else if (e.type === 'levelUp') { // a level is a banner, not a cutscene: it never takes the controls away
+        this.audio.sfx('success'); this.fx.burst('magic', this.body.x, 1, this.body.z, 24);
+        this.director.show({ banner: { title: `Level ${e.level}`, sub: 'XP shows how far you have adventured, not what you can do: your Skills view shows that.', kind: 'level' } });
+        this.tweens.after(3.6, () => this.director.show({ banner: null }));
+      }
       else if (e.type === 'questAccepted') this.audio.sfx('quest');
     }
     if (won) { this.playerRig.play('success'); this.fx.burst('confetti', this.body.x, 2, this.body.z, 26); this.audio.sfx('success'); }

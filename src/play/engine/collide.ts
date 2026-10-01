@@ -8,7 +8,7 @@ import { Box3, type Object3D, type Mesh } from 'three';
 import type { Collider, Prop } from '../logic/sceneTypes';
 
 /** Kinds that always block, even when a scene forgot to say so. */
-export const AUTO_SOLID = new Set(['tree', 'glowtree', 'lamppost', 'crystal', 'archway', 'gateway', 'dock', 'castleWall', 'hound', 'stands', 'lightTower', 'startGantry', 'fountain', 'statue', 'well', 'tower', 'pitbuilding', 'timingtower', 'tyreStack', 'pitwall', 'liftStand', 'tyreRack', 'dugout', 'fence']);
+export const AUTO_SOLID = new Set(['tree', 'glowtree', 'lamppost', 'crystal', 'archway', 'gateway', 'dock', 'castleWall', 'hound', 'stands', 'lightTower', 'startGantry', 'fountain', 'statue', 'well', 'tower', 'pitbuilding', 'timingtower', 'tyreStack', 'pitwall', 'liftStand', 'tyreRack', 'dugout', 'backstop', 'tunnel', 'bench', 'kiosk']);
 /** Never fitted: thin walls and doors are exact already, and the rest are not objects a person bumps into. */
 const NOT_FITTED = new Set(['wall', 'door', 'floor', 'floorMetal', 'floorEmblem', 'ground', 'glowstrip', 'hazardstrip', 'pond', 'void', 'sign', 'screen', 'statusScreen', 'banner', 'hologram', 'cable', 'pipe', 'warnlight', 'monitorwall', 'drone', 'circuit']);
 /** Footprints that are round in the world: they get a circle. */

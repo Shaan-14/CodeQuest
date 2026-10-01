@@ -193,7 +193,7 @@ async function main() {
       eq((await st(p)).scene, 'robotics-atrium', 'a new player starts in the Robotics Academy atrium');
       // they are told what to do and where, and the world shows the way
       await tid(p, 'objective-title').waitFor();
-      assert((await tid(p, 'objective-text').innerText()).includes('Juno'), 'the objective names who to talk to');
+      assert((await tid(p, 'objective-text').innerText()).includes('Repair Console'), 'the objective names the Python lesson\'s console, from the learning record');
       assert((await tid(p, 'objective-where').innerText()).includes('Maintenance Bay'), 'and where: the door to take');
       assert((await st(p)).markers.length >= 0, 'markers exist');
       await go(p, 'maintenance-bay');
@@ -448,10 +448,10 @@ async function main() {
       const p = await newGame({ save: JSON.stringify(saves.baseball) });
       await go(p, 'ballpark');
       await p.waitForFunction(() => window.__cq3d.dynStates('team').includes('set'));
-      await tp(p, 5, 11.4, Math.PI);
+      await tp(p, 9.2, 0.6, Math.PI);
       await interact(p, 'talk-reyes');
       await talkThrough(p, { accept: true });
-      await tp(p, 0, 9.4, 0);
+      await tp(p, 0, 8.6, 0);
       await interact(p, 'home-plate');
       await tid(p, 'sim-play').waitFor();
       await p.screenshot({ path: SHOTS + 'play-08-baseball-ready.png' });
@@ -471,7 +471,7 @@ async function main() {
       const p = await newGame();
       await go(p, 'ballpark');
       assert(!(await p.evaluate(() => window.__cq3d.dynStates('team'))).includes('set'), 'no lineup yet');
-      await tp(p, 0, 9.4, 0);
+      await tp(p, 0, 8.6, 0);
       await interact(p, 'home-plate');
       assert((await tid(p, 'play-sim').innerText()).includes('0 of 6'), 'Coach says how much analysis is done');
       await tid(p, 'sim-notyet').click();

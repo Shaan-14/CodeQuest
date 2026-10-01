@@ -35,6 +35,13 @@ describe('the cinematics of the world', () => {
       if (cams.length) expect(cams[cams.length - 1]!.do === 'cam' && (cams[cams.length - 1] as { at: unknown }).at, `${id} ends on the player`).toBe('player');
     }
   });
+  it('a cinematic that waits on a machine names a prop that exists in the scenes that play it, and no sheet is long enough to be a chore', () => {
+    for (const sc of scenes) for (const r of sc.reactions ?? []) {
+      const c = r.cinematic ? CINEMATICS[r.cinematic] : undefined; if (!c) continue;
+      for (const q of c.cues) if (q.do === 'await') expect(sc.props.some((p) => p.id === q.id), `${c.id}: awaits ${q.id}`).toBe(true);
+      const len = c.len ?? 0; expect(len, `${c.id} is ${len}s`).toBeLessThan(11.5);
+    }
+  });
   it('every quest completes with a banner naming the quest and its reward, and a line from the person who gave it', () => {
     for (const q of quests) {
       const c = cinematicFor(`quest:${q.id}`)!;
@@ -42,9 +49,5 @@ describe('the cinematics of the world', () => {
       const banner = c.cues.find((x) => x.do === 'banner'); expect(banner && 'title' in banner && banner.title).toBe(q.title);
       expect(c.cues.some((x) => x.do === 'say' && x.who === q.giver), `${q.id} has a line from ${q.giver}`).toBe(true);
     }
-  });
-  it('a level up is shown as a banner and never as skill', () => {
-    const c = cinematicFor('level:3')!; const b = c.cues.find((x) => x.do === 'banner')!;
-    expect(b.do === 'banner' && b.sub).toMatch(/not what you can do/i);
   });
 });

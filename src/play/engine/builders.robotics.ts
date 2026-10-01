@@ -171,11 +171,23 @@ const statusScreen: Builder = (p, ctx) => {
   const off = sign(str(p, 'off', 'OFFLINE').split('|'), w, h, { bg: '#1a1d2a', fg: '#58607a', z: 0.07, y: y + h / 2 });
   const on = sign(str(p, 'on', 'ONLINE').split('|'), w, h, { bg: str(p, 'bg', '#0b1d17'), fg: str(p, 'fg', '#7dffb3'), z: 0.071, y: y + h / 2 });
   on.visible = false;
-  g.add(off, on);
+  const cover = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ color: str(p, 'bg', '#0b1d17') })); cover.position.set(0, y + h / 2, 0.0725); cover.scale.set(w, h, 1); cover.visible = false;
+  const scan = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ color: 0x7dffb3, toneMapped: false })); scan.position.set(0, y + h, 0.073); scan.scale.set(w, 0.035, 1); scan.visible = false;
+  g.add(off, on, cover, scan);
   const dyn: Dyn = {
     id: p.id ?? 'status', object: g, at: () => ({ x: p.x, y: y + h / 2, z: p.z }), states: () => (on.visible ? ['on'] : []),
     play(name) { if (name === 'malfunction') { ctx.audio.sfx('fail'); const was = on.visible; let n = 0; const tick = () => { if (n++ > 6) { on.visible = was; off.visible = !was; return; } on.visible = !on.visible; off.visible = !off.visible; ctx.tweens.after(0.08, tick); }; tick(); ctx.fx.burst('sparks', p.x, y + h / 2, p.z + 0.3, 14); } },
-    setState(_s, instant) { if (on.visible) return; on.visible = true; off.visible = false; if (!instant) { ctx.audio.sfx('interact'); ctx.fx.burst('magic', p.x, y + h / 2, p.z + 0.3, 14, 0.8); ctx.fx.flash(p.x, y + h / 2, p.z + 0.6, 0x7dffb3, 6, 0.5); } },
+    setState(_s, instant) {
+      if (on.visible) return;
+      on.visible = true; off.visible = false;
+      if (instant || ctx.reduced) return;
+      // the display fills in from the top, a bright scan line leading, like a screen refreshing with new data
+      ctx.audio.sfx('interact');
+      cover.visible = true; scan.visible = true;
+      const fg = col(p, 'scan', 0x7dffb3); (scan.material as MeshBasicMaterial).color.setHex(fg);
+      ctx.tweens.add(1.1, (k) => { const rest = h * (1 - k); cover.scale.set(w, Math.max(0.001, rest), 1); cover.position.y = y + rest / 2; scan.position.y = y + rest; scan.visible = k < 1; if (k >= 1) cover.visible = false; }, { ease: ease.inOut });
+      ctx.fx.flash(p.x, y + h / 2, p.z + 0.6, fg, 6, 0.9);
+    },
   };
   return { object: g, dyn };
 };

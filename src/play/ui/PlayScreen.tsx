@@ -220,9 +220,10 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       if (e.type === 'campaignComplete') finalePending.current = true;
       // a lesson is open: a pass is answered by the world RIGHT AWAY (no button, no errand); a failure is not acted out at all
       if (terminalRef.current) {
-        if (e.type === 'worldEffect' || e.type === 'questComplete' || e.type === 'levelUp' || e.type === 'questAccepted') {
+        if (e.type === 'levelUp') { pending.current.push(e); return; } // a level banner waits until the lesson is closed (it never interrupts one)
+        if (e.type === 'worldEffect' || e.type === 'questComplete' || e.type === 'questAccepted') {
           batch.current.push(e);
-          if (!batchTimer.current) batchTimer.current = window.setTimeout(() => { batchTimer.current = 0; const rank = (e: import('../../game/events').GameEvent) => (e.type === 'worldEffect' ? 0 : e.type === 'questAccepted' ? 1 : e.type === 'questComplete' ? 2 : 3); const evs = batch.current.sort((x, y) => rank(x) - rank(y)); batch.current = []; if (evs.length && terminalRef.current) { reactRun.current = evs; sawCine.current = false; reactingRef.current = true; setReacting(true); } }, 900); // a beat to read "Passed" first
+          if (!batchTimer.current) batchTimer.current = window.setTimeout(() => { batchTimer.current = 0; const rank = (e: import('../../game/events').GameEvent) => (e.type === 'worldEffect' ? 0 : e.type === 'questAccepted' ? 1 : 2); const evs = batch.current.sort((x, y) => rank(x) - rank(y)); batch.current = []; if (evs.length && terminalRef.current && !evs.some((x) => x.type === 'worldEffect' || x.type === 'questComplete')) { stageRef.current?.react(evs); return; } if (evs.length && terminalRef.current) { reactRun.current = evs; sawCine.current = false; reactingRef.current = true; setReacting(true); } }, 900); // a beat to read "Passed" first
         }
         return;
       }
