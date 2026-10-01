@@ -3,7 +3,7 @@
  * nothing in the game is understood only by sound (every event also has a caption), it starts only after the player's first key or click
  * (browsers require that), and the mute switch is saved. Volume is deliberately low.
  */
-export type Sfx = 'step' | 'interact' | 'open' | 'success' | 'fail' | 'spark' | 'spell' | 'hit' | 'click' | 'quest' | 'jump' | 'whoosh' | 'crack' | 'cheer' | 'error';
+export type Sfx = 'step' | 'interact' | 'open' | 'success' | 'fail' | 'spark' | 'spell' | 'hit' | 'click' | 'quest' | 'jump' | 'whoosh' | 'crack' | 'cheer' | 'error' | 'servo' | 'weld' | 'power' | 'chime' | 'door';
 export type Ambience = 'workshop' | 'wind' | 'crowd' | 'engine' | 'magic' | 'summit' | 'none';
 
 export class Audio {
@@ -68,6 +68,11 @@ export class Audio {
       case 'hit': this.noise(0.15, 0.1, 160, 0.7); this.tone(120, 0.15, 'sine', 0.1, 60); break;
       case 'whoosh': this.noise(0.3, 0.06, 500, 0.5); break;
       case 'crack': this.noise(0.08, 0.14, 1500, 3); break;
+      case 'servo': this.tone(140, 0.28, 'sawtooth', 0.035, 260); this.tone(260, 0.2, 'square', 0.02, 180, 0.12); break;
+      case 'weld': this.noise(0.5, 0.07, 4200, 3); this.tone(2200, 0.4, 'square', 0.012, 900); break;
+      case 'power': this.tone(90, 0.7, 'sawtooth', 0.05, 520); this.tone(180, 0.7, 'triangle', 0.04, 1040, 0.05); this.noise(0.4, 0.03, 700, 1, 0.3); break;
+      case 'chime': [880, 1319].forEach((f, i) => this.tone(f, 0.5, 'sine', 0.06, undefined, i * 0.12)); break;
+      case 'door': this.tone(120, 0.5, 'triangle', 0.05, 80); this.noise(0.4, 0.04, 350, 0.6); break;
       case 'cheer': this.noise(0.9, 0.05, 1200, 0.4); [392, 523, 659].forEach((f, i) => this.tone(f, 0.25, 'triangle', 0.06, undefined, i * 0.1)); break;
     }
   }

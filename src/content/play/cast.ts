@@ -69,6 +69,8 @@ const HUB: Npc3D[] = [
     dialogue: [
       { when: { effect: 'bay.bolt:awake' }, mood: 'cheer', lines: ['Bzzt! Bolt-7 is walking again. He told me himself. I am so pleased my lights are doing the thing.', 'The Manufacturing Floor is through the north-east door. Engineer Ori is very busy, very polite, and very short on programmers.'] },
       { when: { quest: { id: 'q-bay-briefing', status: ['completed'] } }, lines: ['His display is on! Status lights: delighted. The rest of the repair is in the Bay.'] },
+      { when: { quest: { id: 'q-bay-briefing', status: ['available'] }, notMet: 'kip' }, mood: 'cheer', lines: ['Bzzt! A new face! Welcome to the Robotics Academy. I am Kip: reception, directions and, on weekends, moral support.', 'Mentor Juno needs help in the Maintenance Bay: a robot is down. Follow the blue trail on the floor to the north-west door and you will find her.', 'Everything in this building can be fixed with code. Nothing in this building can be fixed by guessing.'] },
+      { when: { quest: { id: 'q-bay-briefing', status: ['available', 'accepted', 'in-progress'] } }, lines: ['The Maintenance Bay is through the north-west door. The blue trail on the floor will take you there.'] },
       { lines: ['Welcome to the Robotics Academy. Maintenance Bay is the north-west door: a robot needs you. The Manufacturing Floor is north-east. The Simulation Room on the west is where you train when something goes wrong.', 'Everything in this building can be fixed with code. Nothing in this building can be fixed by guessing.'] },
     ],
   },

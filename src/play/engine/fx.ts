@@ -2,7 +2,7 @@
  * EFFECTS: one pooled particle system (sparks, smoke, magic, confetti, dust) and one pooled flash light, shared by every world. An effect is a
  * NAME plus a place; worlds never write their own particle code. The pool has a hard cap so a burst can never cost frames.
  */
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, Points, PointsMaterial, PointLight, type Scene } from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color, Points, PointsMaterial, PointLight, SRGBColorSpace, type Scene } from 'three';
 
 export type FxKind = 'sparks' | 'smoke' | 'magic' | 'confetti' | 'dust' | 'steam' | 'heal' | 'ember' | 'shield';
 interface Def { color: number[]; speed: number; up: number; gravity: number; life: [number, number]; size: number; spread: number }
@@ -19,6 +19,16 @@ const DEFS: Record<FxKind, Def> = {
 };
 
 const MAX = 480;
+
+/** A soft round sprite, so sparks and magic are glowing dots rather than squares. */
+function spriteTexture(): CanvasTexture {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.35, 'rgba(255,255,255,.75)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  const t = new CanvasTexture(c); t.colorSpace = SRGBColorSpace; return t;
+}
 
 export class Fx {
   private pos = new Float32Array(MAX * 3);
@@ -41,7 +51,7 @@ export class Fx {
     g.setAttribute('position', new BufferAttribute(this.pos, 3));
     g.setAttribute('color', new BufferAttribute(this.col, 3));
     for (let i = 0; i < MAX; i++) this.pos[i * 3 + 1] = -999; // parked far below the world
-    const m = new PointsMaterial({ size: 0.22, vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true });
+    const m = new PointsMaterial({ size: 0.26, map: spriteTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, sizeAttenuation: true });
     this.points = new Points(g, m);
     this.points.frustumCulled = false;
     scene.add(this.points);
@@ -97,6 +107,6 @@ export class Fx {
   dispose(): void {
     this.scene.remove(this.points, this.flashLight);
     this.points.geometry.dispose();
-    (this.points.material as PointsMaterial).dispose();
+    const m = this.points.material as PointsMaterial; m.map?.dispose(); m.dispose();
   }
 }

@@ -14,7 +14,7 @@ import { holds } from '../logic/conditions';
 import type { Interactable } from '../logic/sceneTypes';
 import { canUseExit } from '../logic/travel';
 import type { Stage } from '../engine/stage';
-import { Caption, Controls, Dialogue, Prompt, QuestTracker, Where } from './Overlays';
+import { Caption, Controls, Dialogue, Prompt, Where } from './Overlays';
 import { TerminalOverlay } from './TerminalOverlay';
 import { TrainingOverlay } from './TrainingOverlay';
 import { MapOverlay } from './MapOverlay';
@@ -30,6 +30,12 @@ import { stationOfLesson } from '../../content/play/stations';
 import type { ReturnPoint } from '../../core/save';
 import { PauseMenu } from './PauseMenu';
 import { GameHud } from './GameHud';
+import { CinematicOverlay } from './CinematicOverlay';
+import { ObjectiveWidget, type GuideInfo } from './ObjectiveWidget';
+import { nextWaypoint, objectiveFor, type Objective } from '../logic/objective';
+import { scenes } from '../../content/play/scenes';
+import { IDLE_CINE, type CineState } from '../engine/director';
+import { cinematicFor } from '../../content/play/cinematics';
 import type { PanelTab } from '../../app/components/Hud';
 import { DailyOverlay } from './DailyOverlay';
 import { ManualOverlay } from './ManualOverlay';
@@ -97,6 +103,11 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const [daily, setDaily] = useState(false);
   const [manual, setManual] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [cine, setCine] = useState<CineState>(IDLE_CINE);
+  const [guide, setGuide] = useState<GuideInfo | null>(null);
+  const [objective, setObjective] = useState<Objective | null>(null);
+  const [freshObj, setFreshObj] = useState(false);
+  const lastObj = useRef('');
   const [welcome, setWelcome] = useState(() => !getStore().save.play.seen['play-welcome']);
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const [termNote, setTermNote] = useState('');
@@ -153,6 +164,9 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           onCaption: say,
           onPause: () => setPaused(true),
           onPosition: (scene, x, z, ry) => { const st = getStore(); st.apply(setPosition(st.save, scene, x, z, ry), { silent: true }); },
+          onCinematic: setCine,
+          onGuide: (g) => setGuide((old) => (g && old && Math.abs(old.dist - g.dist) < 1 && Math.abs(old.bearing - g.bearing) < 0.05 && old.label === g.label ? old : g)),
+          cinematic: cinematicFor,
           onAction: (n) => { if (n === 'map') interactPanel('map'); if (n === 'manual') setManual((m) => !m); },
           playerLook: playerLook(s.player?.avatar ?? 'spellwright'),
           quality: s.play.settings.quality,
@@ -198,6 +212,18 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   // any save change (a quest accepted, a lesson done) refreshes what the world offers
   useEffect(() => { stageRef.current?.refresh(); }, [save]);
 
+  // the objective: what to do and where, from the save and the current place; the stage turns it into a trail and a column of light
+  useEffect(() => {
+    const st = stageRef.current; if (!st || !sceneId) return;
+    const obj = objectiveFor(save, sceneId, { scenes, getNpc: getNpc3D, stationMatches: stationServes, trainingOwed: !!requiredTraining(save) });
+    const w = obj ? nextWaypoint(obj, sceneId, scenes) : null;
+    st.setWaypoint(w);
+    setObjective(obj);
+    if (!obj) setGuide(null);
+    const key = obj ? `${obj.kind}|${obj.questId ?? ''}|${obj.objectiveId ?? ''}|${obj.label}` : '';
+    if (key !== lastObj.current) { const first = lastObj.current === ''; lastObj.current = key; if (obj && !first) { st.audio.sfx('chime'); setFreshObj(true); window.setTimeout(() => setFreshObj(false), 1700); } }
+  }, [save, sceneId, ready]);
+
   // overlays take the keyboard: the world stops listening (and stops rendering behind a full-screen terminal)
   useEffect(() => {
     const s = stageRef.current; if (!s) return;
@@ -217,7 +243,10 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       case 'talk': {
         const npc = getNpc3D(a.npc); if (!npc) return;
         const conv = conversationWith(st.save, npc);
-        stageRef.current?.npcRig(npc.id)?.play(conv.entry.mood === 'cheer' ? 'cheer' : conv.entry.mood === 'think' ? 'think' : 'wave');
+        const rig = stageRef.current?.npcRig(npc.id);
+        rig?.play(conv.entry.mood === 'cheer' ? 'cheer' : conv.entry.mood === 'think' ? 'think' : 'wave');
+        rig?.mood(conv.entry.mood === 'cheer' ? 'happy' : conv.entry.mood === 'worry' ? 'worried' : conv.entry.mood === 'think' ? 'focused' : 'neutral');
+        stageRef.current?.conversationShot(npc.id);
         setTalk({ conv, lines: conv.entry.lines });
         break;
       }
@@ -282,10 +311,17 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     setTalk(null);
     if (!t) return;
     if ('conv' in t) {
-      st.apply(recordTalk(st.save, t.conv.npc.id));
+      const stage = stageRef.current, id = t.conv.npc.id;
+      st.apply(recordTalk(st.save, id));
       if (t.conv.entry.marks) st.apply(recordSeen(st.save, t.conv.entry.marks));
       if (accepted && t.conv.questId) st.apply(acceptQuest(st.save, t.conv.questId));
-    }
+      stage?.endConversationShot(id);
+      // the speaker points the way to what the player should do next (when it is somewhere else)
+      const obj = sceneId ? objectiveFor(getStore().save, sceneId, { scenes, getNpc: getNpc3D, stationMatches: stationServes, trainingOwed: !!requiredTraining(getStore().save) }) : null;
+      const w = obj && sceneId ? nextWaypoint(obj, sceneId, scenes) : null;
+      const npcPos = stage?.targetPos({ npc: id });
+      if (stage && w && npcPos && Math.hypot(w.x - npcPos.x, w.z - npcPos.z) > 3.5 && (accepted || obj?.kind === 'quest')) stage.npcPoint(id, w.x, w.z);
+    } else if (stageRef.current) { stageRef.current.endConversationShot(''); }
   }
 
   /** A failure owes training: walk the player to the Simulation Room, and open its console. Nothing is lost by going. */
@@ -311,16 +347,17 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     );
   }
   return (
-    <div class="play" ref={hostRef} data-testid="play" data-scene={sceneId} data-ready={ready ? '1' : '0'}>
+    <div class={`play ${cine.active ? 'cine-on' : ''}`} ref={hostRef} data-testid="play" data-scene={sceneId} data-ready={ready ? '1' : '0'}>
       <canvas ref={canvasRef} role="img" aria-label={scene ? `3D view: ${scene.title}. ${scene.blurb} Use the keyboard to move; every event is also described in text.` : '3D view'} tabIndex={0} data-testid="play-canvas" />
       {!ready && <div class="play-loading" role="status">Loading the world…</div>}
       {ready && (
         <div class="play-overlay">
           {scene && <Where title={scene.title} blurb={scene.blurb} />}
-          <QuestTracker />
+          <ObjectiveWidget objective={objective} guide={guide} fresh={freshObj} />
           <Caption text={caption} />
           {!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !driving && !boss && !finale && !daily && !manual && !welcome && <Prompt it={prompt} />}
           {driving ? <DriveHud hud={hud} par={par.current} onExit={() => stopDrive.current?.()} /> : <Controls />}
+          <CinematicOverlay cine={cine} />
           <GameHud onPanel={onPanel} onMap={() => setMapOpen(true)} onManual={() => setManual(true)} onMenu={() => setPaused(true)} />
           {!locked && !overlayOpen.current && !touch && <div class="play-lockhint pill" data-testid="play-lockhint">Click or press a key to look around with the mouse · Esc to release it</div>}
           {talk && ('conv' in talk ? <Dialogue conv={talk.conv} lines={talk.lines} onClose={closeTalk} /> : <Dialogue conv={{ npc: { name: talk.inspect.name, role: 'You look closely', icon: '🔍' }, lines: talk.inspect.lines, canOffer: false }} lines={talk.inspect.lines} onClose={closeTalk} />)}

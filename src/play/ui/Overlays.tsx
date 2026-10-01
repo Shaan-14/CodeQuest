@@ -61,40 +61,56 @@ interface DialogueProps {
   onClose: (accepted: boolean) => void;
 }
 
-/** A conversation, one line at a time. Space / Enter / E continue, Escape leaves; a quest offer ends with Accept and Not now. */
+/** Characters revealed per second by the typewriter (the whole line is always in the page for screen readers; reduced motion shows it at once). */
+const CPS = 70;
+
+/** A conversation, one line at a time, typed out. Space / Enter / E finish a line, then continue; Escape leaves; a quest offer ends with Accept and Not now. */
 export function Dialogue({ conv, lines, onClose }: DialogueProps) {
   const [i, setI] = useState(0);
+  const [shown, setShown] = useState(0);
   const last = i >= lines.length - 1;
   const offer = last && conv.canOffer;
+  const line = lines[i] ?? '';
+  const done = shown >= line.length;
+  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const btn = useRef<HTMLButtonElement>(null);
   useEffect(() => { btn.current?.focus(); }, [i]);
   useEffect(() => {
+    if (reduced) { setShown(line.length); return; }
+    setShown(0);
+    const t0 = performance.now(); let raf = 0;
+    const tick = () => { const n = Math.min(line.length, Math.floor(((performance.now() - t0) / 1000) * CPS)); setShown(n); if (n < line.length) raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [i, line, reduced]);
+  const advance = () => { if (!done) setShown(line.length); else if (last) onClose(false); else setI((n) => n + 1); };
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.preventDefault(); onClose(false); return; }
-      if ((e.key === ' ' || e.key === 'Enter' || e.key.toLowerCase() === 'e') && !offer && (e.target as HTMLElement)?.tagName !== 'BUTTON') { e.preventDefault(); if (last) onClose(false); else setI((n) => n + 1); }
+      if ((e.key === ' ' || e.key === 'Enter' || e.key.toLowerCase() === 'e') && (e.target as HTMLElement)?.tagName !== 'BUTTON') { e.preventDefault(); if (!done) setShown(line.length); else if (!offer) { if (last) onClose(false); else setI((n) => n + 1); } }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [last, offer, onClose]);
+  }, [last, offer, onClose, done, line]);
   const n = conv.npc;
   return (
-    <div class="play-dialogue pill" role="dialog" aria-label={`Conversation with ${n.name}`} data-testid="play-dialogue">
-      <div class="portrait" aria-hidden="true">{n.icon ?? '🧑'}</div>
-      <div>
-        <div class="speaker">{n.name}<span class="role">{n.role}</span></div>
-        <p data-testid="dialogue-line" aria-live="polite">{lines[i]}</p>
-        <div class="row">
-          {offer ? (
-            <>
-              <button class="btn" onClick={() => onClose(false)} data-testid="dialogue-decline">Not now</button>
-              <button class="btn gold" ref={btn} onClick={() => onClose(true)} data-testid="dialogue-accept">Accept quest</button>
-            </>
-          ) : last ? (
-            <button class="btn primary" ref={btn} onClick={() => onClose(false)} data-testid="dialogue-close">Goodbye</button>
-          ) : (
-            <button class="btn primary" ref={btn} onClick={() => setI(i + 1)} data-testid="dialogue-next">Continue ({i + 1}/{lines.length})</button>
-          )}
-        </div>
+    <div class="play-dialogue" role="dialog" aria-label={`Conversation with ${n.name}`} data-testid="play-dialogue" onClick={(e) => { if ((e.target as HTMLElement).closest('button')) return; advance(); }}>
+      <div class="dlg-plate"><span class="dlg-icon" aria-hidden="true">{n.icon ?? '🧑'}</span><span class="dlg-name">{n.name}</span><span class="dlg-role">{n.role}</span></div>
+      <p data-testid="dialogue-line" aria-live="polite"><span>{line.slice(0, shown)}</span><span class="dlg-rest">{line.slice(shown)}</span></p>
+      <div class="dlg-row">
+        <span class="dlg-more" aria-hidden="true">{done && !last ? '▼' : ''}</span>
+        {offer && done ? (
+          <>
+            <button class="btn" onClick={() => onClose(false)} data-testid="dialogue-decline">Not now</button>
+            <button class="btn gold" ref={btn} onClick={() => onClose(true)} data-testid="dialogue-accept">Accept quest</button>
+          </>
+        ) : offer ? (
+          <button class="btn primary" ref={btn} onClick={advance} data-testid="dialogue-next">Continue</button>
+        ) : last ? (
+          <button class="btn primary" ref={btn} onClick={() => onClose(false)} data-testid="dialogue-close">Goodbye</button>
+        ) : (
+          <button class="btn primary" ref={btn} onClick={advance} data-testid="dialogue-next">Continue ({i + 1}/{lines.length})</button>
+        )}
       </div>
     </div>
   );

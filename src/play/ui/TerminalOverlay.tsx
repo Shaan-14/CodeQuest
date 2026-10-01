@@ -34,7 +34,7 @@ export function TerminalOverlay({ station, onClose, onGoTraining, note, start }:
         {lessonId && <button class="btn small" onClick={() => setLessonId(null)} data-testid="terminal-modules">Modules</button>}
         <button class="btn small gold" onClick={onClose} data-testid="terminal-close">Leave terminal</button>
       </div>
-      {note ? <div key="note" class="pill" role="status" data-testid="terminal-world-note" style={{ margin: '.5rem 1rem 0', display: 'flex', gap: '.6rem', alignItems: 'center' }}><span>🌍 {note}</span><button class="btn small" onClick={onClose} data-testid="terminal-look">Go and look</button></div> : null}
+      {note ? <div key="note" class="pill" role="status" data-testid="terminal-world-note" style={{ margin: '.5rem 1rem 0', display: 'flex', gap: '.6rem', alignItems: 'center' }}><span>🌍 {note}</span><button class="btn small" onClick={onClose} data-testid="terminal-look">▶ Watch what happened</button></div> : null}
       <div class="term-body" key="body">
         {lessonId ? (
           <Suspense fallback={<p class="muted">Loading…</p>}>

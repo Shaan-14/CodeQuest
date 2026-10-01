@@ -18,6 +18,8 @@ const blobMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opac
 
 export interface Rig {
   group: Group;
+  /** The joints, for props that are characters too (a robot that lies on a table, loses an arm, stands up). */
+  skeleton: Skeleton;
   height: number;
   /** Advance the animation. `speed` is the horizontal speed in m/s (the stride follows it). */
   update(dt: number, pose: Pose, speed: number): void;
@@ -183,6 +185,7 @@ export function createRig(look: NpcLook, o: { shadow?: boolean } = {}): Rig {
 
   return {
     group: root,
+    skeleton: sk,
     height: sk.height * scale,
     update: apply,
     setFacing(y, snap = false) { facingTarget = y; if (snap) { yaw = y; root.rotation.y = y; } },

@@ -61,6 +61,8 @@ export interface NpcPlacement {
   x: number; z: number; ry?: number;
   /** Walk a short loop between these points (idle life). Omitted NPCs stand and face the player when near. */
   patrol?: Vec2[];
+  /** What they are busy doing while nobody talks to them (held until the player comes close). */
+  activity?: 'work' | 'think';
 }
 
 export interface Exit {
@@ -95,9 +97,9 @@ export interface Condition {
 }
 
 /** When code causes `effect` (`target:action`), put `state` on the prop named `prop` (animated live, instant when the scene is loaded later). */
-export interface Reaction { prop: string; effect: string; state: string; /** Caption shown (and announced) when it happens live. */ say?: string }
+export interface Reaction { prop: string; effect: string; state: string; /** Caption shown (and announced) when it happens live. */ say?: string; /** A cinematic (content/play/cinematics.ts) that shows this change with camera, animation, sound and NPC reactions instead of a bare state change. It must set the prop's state itself. */ cinematic?: string }
 /** When a graded attempt at a station's challenges FAILS, the prop reacts (sparks, a jam, a misfire) and the caption says what went wrong in the world. */
-export interface Consequence { prop: string; station: string; play: string; say: string }
+export interface Consequence { prop: string; station: string; play: string; say: string; /** A cinematic that plays instead of the bare malfunction. */ cinematic?: string }
 
 export interface SceneDef {
   id: string;

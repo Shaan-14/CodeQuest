@@ -5,8 +5,6 @@ import { mat, shape, sign, labelTexture } from './kit';
 import { col, num, str } from './props';
 import type { Builder, BuildCtx, Dyn } from './builders';
 
-const STAGE_ORDER = ['eyes', 'arm', 'power', 'voice', 'servo', 'ears', 'decide', 'senses', 'cycle', 'loop', 'routine', 'awake'] as const;
-
 /** A working console: desk, slanted glowing screen with the station's name. State `active` pulses the screen. */
 const consoleB: Builder = (p) => {
   const g = new Group();
@@ -183,91 +181,6 @@ const archway: Builder = (p) => {
 
 const board: Builder = (p) => { const g = new Group(); g.add(shape('box', 0.12, 1.4, 0.12, 0x596080, { x: -1.1 }), shape('box', 0.12, 1.4, 0.12, 0x596080, { x: 1.1 }), shape('box', 2.6, 1.3, 0.1, 0x8a5a33, { y: 1.0 }), sign(str(p, 'text', 'NOTICES').split('|'), 2.3, 1.0, { bg: '#d9c9a0', fg: '#3a2a12', y: 1.15, z: 0.07 })); return { object: g }; };
 
-/** The repairable robot. Stages accumulate (eyes, arm, power, voice, ears, senses, loop, routine, awake); a failed attempt makes it malfunction. */
-const bolt: Builder = (p, ctx) => {
-  const root = new Group();
-  const tableTop = num(p, 'table', 0.95) / num(p, 'scale', 1);
-  root.scale.setScalar(num(p, 'scale', 1));
-  const standingZ = num(p, 'outZ', 1.9);
-  const pivot = new Group(); root.add(pivot);
-  const body = new Group(); pivot.add(body);
-  const steel = 0x8fa3c7, dark = 0x39405c, yellow = 0xf2c14e;
-  body.add(shape('box', 0.75, 0.85, 0.5, steel, { y: 0.9 }), shape('box', 0.6, 0.22, 0.08, dark, { y: 1.2, z: 0.26 }));
-  const chest = shape('box', 0.34, 0.2, 0.06, 0x3a4058, { y: 0.98, z: 0.27, glow: 0 });
-  body.add(chest);
-  // head
-  const head = new Group(); head.position.y = 1.78; body.add(head);
-  head.add(shape('box', 0.6, 0.5, 0.5, steel, { y: -0.25 }), shape('cyl', 0.05, 0.28, 0.05, dark, { y: 0.25 }));
-  const eyeMat = mat(0x2a2f45); const eye = new Mesh(shape('box', 0.44, 0.12, 0.05, 0x000000).geometry, eyeMat); eye.scale.set(0.44, 0.12, 0.05); eye.position.set(0, -0.14, 0.26); head.add(eye);
-  const bulb = shape('sphere', 0.12, 0.12, 0.12, 0x3a4058, { y: 0.52 }); head.add(bulb);
-  // legs
-  const legL = shape('box', 0.24, 0.75, 0.26, dark, { x: -0.22, y: 0.0 }), legR = shape('box', 0.24, 0.75, 0.26, dark, { x: 0.22, y: 0.0 });
-  body.add(legL, legR);
-  // arms: the right one is detached at first and lies beside the table
-  const armL = new Group(); armL.position.set(-0.5, 1.6, 0); armL.add(shape('box', 0.2, 0.75, 0.2, steel, { y: -0.75 }), shape('box', 0.26, 0.22, 0.26, yellow, { y: -0.95 })); body.add(armL);
-  const armR = new Group(); armR.add(shape('box', 0.2, 0.75, 0.2, steel, { y: -0.75 }), shape('box', 0.26, 0.22, 0.26, yellow, { y: -0.95 })); root.add(armR);
-  const cell = shape('box', 0.3, 0.3, 0.12, 0x2b2f44, { y: 1.05, z: -0.3 }); body.add(cell);
-  const wire = shape('cyl', 0.03, 0.5, 0.03, 0xff6b6b, { x: 0.55, y: 1.4, rx: 0.6 }); body.add(wire);
 
-  let up = 0; // 0 = lying on the table, 1 = standing on the floor
-  let stageDone = new Set<string>();
-  let t = 0, malf = 0, nod = 0, sweep = 0, routine = 0;
-  const lay = (k: number) => {
-    up = k;
-    // lying: rotated back onto the table; standing: upright beside it
-    pivot.rotation.x = -(Math.PI / 2) * (1 - k);
-    pivot.position.set(0, tableTop + (0.05 - tableTop) * k + 0.35 * (1 - k), standingZ * k);
-    if (!stageDone.has('arm')) { armR.position.set(0.9, tableTop + 0.06, 0.25); armR.rotation.set(Math.PI / 2, 0, 0.3); } else { armR.position.set(0.5, tableTop + 0.06 + (1.6 - tableTop + 0.0) * 0, 0); }
-  };
-  const attachArm = () => { stageDone.add('arm'); root.remove(armR); armR.position.set(0.5, 1.6, 0); armR.rotation.set(0, 0, 0); body.add(armR); wire.visible = false; };
-  const glow = (m: Mesh, c: number, k: number) => { m.material = mat(c, k); };
-  const apply = (s: string, instant: boolean) => {
-    const quick = instant || ctx.reduced;
-    const fxAt = () => { const a = { x: p.x, y: tableTop + 0.7 + up * 0.4, z: p.z + standingZ * up }; return a; };
-    switch (s) {
-      case 'eyes': glow(eye, 0x4fd1ff, 1.2); glow(chest, 0x4fd1ff, 0.7); if (!quick) { ctx.audio.sfx('interact'); ctx.fx.burst('magic', fxAt().x, fxAt().y + 0.7, fxAt().z, 14, 0.6); } break;
-      case 'arm': attachArm(); if (!quick) { const a = fxAt(); ctx.audio.sfx('spark'); ctx.fx.burst('sparks', a.x + 0.5, a.y + 0.5, a.z, 28); ctx.fx.flash(a.x + 0.5, a.y + 0.6, a.z, 0xffd166, 12, 0.5); } break;
-      case 'power': glow(cell, 0x7dffb3, 1); glow(chest, 0x7dffb3, 1); if (!quick) { const a = fxAt(); ctx.audio.sfx('success'); ctx.fx.burst('heal', a.x, a.y + 0.6, a.z, 18); } break;
-      case 'voice': head.add(shape('box', 0.3, 0.06, 0.04, 0xffd166, { y: -0.36, z: 0.26, glow: 1 })); if (!quick) { ctx.audio.sfx('interact'); ctx.say('Bolt-7: “B-b-bzzt… hello?”'); } break;
-      case 'servo': nod = quick ? 0 : 2; if (!quick) ctx.audio.sfx('click'); break;
-      case 'decide': glow(chest, 0xffd166, 1); if (!quick) { ctx.audio.sfx('interact'); ctx.say('Bolt-7’s chest lights blink yes… no… yes.'); } break;
-      case 'cycle': routine = quick ? 0 : 2; break;
-      case 'ears': glow(bulb, 0xffd166, 1.3); if (!quick) { ctx.audio.sfx('interact'); ctx.fx.burst('magic', p.x, tableTop + 2.2, p.z, 10, 0.5); } break;
-      case 'senses': glow(eye, 0xffd166, 1.3); sweep = quick ? 0 : 2.5; break;
-      case 'loop': nod = quick ? 0 : 3; break;
-      case 'routine': routine = quick ? 0 : 3; break;
-      case 'awake':
-        glow(eye, 0x7dffb3, 1.4); glow(bulb, 0x7dffb3, 1.4);
-        if (quick) lay(1); else { ctx.audio.sfx('success'); ctx.fx.burst('confetti', p.x, 2.2, p.z + 1, 40); ctx.say('Bolt-7 sits up, plants his feet on the floor, and stands.'); ctx.tweens.add(2.2, lay, { ease: ease.back }); }
-        break;
-    }
-    stageDone.add(s);
-  };
-  // initial: dim, detached arm, on the table
-  legL.position.y = 0; legR.position.y = 0; body.position.y = 0;
-  lay(0);
-  const dyn: Dyn = {
-    id: p.id ?? 'bolt', object: root, at: () => ({ x: p.x, y: 1.4, z: p.z + standingZ * up }), states: () => [...stageDone],
-    setState(s, instant) { if ((STAGE_ORDER as readonly string[]).includes(s) && !stageDone.has(s)) apply(s, instant); },
-    play(name) {
-      if (name !== 'malfunction') return;
-      malf = 1.6;
-      const a = { x: p.x, y: tableTop + 0.9 + up * 0.6, z: p.z + standingZ * up };
-      ctx.audio.sfx('fail'); ctx.audio.sfx('spark');
-      ctx.fx.burst('sparks', a.x, a.y, a.z, 34); ctx.fx.burst('smoke', a.x, a.y + 0.3, a.z, 12); ctx.fx.flash(a.x, a.y, a.z, 0xff4d4d, 14, 0.7);
-    },
-    update(dt) {
-      t += dt;
-      if (malf > 0) { malf -= dt; pivot.position.x = Math.sin(t * 60) * 0.03 * Math.min(1, malf); eye.material = mat(0xff4d4d, 1 + Math.sin(t * 30) * 0.5); if (malf <= 0) { pivot.position.x = 0; eye.material = mat(stageDone.has('awake') ? 0x7dffb3 : stageDone.has('senses') ? 0xffd166 : stageDone.has('eyes') ? 0x4fd1ff : 0x2a2f45, stageDone.has('eyes') ? 1.2 : 0); } return; }
-      if (sweep > 0) { sweep -= dt; head.rotation.y = Math.sin(t * 4) * 0.6; if (sweep <= 0) head.rotation.y = 0; }
-      if (nod > 0) { nod -= dt; head.rotation.x = Math.sin(t * 8) * 0.25; if (nod <= 0) head.rotation.x = 0; }
-      if (routine > 0) { routine -= dt; armL.rotation.z = Math.sin(t * 6) * 0.8; armR.rotation.z = -Math.sin(t * 6) * 0.8; if (routine <= 0) { armL.rotation.z = 0; armR.rotation.z = 0; } }
-      if (stageDone.has('awake') && up >= 1) { head.rotation.y = Math.sin(t * 0.8) * 0.35; armL.rotation.x = Math.sin(t * 1.6) * 0.15; }
-    },
-  };
-  return { object: root, dyn };
-};
-void STAGE_ORDER;
-
-export const roboticsBuilders: Record<string, Builder> = { console: consoleB, conveyor, arm, door, hologram, dummy, workbench, toolrack, gantry, screen, bolt, statusScreen, scanner, pod, archway, board };
+export const roboticsBuilders: Record<string, Builder> = { console: consoleB, conveyor, arm, door, hologram, dummy, workbench, toolrack, gantry, screen, statusScreen, scanner, pod, archway, board };
 void labelTexture; void (null as unknown as BuildCtx);

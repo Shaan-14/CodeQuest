@@ -24,6 +24,11 @@ import { Fx } from './fx';
 import { Input } from './input';
 import { createRig, type Rig } from './rig';
 import { Tweens } from './tween';
+import { Director, type CineState } from './director';
+import { Guide } from './guide';
+import { buildGrid, findPath, pathLength, type PathGrid } from '../logic/path';
+import type { Waypoint } from '../logic/objective';
+import type { Cinematic, Target } from '../logic/cinematic';
 import { clearLabels, mat } from './kit';
 
 export type Quality = 'low' | 'medium' | 'high';
@@ -42,12 +47,18 @@ export interface StageEnv {
   onPause(): void;
   onPosition(scene: string, x: number, z: number, ry: number): void;
   onAction?(name: string): void;
+  /** The cinematic layer's state (letterbox, subtitle, banner) for the UI. */
+  onCinematic?(state: CineState): void;
+  /** Where the objective is, from the player's point of view (distance in metres, bearing in radians relative to the camera, through-a-door flag). */
+  onGuide?(g: { dist: number; bearing: number; via: boolean; label: string } | null): void;
+  /** Which cinematic shows this event (a reaction id, a quest completion, a level up), or none. */
+  cinematic?(ref: string): Cinematic | undefined;
   playerLook: NpcLook;
   quality: Quality;
   reducedMotion: boolean;
 }
 
-interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number }
+export interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number; /** A cinematic sends the NPC somewhere / turns it toward something. */ goal?: { x: number; z: number }; faceTarget?: { x: number; z: number }; activity?: 'work' | 'think'; greeted?: boolean }
 
 /** Props that are flat or fixed to walls: they never block the view, so they are never hidden. */
 const NEVER_HIDE = new Set(['wall', 'floor', 'ground', 'pond', 'sign', 'screen', 'statusScreen', 'banner', 'void']);
@@ -67,6 +78,17 @@ export class Stage {
   def: SceneDef | null = null;
   body: Body = newBody(0, 0);
   private playerRig: Rig;
+  readonly director: Director;
+  private guide: Guide;
+  private grid: PathGrid | null = null;
+  private waypoint: Waypoint | null = null;
+  private guideClock = 0; private pathClock = 0; private lastGuideX = 1e9; private lastGuideZ = 1e9;
+  private controlLocked = false;
+  playerGoal: { x: number; z: number } | null = null;
+  playerFace: { x: number; z: number } | null = null;
+  /** How fast the camera glides to where it wants to be (a cinematic sets this per shot). */
+  camRate = 9;
+  private propPos = new Map<string, { x: number; y: number; z: number }>();
   private world = new Group();
   private dyns = new Map<string, Dyn>();
   private npcs: NpcRuntime[] = [];
@@ -83,7 +105,7 @@ export class Stage {
   private markers: Marker[] = [];
   private markerMeshes = new Map<string, Mesh>();
   private prompt: Interactable | null = null;
-  private yaw = 0; private pitch = 0.55; private dist = 8;
+  private yaw = 0; private pitch = 0.42; private dist = 7.4;
   /** A fixed broadcast view (a simulated game, a cutscene): the camera orbits this point instead of the player. */
   private cinema: { x: number; y: number; z: number; yaw: number; pitch: number; dist: number } | null = null;
   private camPos = new Vector3(); private camLook = new Vector3();
@@ -110,6 +132,42 @@ export class Stage {
   /** Put the player on foot at a place (leaving a car). */
   placePlayer(x: number, z: number, ry: number): void { this.body.x = x; this.body.z = z; this.body.vx = 0; this.body.vz = 0; this.body.ry = ry; this.playerRig.group.position.set(x, 0, z); this.playerRig.setFacing(ry, true); }
   get buildCtx(): BuildCtx { return this.ctx; }
+  get playerRigRef(): Rig { return this.playerRig; }
+  /** Frame a conversation: over the player's shoulder toward the speaker, who turns to the player and talks. */
+  conversationShot(npcId: string): void {
+    const n = this.npcRuntime(npcId); if (!n) return;
+    const heading = Math.atan2(-(n.x - this.body.x), -(n.z - this.body.z));
+    this.body.ry = heading; this.playerRig.setFacing(heading);
+    n.faceTarget = { x: this.body.x, z: this.body.z }; n.rig.talk(true);
+    this.camRate = 4.5;
+    this.setCinema({ x: (this.body.x + n.x) / 2, z: (this.body.z + n.z) / 2, y: 1.45, yaw: heading + Math.PI + 0.62, pitch: 0.16, dist: Math.max(3.6, Math.hypot(n.x - this.body.x, n.z - this.body.z) + 2.4) });
+  }
+  endConversationShot(npcId: string): void {
+    const n = this.npcRuntime(npcId); if (n) { n.faceTarget = undefined; n.rig.talk(false); n.rig.mood('neutral'); }
+    if (!this.director.active) { this.setCinema(null); this.camRate = 9; }
+  }
+  /** Show the objective as a trail and a column of light (null hides them). */
+  setWaypoint(w: Waypoint | null): void { this.waypoint = w; this.guide.setTarget(w); this.guide.setPath(null); this.pathClock = 99; this.lastGuideX = 1e9; if (!w) this.env.onGuide?.(null); }
+  setGuideVisible(on: boolean): void { this.guide.enabled = on; }
+  /** NPC gestures toward a place for a moment ("it is through there"). */
+  npcPoint(id: string, x: number, z: number, seconds = 3.2): void { const n = this.npcRuntime(id); if (!n) return; n.rig.pointAt(x, z); n.rig.hold('point'); n.faceTarget = { x, z }; this.tweens.after(seconds, () => { n.rig.release(); n.faceTarget = undefined; }); }
+  get cameraYaw(): number { return this.yaw; }
+  /** While a cinematic plays the player cannot walk or interact; the body stands still. */
+  setControlLocked(on: boolean): void { this.controlLocked = on; if (on) { this.body.vx = 0; this.body.vz = 0; this.input.clear(); this.prompt = null; this.env.onPrompt(null); } else { this.playerGoal = null; this.playerFace = null; this.playerRig.lookAt(null); } }
+  get locked(): boolean { return this.controlLocked; }
+  shakeCamera(amount: number): void { this.shake = Math.max(this.shake, amount); }
+  npcRuntime(id: string): NpcRuntime | undefined { return this.npcs.find((n) => n.npc.id === id); }
+  /** Put an NPC at a place at once (a skipped cinematic ends with everyone where they should be). */
+  placeNpc(id: string, x: number, z: number): void { const n = this.npcRuntime(id); if (!n) return; n.x = x; n.z = z; n.home = { x, z }; n.goal = undefined; n.collider.x = x; n.collider.z = z; n.rig.group.position.set(x, 0, z); }
+  /** A cinematic is over: NPCs go back to watching the player and idling. */
+  releaseNpcs(): void { for (const n of this.npcs) { n.faceTarget = undefined; if (n.goal) { n.x = n.goal.x; n.z = n.goal.z; n.home = { ...n.goal }; n.goal = undefined; } n.rig.release(); n.rig.talk(false); n.rig.mood('neutral'); n.rig.lookAt(null); } this.playerRig.release(); this.playerGoal = null; this.playerFace = null; }
+  /** Where a cue target is in the world now. */
+  targetPos(t: Target): { x: number; y: number; z: number } | null {
+    if ('player' in t) return { x: this.body.x, y: 1.2 + this.body.y, z: this.body.z };
+    if ('npc' in t) { const n = this.npcRuntime(t.npc); return n ? { x: n.x, y: 1.3, z: n.z } : null; }
+    if ('prop' in t) { const d = this.dyns.get(t.prop); if (d) return d.at(); return this.propPos.get(t.prop) ?? null; }
+    return { x: t.at[0], y: t.at[2] ?? 1, z: t.at[1] };
+  }
   get sceneBounds(): SceneDef['bounds'] | undefined { return this.def?.bounds; }
   /** Show a caption from outside the stage (a simulated game narrates itself). */
   env_caption?: (text: string) => void;
@@ -137,7 +195,9 @@ export class Stage {
     this.input = new Input(host);
     this.playerRig = createRig(env.playerLook);
     this.scene.add(this.playerRig.group);
-    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced, mood: (k) => this.setMood(k), cinema: (v) => this.setCinema(v) };
+    this.director = new Director(this, (st) => env.onCinematic?.(st));
+    this.guide = new Guide(this.scene);
+    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced, mood: (k) => this.setMood(k), cinema: (v) => this.setCinema(v), dyn: (id) => this.dyns.get(id), player: () => ({ x: this.body.x, z: this.body.z }) };
     this.onResize = () => this.resize();
     if (typeof ResizeObserver !== 'undefined') { this.resizeObs = new ResizeObserver(this.onResize); this.resizeObs.observe(host); }
     window.addEventListener('resize', this.onResize);
@@ -185,10 +245,12 @@ export class Stage {
       built.object.rotation.y = p.ry ?? 0;
       this.world.add(built.object);
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
+      if (p.id) this.propPos.set(p.id, { x: p.x, y: (p.y ?? 0) + 1, z: p.z });
       if (!NEVER_HIDE.has(p.kind)) { const box = new Box3().setFromObject(built.object); if (box.max.y - box.min.y > 0.7) this.occluders.push({ obj: built.object, box }); }
       if (MOUNTED.has(p.kind)) { const ry = p.ry ?? 0; this.mounted.push({ obj: built.object, nx: Math.sin(ry), nz: Math.cos(ry), px: p.x, pz: p.z }); }
       if (p.kind === 'wall') { const ry = p.ry ?? 0; const n = { x: Math.sin(ry), z: Math.cos(ry) }; const inside = Math.sign(n.x * (cx - p.x) + n.z * (cz - p.z)) || 1; this.walls.push({ obj: built.object, nx: n.x, nz: n.z, px: p.x, pz: p.z, inside }); }
     }
+    this.grid = null; this.waypoint = null; this.guide.setTarget(null);
     this.colliders = collidersOf({ ...def, props: def.props.filter((p) => !p.id) });
     this.propColliders.clear();
     // a solid prop with an id remembers its collider so it can be removed when the prop opens
@@ -201,13 +263,14 @@ export class Stage {
       this.scene.add(rig.group);
       const collider = { kind: 'circle' as const, x: pl.x, z: pl.z, r: 0.5 };
       this.colliders.push(collider);
-      this.npcs.push({ npc, rig, x: pl.x, z: pl.z, ry: pl.ry ?? 0, home: { x: pl.x, z: pl.z }, patrol: pl.patrol, leg: 0, collider, speed: 0 });
+      this.npcs.push({ npc, rig, x: pl.x, z: pl.z, ry: pl.ry ?? 0, home: { x: pl.x, z: pl.z }, patrol: pl.patrol, leg: 0, collider, speed: 0, activity: pl.activity });
+      if (pl.activity) rig.hold(pl.activity);
     }
     // where the player stands
     const spawn = typeof at === 'string' ? def.spawns[at] : at;
     const s0 = spawn ?? def.spawns.default ?? Object.values(def.spawns)[0] ?? { x: 0, z: 0, ry: 0 };
     this.body = newBody(s0.x, s0.z, s0.ry);
-    this.yaw = s0.ry; this.pitch = 0.55;
+    this.yaw = s0.ry; this.pitch = 0.42;
     this.snapCamera();
     this.playerRig.group.position.set(s0.x, 0, s0.z); this.playerRig.setFacing(s0.ry, true);
     // state the player's code has already earned: instant, no animation
@@ -228,10 +291,10 @@ export class Stage {
     this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); });
     clearLabels();
     for (const n of this.npcs) this.scene.remove(n.rig.group);
-    this.npcs = []; this.dyns.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = []; this.mounted = [];
+    this.npcs = []; this.dyns.clear(); this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = []; this.mounted = [];
     for (const m of this.markerMeshes.values()) this.scene.remove(m);
     this.markerMeshes.clear();
-    this.prompt = null; this.driver = null; this.hooks = []; this.chase = null; this.playerRig.group.visible = true; this.audio.engine(null); this.cinema = null;
+    this.director.reset(); this.controlLocked = false; this.playerGoal = null; this.playerFace = null; this.prompt = null; this.driver = null; this.hooks = []; this.chase = null; this.playerRig.group.visible = true; this.audio.engine(null); this.cinema = null;
   }
 
   /** The save changed: which interactables exist now, which things to mark, and what the world shows. Cheap; call after every action. */
@@ -260,19 +323,28 @@ export class Stage {
     for (const e of events) {
       if (e.type === 'worldEffect') {
         const ref = `${e.target}:${e.action}`;
-        for (const r of def.reactions ?? []) if (r.effect === ref) { this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true; }
+        for (const r of def.reactions ?? []) if (r.effect === ref) {
+          const cine = r.cinematic ? this.env.cinematic?.(r.cinematic) : undefined;
+          if (cine) { this.director.enqueue(cine); if (r.state === 'open') this.openGate(r.prop); continue; } // the cinematic itself sets the prop's state
+          this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true;
+        }
       } else if (e.type === 'challengeFailed') {
         const station = this.env.stationOfChallenge(e.challengeId);
-        for (const c of def.consequences ?? []) if (c.station === station) { this.dyns.get(c.prop)?.play?.('malfunction'); if (c.say) this.env.onCaption(c.say); lost = true; }
-      } else if (e.type === 'questComplete') { this.audio.sfx('quest'); won = true; }
+        for (const c of def.consequences ?? []) if (c.station === station) {
+          const cine = c.cinematic ? this.env.cinematic?.(c.cinematic) : undefined;
+          if (cine) { this.director.enqueue(cine); lost = true; continue; }
+          this.dyns.get(c.prop)?.play?.('malfunction'); if (c.say) this.env.onCaption(c.say); lost = true;
+        }
+      } else if (e.type === 'questComplete') { const cine = this.env.cinematic?.(`quest:${e.id}`); if (cine) this.director.enqueue(cine); else { this.audio.sfx('quest'); won = true; } }
+      else if (e.type === 'levelUp') { const cine = this.env.cinematic?.(`level:${e.level}`); if (cine) this.director.enqueue(cine); }
       else if (e.type === 'questAccepted') this.audio.sfx('quest');
     }
     if (won) { this.playerRig.play('success'); this.fx.burst('confetti', this.body.x, 2, this.body.z, 26); this.audio.sfx('success'); }
-    if (lost) { this.playerRig.play('damage'); this.playerRig.flash(true); this.tweens.after(0.35, () => this.playerRig.flash(false)); if (!this.reduced) this.shake = 0.5; }
+    if (lost && !this.director.active) { this.playerRig.play('damage'); this.playerRig.flash(true); this.tweens.after(0.35, () => this.playerRig.flash(false)); if (!this.reduced) this.shake = 0.5; }
     this.refresh();
   }
 
-  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.colliders = this.colliders.filter((x) => x !== c); this.propColliders.delete(prop); } }
+  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.grid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => x !== c); this.propColliders.delete(prop); } }
 
   /** Paint the sky dome: `zenith` at the top blending to `horizon` at eye level. */
   private paintSky(zenith: Color, horizon: Color): void {
@@ -339,7 +411,7 @@ export class Stage {
     const ex = b.x + dirX * flat;
     const ey = cy + Math.max(Math.sin(pitch) * dist, (dist * Math.cos(pitch) - flat) * 0.9 + Math.sin(pitch) * flat);
     const ez = b.z + dirZ * flat;
-    const k = snap ? 1 : 1 - Math.exp(-dt * 9); // frame-rate independent follow: smooth, never laggy
+    const k = snap ? 1 : 1 - Math.exp(-dt * this.camRate); // frame-rate independent follow: smooth, never laggy
     this.camPos.x += (ex - this.camPos.x) * k; this.camPos.y += (ey - this.camPos.y) * k; this.camPos.z += (ez - this.camPos.z) * k;
     this.camLook.x += (b.x - this.camLook.x) * k; this.camLook.y += (cy - this.camLook.y) * k; this.camLook.z += (b.z - this.camLook.z) * k;
     this.camera.position.copy(this.camPos);
@@ -362,16 +434,18 @@ export class Stage {
   private frame(dt: number): void {
     this.t += dt;
     const inp = this.input;
-    if (inp.wasPressed('Escape')) this.env.onPause();
-    if (inp.wasPressed('m')) this.env.onAction?.('map');
-    if (inp.wasPressed('j')) this.env.onAction?.('journal');
-    if (inp.wasPressed('h')) this.env.onAction?.('manual');
+    if (!this.controlLocked && inp.wasPressed('Escape')) this.env.onPause();
+    if (!this.controlLocked) { if (inp.wasPressed('m')) this.env.onAction?.('map'); if (inp.wasPressed('j')) this.env.onAction?.('journal'); if (inp.wasPressed('h')) this.env.onAction?.('manual'); }
     // camera: mouse drag, wheel, Q/R keys (for players without a mouse)
-    this.yaw -= inp.dragX; this.pitch = Math.max(0.12, Math.min(1.2, this.pitch + inp.dragY));
+    if (!this.controlLocked) { this.yaw -= inp.dragX; this.pitch = Math.max(0.12, Math.min(1.2, this.pitch + inp.dragY)); }
     if (inp.isDown('q')) this.yaw += dt * 1.8;
     if (inp.isDown('r')) this.yaw -= dt * 1.8;
     if (inp.wheel) this.dist = Math.max(3.5, Math.min(12, this.dist + inp.wheel * 0.8));
 
+    if (this.director.active) {
+      if (inp.wasPressed(' ', 'e', 'f', 'Escape') && this.director.running) this.director.skip();
+      this.director.update(dt);
+    }
     if (this.driver) this.driver(dt, inp);
     else this.walk(dt);
 
@@ -384,8 +458,10 @@ export class Stage {
     // markers bob
     for (const [id, m] of this.markerMeshes) { m.rotation.y += dt * 2; const base = this.markers.find((x) => x.id === id); if (base) m.position.y = (base.kind === 'offer' ? 2.5 : 2.2) + Math.sin(this.t * 3) * 0.08; }
 
+    this.updateGuide(dt);
+
     // interaction prompt
-    if (!this.driver) {
+    if (!this.driver && !this.controlLocked) {
       const it = nearestInteractable(this.body.x, this.body.z, this.body.ry, this.active);
       if (it?.id !== this.prompt?.id) { this.prompt = it; this.env.onPrompt(it); }
       if (it && inp.wasPressed('e', 'f')) { this.audio.resume(); this.audio.sfx('interact'); this.playerRig.play('interact'); this.env.onInteract(it); }
@@ -400,6 +476,29 @@ export class Stage {
     inp.endFrame();
   }
 
+  /** Keep the trail pointing at the objective (a path is re-planned when the player has moved, around the colliders as they are right now). */
+  private updateGuide(dt: number): void {
+    const w = this.waypoint, def = this.def;
+    this.guide.update(dt, this.t, this.body.x, this.body.z, this.reduced);
+    if (!w || !def) return;
+    this.pathClock += dt; this.guideClock += dt;
+    if (this.pathClock > 0.4 && Math.hypot(this.body.x - this.lastGuideX, this.body.z - this.lastGuideZ) > 0.6) {
+      this.pathClock = 0; this.lastGuideX = this.body.x; this.lastGuideZ = this.body.z;
+      this.grid ??= buildGrid(def.bounds, this.colliders.filter((c) => !(c.kind === 'circle' && c.r === 0.5)));
+      const pts = findPath(this.grid, { x: this.body.x, z: this.body.z }, { x: w.x, z: w.z });
+      this.guide.setPath(pts);
+      this.pathDist = pts ? pathLength(pts) : Math.hypot(w.x - this.body.x, w.z - this.body.z);
+      this.pathHeading = pts && pts.length > 1 ? Math.atan2(pts[1]!.x - this.body.x, pts[1]!.z - this.body.z) : Math.atan2(w.x - this.body.x, w.z - this.body.z);
+    }
+    if (this.guideClock > 0.15) {
+      this.guideClock = 0;
+      // bearing: the way to go, as seen from where the camera looks (0 = straight ahead, positive = to the right)
+      let b = (Math.PI - this.pathHeading) - this.yaw; while (b > Math.PI) b -= 2 * Math.PI; while (b < -Math.PI) b += 2 * Math.PI;
+      this.env.onGuide?.({ dist: this.pathDist, bearing: b, via: w.via, label: w.label });
+    }
+  }
+  private pathDist = 0; private pathHeading = 0;
+
   private walk(dt: number): void {
     const inp = this.input, b = this.body, def = this.def;
     if (!def) return;
@@ -408,9 +507,16 @@ export class Stage {
     const r = (inp.isDown('d', 'ArrowRight') ? 1 : 0) - (inp.isDown('a', 'ArrowLeft') ? 1 : 0);
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw); // away from the camera
     const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
-    const run = inp.isDown('Shift');
+    let run = inp.isDown('Shift');
+    let dx = fx * f + rx * r, dz = fz * f + rz * r, jump = inp.isDown(' ');
+    if (this.controlLocked) {
+      // a cinematic: the player stands still, or walks where the script says
+      dx = 0; dz = 0; jump = false; run = false;
+      if (this.playerGoal) { const gx = this.playerGoal.x - b.x, gz = this.playerGoal.z - b.z, gd = Math.hypot(gx, gz); if (gd < 0.15) this.playerGoal = null; else { dx = gx / gd; dz = gz / gd; } }
+    }
     const wasAir = !b.onGround;
-    stepBody(b, { dx: fx * f + rx * r, dz: fz * f + rz * r, run, jump: inp.isDown(' ') }, this.colliders, def.bounds, dt);
+    stepBody(b, { dx, dz, run, jump }, this.colliders, def.bounds, dt);
+    if (this.controlLocked && !this.playerGoal && this.playerFace) { const fy = Math.atan2(-(this.playerFace.x - b.x), -(this.playerFace.z - b.z)); let d = fy - b.ry; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; b.ry += d * Math.min(1, dt * 6); }
     if (wasAir && b.onGround) this.audio.sfx('step');
     const speed = Math.hypot(b.vx, b.vz);
     const pose = poseOf(b, run);
@@ -423,20 +529,28 @@ export class Stage {
   private updateNpc(n: NpcRuntime, dt: number): void {
     const dx = this.body.x - n.x, dz = this.body.z - n.z, d = Math.hypot(dx, dz);
     let moving = false;
-    if (n.patrol && n.patrol.length > 1 && d > 4) {
+    const turnTo = (tx: number, tz: number, rate: number) => { const target = Math.atan2(-tx, -tz); let df = target - n.ry; while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI; n.ry += df * (1 - Math.exp(-dt * rate)); };
+    if (n.goal) {
+      const tx = n.goal.x - n.x, tz = n.goal.z - n.z, td = Math.hypot(tx, tz);
+      if (td < 0.12) { n.home = { ...n.goal }; n.goal = undefined; }
+      else { const step = Math.min(td, dt * 1.7); n.x += (tx / td) * step; n.z += (tz / td) * step; turnTo(tx, tz, 10); moving = true; }
+    } else if (n.faceTarget) turnTo(n.faceTarget.x - n.x, n.faceTarget.z - n.z, 6);
+    else if (n.patrol && n.patrol.length > 1 && d > 4) {
       const tgt = n.patrol[n.leg % n.patrol.length]!;
       const tx = tgt.x - n.x, tz = tgt.z - n.z, td = Math.hypot(tx, tz);
       if (td < 0.2) n.leg++;
-      else { n.x += (tx / td) * dt * 1.0; n.z += (tz / td) * dt * 1.0; n.ry = Math.atan2(-tx, -tz); moving = true; }
-    } else if (d < 5) {
-      const target = Math.atan2(-dx, -dz); let df = target - n.ry;
-      while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
-      n.ry += df * Math.min(1, dt * 3);
+      else { n.x += (tx / td) * dt * 1.0; n.z += (tz / td) * dt * 1.0; turnTo(tx, tz, 8); moving = true; }
+    } else if (d < 5 && !this.controlLocked) turnTo(dx, dz, 3.5);
+    // greet a newcomer once with a wave; people at work stop to look up when the player is close
+    if (!this.controlLocked) {
+      if (d < 4.6 && !n.greeted) { n.greeted = true; if (!n.activity) n.rig.play('wave'); }
+      else if (d > 9) n.greeted = false;
+      if (n.activity) { if (d < 3.4) n.rig.release(); else if (d > 5) n.rig.hold(n.activity); }
     }
     n.collider.x = n.x; n.collider.z = n.z;
     n.rig.group.position.set(n.x, 0, n.z); n.rig.setFacing(n.ry);
-    n.rig.update(dt, moving ? 'walk' : 'idle', moving ? 1 : 0);
-    if (d < 6) n.rig.lookAt(this.body.x, this.body.z); else n.rig.lookAt(null);
+    n.rig.update(dt, moving ? 'walk' : 'idle', moving ? (n.goal ? 1.7 : 1.0) : 0);
+    if (!this.controlLocked) { if (d < 6) n.rig.lookAt(this.body.x, this.body.z); else n.rig.lookAt(null); }
   }
 
   /* ------------------------------------------------------------------ test and debug surface (read-only state; teleport only for e2e) */
@@ -452,7 +566,7 @@ export class Stage {
     this.suspend();
     this.unload();
     this.scene.remove(this.sky); this.sky.geometry.dispose(); (this.sky.material as MeshBasicMaterial).dispose();
-    this.fx.dispose(); this.audio.dispose(); this.input.dispose();
+    this.guide.dispose(); this.fx.dispose(); this.audio.dispose(); this.input.dispose();
     this.resizeObs?.disconnect(); window.removeEventListener('resize', this.onResize); document.removeEventListener('visibilitychange', this.onVisibility);
     this.renderer.dispose(); this.renderer.forceContextLoss();
   }
