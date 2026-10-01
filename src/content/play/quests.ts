@@ -1,8 +1,9 @@
 import type { Quest } from '../schema';
 
 /**
- * THE STORY QUESTS of the playable world. A story quest mixes steps done IN the world (talk, inspect) with steps done by CODE (an effect, which
- * exists only once a graded challenge was passed). No step can be completed by walking alone where code is needed, and none awards mastery:
+ * THE STORY QUESTS of the playable world. A story quest is made of steps done by CODE (an effect, which exists only once a graded challenge was passed) and a few
+ * things done in the world (win a game, drive a lap). Nobody has to be talked to for a quest to progress: it is taken up by doing its first step
+ * (game/play.ts acceptWorkedQuests). No step can be completed by walking alone where code is needed, and none awards mastery:
  * finishing a quest pays the same XP/coins as any other and skill still comes only from evidence.
  */
 export const playQuests: Quest[] = [
@@ -10,8 +11,6 @@ export const playQuests: Quest[] = [
     id: 'q-bay-briefing', title: 'Silent in the Bay', giver: 'Mentor Juno',
     summary: 'Bolt-7, the Academy’s best training robot, lies dead on the repair table after a power surge. Look him over, then boot his display from the console.',
     objectives: [
-      { id: 'b1', text: 'Talk to Mentor Juno in the Maintenance Bay', kind: 'talk', ref: 'juno' },
-      { id: 'b2', text: 'Inspect Bolt-7 on the repair table', kind: 'inspect', ref: 'bolt-table' },
       { id: 'b3', text: 'Write your first program at the console: boot Bolt-7’s display', kind: 'effect', ref: 'bay.bolt:eyes' },
     ],
     reward: { xp: 60, coins: 20 },
@@ -44,7 +43,6 @@ export const playQuests: Quest[] = [
     objectives: [
       { id: 'a1', text: 'Write Bolt’s reusable routine', kind: 'effect', ref: 'bay.bolt:routine' },
       { id: 'a2', text: 'Write Bolt’s complete control program', kind: 'effect', ref: 'bay.bolt:awake' },
-      { id: 'a3', text: 'Tell Mentor Juno what you did', kind: 'inspect', ref: 'juno-debrief' },
     ],
     reward: { xp: 150, coins: 50 },
   },
@@ -74,8 +72,6 @@ export const playQuests: Quest[] = [
     id: 'q-lantern-briefing', title: 'The Lanterns Are Going Out', giver: 'Warden Teselle',
     summary: 'One by one the academy’s lanterns have failed. The Warden thinks the old rune-work is unsound. Look at a dead lantern, then write the first runes in the Runecraft Hall.',
     objectives: [
-      { id: 'l1', text: 'Talk to Warden Teselle in the courtyard', kind: 'talk', ref: 'teselle' },
-      { id: 'l2', text: 'Inspect the dark lantern by the pond', kind: 'inspect', ref: 'dark-lantern' },
       { id: 'l3', text: 'Write a rune at the Rune Lectern: unfurl the academy banner', kind: 'effect', ref: 'hall.banner:unfurl' },
       { id: 'l4', text: 'Write the links and lists that raise a portal frame', kind: 'effect', ref: 'hall.portal:frame' },
     ],
@@ -109,7 +105,6 @@ export const playQuests: Quest[] = [
     id: 'q-park-numbers', title: 'Scout the Numbers', giver: 'Analyst Dara',
     summary: 'Harborview Park has a season of data and a manager who picks his lineup by jersey number. Load the roster, rank the hitters and clean the missing data.',
     objectives: [
-      { id: 'n1', text: 'Talk to Analyst Dara in the Analytics Office', kind: 'talk', ref: 'dara' },
       { id: 'n2', text: 'Ask the database for the roster', kind: 'effect', ref: 'office.roster:load' },
       { id: 'n3', text: 'Rank the hitters', kind: 'effect', ref: 'office.ranking:sort' },
       { id: 'n4', text: 'Deal with the missing values', kind: 'effect', ref: 'office.roster:clean' },
@@ -131,7 +126,6 @@ export const playQuests: Quest[] = [
     id: 'q-race-setup', title: 'Telemetry Does Not Lie', giver: 'Crew Chief Marisol',
     summary: 'The car slides in the corners and locks its brakes. Marisol says the telemetry already explains why: learn to read it in a spreadsheet, fix the setup, and drive the difference.',
     objectives: [
-      { id: 'c1', text: 'Talk to Crew Chief Marisol in the garage', kind: 'talk', ref: 'marisol' },
       { id: 'c2', text: 'Work out the tyre pressures with formulas', kind: 'effect', ref: 'garage.car:tyres' },
       { id: 'c3', text: 'Fix the brake balance with functions', kind: 'effect', ref: 'garage.car:brakes' },
       { id: 'c4', text: 'Drive a lap of the Redline circuit', kind: 'inspect', ref: 'lap-done' },

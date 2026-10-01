@@ -99,7 +99,6 @@ export interface Condition {
 /** When code causes `effect` (`target:action`), put `state` on the prop named `prop` (animated live, instant when the scene is loaded later). */
 export interface Reaction { prop: string; effect: string; state: string; /** Caption shown (and announced) when it happens live. */ say?: string; /** A cinematic (content/play/cinematics.ts) that shows this change with camera, animation, sound and NPC reactions instead of a bare state change. It must set the prop's state itself. */ cinematic?: string; /** Applied only when the place is loaded (restoring earned state); a live change is shown by another reaction's cinematic instead of twice. */ loadOnly?: boolean }
 /** When a graded attempt at a station's challenges FAILS, the prop reacts (sparks, a jam, a misfire) and the caption says what went wrong in the world. */
-export interface Consequence { prop: string; station: string; play: string; say: string; /** A cinematic that plays instead of the bare malfunction. */ cinematic?: string }
 
 export interface SceneDef {
   id: string;
@@ -117,7 +116,6 @@ export interface SceneDef {
   interactables: Interactable[];
   exits: Exit[];
   reactions?: Reaction[];
-  consequences?: Consequence[];
   /** Extra colliders not tied to a prop (invisible walls). */
   walls?: Collider[];
   /** Soundscape name for engine/audio.ts. */

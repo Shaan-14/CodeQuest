@@ -14,7 +14,7 @@ import type { GameEvent } from '../../game/events';
 import { hasEffect, holds } from '../logic/conditions';
 import type { Npc3D, NpcLook } from '../logic/dialogue';
 import { nearestInteractable } from '../logic/interact';
-import { markersFor, type Marker } from '../logic/markers';
+import { markersAt, type Marker } from '../logic/markers';
 import { collidersOf, newBody, poseOf, stepBody, type Body } from '../logic/movement';
 import type { Collider, Interactable, SceneDef } from '../logic/sceneTypes';
 import type { QuestObjective } from '../../content/schema';
@@ -151,7 +151,7 @@ export class Stage {
     if (!this.director.active) { this.setCinema(null); this.camRate = 9; }
   }
   /** Show the objective as a trail and a column of light (null hides them). */
-  setWaypoint(w: Waypoint | null): void { this.waypoint = w; this.guide.setTarget(w); this.guide.setPath(null); this.pathClock = 99; this.lastGuideX = 1e9; if (!w) this.env.onGuide?.(null); }
+  setWaypoint(w: Waypoint | null): void { this.waypoint = w; this.refresh(); this.guide.setTarget(w); this.guide.setPath(null); this.pathClock = 99; this.lastGuideX = 1e9; if (!w) this.env.onGuide?.(null); }
   setGuideVisible(on: boolean): void { this.guide.enabled = on; }
   /** NPC gestures toward a place for a moment ("it is through there"). */
   npcPoint(id: string, x: number, z: number, seconds = 3.2): void { const n = this.npcRuntime(id); if (!n) return; n.rig.pointAt(x, z); n.rig.hold('point'); n.faceTarget = { x, z }; this.tweens.after(seconds, () => { n.rig.release(); n.faceTarget = undefined; }); }
@@ -314,45 +314,44 @@ export class Stage {
     const save = this.env.getSave();
     const all: Interactable[] = [...def.interactables, ...def.exits.map((e): Interactable => ({ id: `exit:${e.id}`, verb: 'Enter', label: e.label, x: e.x, z: e.z, range: 1.9, action: { type: 'exit', to: e.to, spawn: e.spawn } }))];
     this.active = all.filter((i) => holds(save, i.when));
-    this.markers = markersFor(save, def, this.active, this.env.getNpc, this.env.stationMatches);
+    this.markers = markersAt(this.waypoint, this.active);
     const want = new Set(this.markers.map((m) => m.id));
     for (const [id, mesh] of this.markerMeshes) if (!want.has(id)) { this.scene.remove(mesh); this.markerMeshes.delete(id); }
     for (const m of this.markers) {
       let mesh = this.markerMeshes.get(m.id);
-      if (!mesh) { mesh = new Mesh(markerGeo, mat(m.kind === 'offer' ? 0xffd166 : 0x4fd1ff, 1.2)); this.scene.add(mesh); this.markerMeshes.set(m.id, mesh); }
-      mesh.material = mat(m.kind === 'offer' ? 0xffd166 : 0x4fd1ff, 1.2);
-      mesh.position.set(m.x, m.kind === 'offer' ? 2.5 : 2.2, m.z);
+      if (!mesh) { mesh = new Mesh(markerGeo, mat(0xffd166, 1.2)); this.scene.add(mesh); this.markerMeshes.set(m.id, mesh); }
+      mesh.material = mat(0xffd166, 1.2);
+      mesh.position.set(m.x, 2.3, m.z);
     }
   }
 
   /* ------------------------------------------------------------------ reacting to the game */
 
   /** Something happened in the learning engine. Show it in the world. */
-  react(events: readonly GameEvent[]): void {
-    const def = this.def; if (!def) return;
-    let won = false, lost = false;
+  /**
+   * The world answers what the learning engine says happened. Only SUCCESS is shown: a code success changes the world (a cinematic, or a quick
+   * state change), a quest completion and a level-up have their own moments. A failure is not acted out here: the lesson's own feedback,
+   * Focus and training handle it. Returns what the player is about to see so the screen can step aside for it.
+   */
+  react(events: readonly GameEvent[]): { cinematic: boolean; quick: boolean } {
+    const out = { cinematic: false, quick: false };
+    const def = this.def; if (!def) return out;
+    let won = false;
     for (const e of events) {
       if (e.type === 'worldEffect') {
         const ref = `${e.target}:${e.action}`;
         for (const r of def.reactions ?? []) if (r.effect === ref && !r.loadOnly) {
           const cine = r.cinematic ? this.env.cinematic?.(r.cinematic) : undefined;
-          if (cine) { this.director.enqueue(cine); if (r.state === 'open') this.openGate(r.prop); continue; } // the cinematic itself sets the prop's state
-          this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true;
+          if (cine) { this.director.enqueue(cine); out.cinematic = true; if (r.state === 'open') this.openGate(r.prop); continue; } // the cinematic itself sets the prop's state
+          this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true; out.quick = true;
         }
-      } else if (e.type === 'challengeFailed') {
-        const station = this.env.stationOfChallenge(e.challengeId);
-        for (const c of def.consequences ?? []) if (c.station === station) {
-          const cine = c.cinematic ? this.env.cinematic?.(c.cinematic) : undefined;
-          if (cine) { this.director.enqueue(cine); lost = true; continue; }
-          this.dyns.get(c.prop)?.play?.('malfunction'); if (c.say) this.env.onCaption(c.say); lost = true;
-        }
-      } else if (e.type === 'questComplete') { const cine = this.env.cinematic?.(`quest:${e.id}`); if (cine) this.director.enqueue(cine); else { this.audio.sfx('quest'); won = true; } }
-      else if (e.type === 'levelUp') { const cine = this.env.cinematic?.(`level:${e.level}`); if (cine) this.director.enqueue(cine); }
+      } else if (e.type === 'questComplete') { const cine = this.env.cinematic?.(`quest:${e.id}`); if (cine) { this.director.enqueue(cine); out.cinematic = true; } else { this.audio.sfx('quest'); won = true; } }
+      else if (e.type === 'levelUp') { const cine = this.env.cinematic?.(`level:${e.level}`); if (cine) { this.director.enqueue(cine); out.cinematic = true; } }
       else if (e.type === 'questAccepted') this.audio.sfx('quest');
     }
     if (won) { this.playerRig.play('success'); this.fx.burst('confetti', this.body.x, 2, this.body.z, 26); this.audio.sfx('success'); }
-    if (lost && !this.director.active) { this.playerRig.play('damage'); this.playerRig.flash(true); this.tweens.after(0.35, () => this.playerRig.flash(false)); if (!this.reduced) this.shake = 0.5; }
     this.refresh();
+    return out;
   }
 
   private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.grid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => x !== c); this.propColliders.delete(prop); } }
@@ -468,7 +467,7 @@ export class Stage {
     this.tweens.update(dt);
     this.fx.update(dt);
     // markers bob
-    for (const [id, m] of this.markerMeshes) { m.rotation.y += dt * 2; const base = this.markers.find((x) => x.id === id); if (base) m.position.y = (base.kind === 'offer' ? 2.5 : 2.2) + Math.sin(this.t * 3) * 0.08; }
+    for (const [id, m] of this.markerMeshes) { m.rotation.y += dt * 2; const base = this.markers.find((x) => x.id === id); if (base) m.position.y = (base ? 2.3 : 2.3) + Math.sin(this.t * 3) * 0.08; }
 
     this.updateGuide(dt);
 

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'preact/compat';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { getLesson } from '../../content';
 import type { Station } from '../../content/play/stations';
 import { lessonAccess } from '../../game/graph';
@@ -18,23 +18,23 @@ export function nextModule(station: Station, isDone: (id: string) => boolean): s
 }
 
 /**
- * A terminal in the world. It opens the REAL lesson (explanation, demo, guided practice, graded challenges) in a real editor. Closing it puts
- * the player back in the world, where the consequences of what they wrote play out.
+ * A terminal in the world. It opens the REAL lesson (explanation, demo, guided practice, graded challenges) in a real editor. Passing a challenge that changes the world
+ * steps the terminal aside while the world answers, then gives the lesson back where it was.
  */
-export function TerminalOverlay({ station, onClose, onGoTraining, note, start }: { station: Station; /** Open this lesson straight away (returning from training to the exact place). */ start?: string | null; onClose: () => void; onGoTraining: () => void; /** What just happened out in the world because of the player's code (a failure's consequence, a success). */ note?: string }) {
+export function TerminalOverlay({ station, onClose, onGoTraining, hidden, start }: { station: Station; /** The world is answering the player's code: the terminal steps aside (still mounted, so the lesson stays exactly where it was). */ hidden?: boolean; /** Open this lesson straight away (returning from training to the exact place). */ start?: string | null; onClose: () => void; onGoTraining: () => void }) {
   const { save } = useGame();
   const [lessonId, setLessonId] = useState<string | null>(start ?? null);
   const blocker = requiredTraining(save);
   const done = (id: string) => !!save.learning.lessons[id]?.completed;
   const next = nextModule(station, done);
+  useEffect(() => { if (hidden) (document.activeElement as HTMLElement | null)?.blur?.(); }, [hidden]);
   return (
-    <div class="play-terminal" role="dialog" aria-label={station.title} data-testid="play-terminal">
+    <div class="play-terminal" role="dialog" aria-label={station.title} data-testid="play-terminal" hidden={hidden}>
       <div class="term-head">
         <h2>🖥️ {station.title}</h2>
         {lessonId && <button class="btn small" onClick={() => setLessonId(null)} data-testid="terminal-modules">Modules</button>}
         <button class="btn small gold" onClick={onClose} data-testid="terminal-close">Leave terminal</button>
       </div>
-      {note ? <div key="note" class="pill" role="status" data-testid="terminal-world-note" style={{ margin: '.5rem 1rem 0', display: 'flex', gap: '.6rem', alignItems: 'center' }}><span>🌍 {note}</span><button class="btn small" onClick={onClose} data-testid="terminal-look">▶ Watch what happened</button></div> : null}
       <div class="term-body" key="body">
         {lessonId ? (
           <Suspense fallback={<p class="muted">Loading…</p>}>

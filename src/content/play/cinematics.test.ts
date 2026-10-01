@@ -6,15 +6,14 @@ import { getNpc3D } from './cast';
 import { scenes } from './scenes';
 
 describe('the cinematics of the world', () => {
-  it('every reaction and consequence that names a cinematic names one that exists', () => {
+  it('every reaction that names a cinematic names one that exists', () => {
     for (const sc of scenes) {
       for (const r of sc.reactions ?? []) if (r.cinematic) expect(CINEMATICS[r.cinematic], `${sc.id}: ${r.effect}`).toBeDefined();
-      for (const c of sc.consequences ?? []) if (c.cinematic) expect(CINEMATICS[c.cinematic], `${sc.id}: ${c.station}`).toBeDefined();
     }
   });
   it('a cinematic only refers to props and people that exist in the scene that plays it', () => {
     for (const sc of scenes) {
-      const used = new Set<string>([...(sc.reactions ?? []).flatMap((r) => (r.cinematic ? [r.cinematic] : [])), ...(sc.consequences ?? []).flatMap((c) => (c.cinematic ? [c.cinematic] : []))]);
+      const used = new Set<string>([...(sc.reactions ?? []).flatMap((r) => (r.cinematic ? [r.cinematic] : []))]);
       for (const id of used) {
         const refs = referencedIds(CINEMATICS[id]!);
         for (const prop of refs.props) expect(sc.props.some((p) => p.id === prop), `${sc.id}/${id}: prop ${prop}`).toBe(true);

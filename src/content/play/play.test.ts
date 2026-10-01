@@ -79,11 +79,10 @@ describe('scenes are well formed', () => {
       }
     }
   });
-  it('every prop with an id that a reaction or consequence names exists in the same scene', () => {
+  it('every prop with an id that a reaction names exists in the same scene', () => {
     for (const s of scenes) {
       const propIds = new Set(s.props.map((p) => p.id).filter(Boolean));
       for (const r of s.reactions ?? []) { expect(propIds.has(r.prop), `${s.id}: reaction on ${r.prop}`).toBe(true); expect(ALL_EFFECTS.has(r.effect), `${s.id}: effect ${r.effect} is caused by something`).toBe(true); }
-      for (const c of s.consequences ?? []) { expect(propIds.has(c.prop), `${s.id}: consequence on ${c.prop}`).toBe(true); expect(stations.some((x) => x.id === c.station && x.scene === s.id), `${s.id}: consequence station ${c.station}`).toBe(true); }
     }
   });
 });

@@ -171,7 +171,7 @@ export function submitChallenge(save: SaveData, challengeId: string, passed: boo
   const record = buildEvidence(s, c, { passed, at: now(), timeMs: p.timeMs, hintsUsed: p.hintsUsed, lookups: p.lookups ?? 0, attemptNumber: p.attempts, source: opts.source, detail: opts.detail });
   emitWorldEffects(s, events, c, passed); // before the record is appended, so "first pass" is still knowable
   s.evidence.push(record);
-  // The 3D world shows a consequence for any graded attempt (sparks, a misfire); Focus and training below decide what the LEARNER owes.
+  // Focus and training below decide what the LEARNER owes after a failure; the 3D world does not act failures out.
   events.push(passed ? { type: 'challengePassed', challengeId, first: firstPass } : { type: 'challengeFailed', challengeId });
 
   if (passed) {

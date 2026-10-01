@@ -73,6 +73,11 @@ async function skipCine(p) {
     await p.keyboard.press('Space'); await p.waitForTimeout(350);
   }
 }
+/** After a pass: the world may answer by itself (the terminal steps aside, a cinematic plays); wait until the lesson is back and the world is quiet. */
+async function waitTerminalBack(p, timeout = 90000) {
+  await p.waitForTimeout(1300);
+  await p.waitForFunction(() => { const t = document.querySelector('[data-testid=play-terminal]'); const c = document.querySelector('[data-testid=cine]'); return !!t && !t.hidden && c?.getAttribute('data-active') !== '1'; }, null, { timeout });
+}
 /** Wait for a cinematic to start and play to its end without skipping (the real thing). */
 async function watchCine(p, timeout = 60000) {
   await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '1', null, { timeout: 15000 });
@@ -126,7 +131,7 @@ async function runDemo(p) { await tid(p, 'run').click(); await p.locator('[data-
 async function playLesson(p) {
   for (let step = 0; step < 30; step++) {
     const kind = await stepKind(p, step);
-    if (kind === 'challenge') { const cid = await tid(p, 'briefing').getAttribute('data-challenge'); await submitPass(p, cid); }
+    if (kind === 'challenge') { const cid = await tid(p, 'briefing').getAttribute('data-challenge'); await submitPass(p, cid); if (await p.locator('[data-testid=play-terminal]').count()) await waitTerminalBack(p); }
     else if (kind === 'demo') await runDemo(p);
     if (await tid(p, 'finish').count()) { await tid(p, 'finish').click(); return; }
     await tid(p, 'continue').click();
@@ -206,52 +211,47 @@ async function main() {
       await p.context().close();
     });
 
-    await test('Quest flow: talk to Juno, accept, inspect Bolt, use the console, write real Python, and the robot visibly repairs', async () => {
+    await test('Lesson flow: guided to the console, solve the lesson, the world answers by itself (no button, no errand), the lesson comes back, the quest is taken up by doing the work', async () => {
       const p = await newGame();
+      await p.evaluate(() => { window.__tl = []; const t0 = performance.now(); new MutationObserver(() => { const c = document.querySelector('[data-testid=cine]'); const b = document.querySelector('[data-testid=cine-banner]'); const term = document.querySelector('[data-testid=play-terminal]'); window.__tl.push([Math.round(performance.now() - t0), c?.getAttribute('data-active'), b ? b.textContent.slice(0, 40) : '', term ? (term.hidden ? 'hid' : 'vis') : 'none']); }).observe(document.body, { subtree: true, childList: true, attributes: true }); });
+      // the guide names the Python lesson and the console, no NPC needed
+      assert((await tid(p, 'play-tracker').getAttribute('data-objective')) === 'lesson', 'the objective is the next lesson');
+      assert((await tid(p, 'objective-text').innerText()).includes('Repair Console'), 'it names the console');
       await go(p, 'maintenance-bay');
-      // Juno has work for the player: a diamond marks her
-      assert((await st(p)).markers.includes('talk-juno'), 'Juno is marked');
-      await tp(p, 3, 3.2, 0);
-      await interact(p, 'talk-juno');
-      await talkThrough(p, { accept: true });
-      let s = await save(p);
-      eq(s.quests['q-bay-briefing']?.status, 'active', 'quest accepted and saved');
-      assert((await tid(p, 'tracker-q-bay-briefing').innerText()).includes('Inspect Bolt-7'), 'the tracker names the next steps');
-      // the quest is not complete just because the player walked: code has not run yet
-      await tp(p, -4, 0.2, 0);
-      await interact(p, 'bolt-table');
-      await tid(p, 'play-dialogue').waitFor();
-      assert((await tid(p, 'dialogue-line').innerText()).includes('scorched'), 'inspecting describes the damaged robot');
-      await talkThrough(p);
-      assert((await save(p)).play.seen['bolt-table'], 'inspection recorded');
       eq(JSON.stringify(await p.evaluate(() => window.__cq3d.dynStates('bolt'))), '[]', 'Bolt is still dead');
-      // the console: a real lesson with a real editor and real Python
       await tp(p, 1.5, -5.4, 0);
       await interact(p, 'bolt-console');
       await tid(p, 'play-terminal').waitFor();
       await p.screenshot({ path: SHOTS + 'play-02-terminal.png' });
       await tid(p, 'terminal-next').click();
       await tid(p, 'lesson').waitFor();
-      await playLesson(p);
-      assert((await tid(p, 'terminal-world-note').count()) === 1, 'the terminal says the world will show what the code did');
-      await tid(p, 'terminal-look').click();
-      await tid(p, 'play-terminal').waitFor({ state: 'detached' });
-      // the world reacts: a cinematic (camera, light, sound, the mentor's reaction), then the quest completion, then control returns
-      await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '1', null, { timeout: 8000 });
+      // everything up to the final challenge; then the pass itself is the trigger
+      for (let step = 0; step < 30; step++) {
+        const kind = await stepKind(p, step);
+        if (kind === 'challenge') { const cid = await tid(p, 'briefing').getAttribute('data-challenge'); await solve(p, cid); await tid(p, 'submit').click(); await tid(p, 'result').waitFor({ timeout: 60000 }); if (await tid(p, 'finish').count() || await p.evaluate(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '1')) break; }
+        else if (kind === 'demo') await runDemo(p);
+        if (await tid(p, 'finish').count()) break;
+        await tid(p, 'continue').click();
+      }
+      // no click: the terminal steps aside and the world answers
+      await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '1', null, { timeout: 15000 });
+      assert(await tid(p, 'play-terminal').isHidden(), 'the terminal stepped aside by itself');
+      assert((await tid(p, 'terminal-look').count()) === 0, 'there is no "watch" button');
       await tid(p, 'cine-subtitle').waitFor({ timeout: 15000 });
       await p.screenshot({ path: SHOTS + 'play-03-bolt-eyes.png' });
       await p.waitForFunction(() => window.__cq3d.dynStates('bolt').includes('eyes'), null, { timeout: 15000 });
-      await tid(p, 'cine-banner').waitFor({ timeout: 30000 });
-      assert((await tid(p, 'cine-banner').innerText()).includes('Silent in the Bay'), 'the quest completion is celebrated');
+      await tid(p, 'cine-banner').waitFor({ timeout: 30000 }).catch(async (e) => { console.log('DEBUG', JSON.stringify((await p.evaluate(() => window.__tl)).filter((x, i, a) => i === 0 || a[i - 1].slice(1).join() !== x.slice(1).join())), await p.evaluate(() => document.querySelector('[data-testid=cine]')?.outerHTML.slice(0, 600))); throw e; });
+      assert((await tid(p, 'cine-banner').innerText()).includes('Silent in the Bay'), 'the quest completion is celebrated (it was taken up by the work)');
       await p.screenshot({ path: SHOTS + 'play-03b-quest-complete.png' });
-      await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '0', null, { timeout: 30000 });
-      await skipCine(p); // a level-up moment may follow the quest banner in the queue
-      await tp(p, 1.5, -3.4, 0); await p.waitForTimeout(300);
-      const before = await st(p); await p.keyboard.down('w'); await p.waitForTimeout(500); await p.keyboard.up('w');
-      assert((await st(p)).z < before.z - 0.3, 'the player has control again after the cinematic: ' + JSON.stringify([before, await st(p)]));
-      s = await save(p);
-      eq(s.quests['q-bay-briefing']?.status, 'complete', 'quest completes through code');
+      // straight back into the lesson, where it was
+      await waitTerminalBack(p);
+      assert(await tid(p, 'lesson').count() === 1, 'the lesson is still open, not a room and not an NPC');
+      assert((await p.evaluate(() => !!document.querySelector('[data-testid=play-dialogue]'))) === false, 'no conversation was needed');
+      let s = await save(p);
+      eq(s.quests['q-bay-briefing']?.status, 'complete', 'the quest completes through code');
       assert(s.stats.xp > 0, 'reward paid');
+      if (await tid(p, 'finish').count()) await tid(p, 'finish').click();
+      await tid(p, 'terminal-close').click();
       // persistence: reload; Bolt's eyes are still on, instantly
       await p.reload();
       await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 }); await p.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
@@ -259,7 +259,7 @@ async function main() {
       await p.context().close();
     });
 
-    await test('Failure: wrong code makes the robot malfunction, costs Focus, sends the player to the Simulation Room; training returns them to the same console with a NEW problem, and the fix then works', async () => {
+    await test('Failure: wrong code costs Focus and plays no world reaction, sends the player to the Simulation Room; training returns them to the same console with a NEW problem, and the fix then works', async () => {
       const p = await newGame();
       await go(p, 'maintenance-bay');
       await seedLessons(p, ['py-01-first-program', 'py-02-fixing-errors', 'py-03-variables', 'py-04-strings']);
@@ -274,15 +274,12 @@ async function main() {
       await tid(p, 'submit').click();
       await tid(p, 'result').waitFor({ timeout: 30000 });
       assert((await tid(p, 'focus').innerText()).includes('50/100'), 'Focus dropped');
-      // the world says what happened out there, even with the terminal open
-      assert((await tid(p, 'terminal-world-note').innerText()).includes('Bolt-7'), 'the consequence is named inside the terminal');
-      await tid(p, 'terminal-look').click();
-      await tid(p, 'play-terminal').waitFor({ state: 'detached' });
-      await tid(p, 'cine-subtitle').waitFor({ timeout: 15000 });
-      assert((await tid(p, 'cine-subtitle').innerText()).includes('did not do what the robot needed'), 'the world shows the consequence');
-      await skipCine(p);
-      await p.screenshot({ path: SHOTS + 'play-04-malfunction.png' });
+      // a failure is not acted out in the world: no cinematic, no malfunction, the terminal stays
+      await p.waitForTimeout(2000);
+      assert(await tid(p, 'play-terminal').isVisible(), 'the lesson stays on screen');
+      assert((await p.evaluate(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active'))) !== '1', 'no cinematic after a failed answer');
       assert(!(await p.evaluate(() => window.__cq3d.dynStates('bolt'))).includes('servo'), 'a failure repairs nothing');
+      await tid(p, 'terminal-close').click();
       // the Mentor's single button leads to the Simulation Room
       await tp(p, 1.5, -5.4, 0);
       await interact(p, 'bolt-console');
@@ -412,14 +409,12 @@ async function main() {
       await tid(p, 'lesson').waitFor();
       await playLesson(p);
       await tid(p, 'terminal-close').click();
-      await tid(p, 'cine-subtitle').waitFor({ timeout: 20000 });
-      assert((await tid(p, 'cine-subtitle').innerText()).includes('promise'), 'the tutor reacts to what the rune did');
       await p.waitForFunction(() => window.__cq3d.dynStates('banner').includes('unfurl'), null, { timeout: 15000 });
       await p.screenshot({ path: SHOTS + 'play-06-banner.png' });
       await p.context().close();
     });
 
-    await test('Fantasy duel: an incantation that works wakes the orb; one that does not makes the Gloomhound strike and costs Focus (no hint or answer is shown)', async () => {
+    await test('Fantasy duel: an incantation that works wakes the orb; one that does not costs Focus and nothing happens in the world (no hint or answer is shown)', async () => {
       const p = await newGame({ save: JSON.stringify(saves.academy) });
       await go(p, 'arena');
       await tp(p, -7, 4.6, 0);
@@ -440,9 +435,8 @@ async function main() {
       await tid(p, 'submit').click();
       await tid(p, 'result').waitFor({ timeout: 60000 });
       assert((await tid(p, 'focus').innerText()).includes('50/100'), 'a graded failure costs Focus');
-      assert((await tid(p, 'terminal-world-note').innerText()).includes('Gloomhound'), 'the consequence is named');
-      await tid(p, 'terminal-look').click();
-      await p.waitForFunction(() => document.querySelector('[data-testid=play-caption]')?.textContent?.includes('misfires'), null, { timeout: 8000 });
+      await p.waitForTimeout(1500);
+      assert(await tid(p, 'play-terminal').isVisible(), 'a failed spell is not acted out: the lesson stays');
       await p.screenshot({ path: SHOTS + 'play-07-misfire.png' });
       assert(!(await p.evaluate(() => window.__cq3d.dynStates('hound'))).length, 'the Gloomhound is not hurt by a failed spell');
       await p.context().close();

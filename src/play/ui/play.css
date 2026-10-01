@@ -188,3 +188,5 @@
 .play-pushhint { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: .68rem; letter-spacing: .08em; color: rgba(223,227,255,.55); text-transform: uppercase; pointer-events: none; animation: pushIn 6s ease both; }
 @keyframes pushIn { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 .play.cine-on .play-pushhint { display: none; }
+
+.play-terminal[hidden] { display: none !important; }

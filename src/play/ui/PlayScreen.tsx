@@ -5,8 +5,9 @@ import { getScene } from '../../content/play/scenes';
 import { getStation, stationOfChallenge, stationServes } from '../../content/play/stations';
 import { playerLook } from '../../content/play/looks';
 import { getLesson } from '../../content';
+import { playQuests } from '../../content/play/quests';
 import { acceptQuest } from '../../game/actions';
-import { enterScene, recordSeen, worldReward, recordTalk, setPlaySettings, setPosition } from '../../game/play';
+import { acceptWorkedQuests, enterScene, recordSeen, worldReward, recordTalk, setPlaySettings, setPosition } from '../../game/play';
 import { getStore, useGame } from '../../game/store';
 import { requiredTraining } from '../../game/training';
 import { conversationWith, type Conversation } from '../logic/dialogue';
@@ -114,7 +115,12 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const lastObj = useRef('');
   const [welcome, setWelcome] = useState(() => !getStore().save.play.seen['play-welcome']);
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-  const [termNote, setTermNote] = useState('');
+  const [reacting, setReacting] = useState(false);
+  const reactingRef = useRef(false);
+  const batch = useRef<import('../../game/events').GameEvent[]>([]);
+  const batchTimer = useRef(0);
+  const reactRun = useRef<import('../../game/events').GameEvent[] | null>(null);
+  const sawCine = useRef(false);
   const [termStart, setTermStart] = useState<string | null>(null);
   const terminalRef = useRef<string | null>(null);
   terminalRef.current = terminal;
@@ -128,7 +134,8 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const overlayOpen = useRef(false);
   const captionTimer = useRef<number>(0);
 
-  overlayOpen.current = !!(panelOpen || talk || terminal || paused || gate || training || mapOpen || sim || boss || finale || daily || manual || welcome);
+  const terminalOn = !!terminal && !reacting; // while the world answers the player's code, the terminal steps aside (it stays mounted, so the lesson is exactly where it was)
+  overlayOpen.current = !!(panelOpen || talk || terminalOn || paused || gate || training || mapOpen || sim || boss || finale || daily || manual || welcome);
 
   const say = useCallback((text: string) => {
     setCaption(text);
@@ -205,17 +212,43 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   }, []);
 
   // ---- the world reacts to what the learning engine says happened
+  const endReaction = useCallback(() => { clearTimeout(batchTimer.current); batch.current = []; reactRun.current = null; reactingRef.current = false; setReacting(false); }, []);
   useEffect(() => {
-    const off = getStore().onEvent((e) => {
+    const route = (e: import('../../game/events').GameEvent) => {
       if (e.type === 'campaignComplete') finalePending.current = true;
-      // while a terminal is open the world is hidden behind it: say what the code just did out there
+      // a lesson is open: a pass is answered by the world RIGHT AWAY (no button, no errand); a failure is not acted out at all
       if (terminalRef.current) {
-        const def = stageRef.current?.def;
-        if (e.type === 'challengeFailed') { const station = stationOfChallenge(e.challengeId); const c = def?.consequences?.find((x) => x.station === station && x.say); if (c) setTermNote(c.say); }
-        if (e.type === 'worldEffect') { const r = def?.reactions?.find((x) => x.effect === `${e.target}:${e.action}` && x.say); if (r?.say) setTermNote(r.say); }
-      } if (overlayOpen.current) pending.current.push(e); else stageRef.current?.react([e]); });
+        if (e.type === 'worldEffect' || e.type === 'questComplete' || e.type === 'levelUp' || e.type === 'questAccepted') {
+          batch.current.push(e);
+          if (!batchTimer.current) batchTimer.current = window.setTimeout(() => { batchTimer.current = 0; const rank = (e: import('../../game/events').GameEvent) => (e.type === 'worldEffect' ? 0 : e.type === 'questAccepted' ? 1 : e.type === 'questComplete' ? 2 : 3); const evs = batch.current.sort((x, y) => rank(x) - rank(y)); batch.current = []; if (evs.length && terminalRef.current) { reactRun.current = evs; sawCine.current = false; reactingRef.current = true; setReacting(true); } }, 900); // a beat to read "Passed" first
+        }
+        return;
+      }
+      if (overlayOpen.current) pending.current.push(e); else stageRef.current?.react([e]);
+    };
+    const off = getStore().onEvent((e) => {
+      route(e);
+      // doing the work takes up its quest (nobody has to be found to hand it out); the effect is queued first, so the world answers it before the quest moment
+      if (e.type === 'worldEffect') { const st = getStore(), r = acceptWorkedQuests(st.save, playQuests.map((q) => q.id)); if (r.events.length) st.apply(r); }
+    });
     return off;
   }, []);
+  // the terminal has stepped aside: play what happened, then give the lesson back
+  useEffect(() => {
+    if (!reacting) return;
+    const s = stageRef.current, evs = reactRun.current;
+    if (!s || !evs) { endReaction(); return; }
+    reactRun.current = null;
+    const r = s.react(evs);
+    if (!r.cinematic && !r.quick) { endReaction(); return; }
+    const t = window.setTimeout(endReaction, r.cinematic ? 40000 : 3200); // never leave the player stuck behind a hidden lesson
+    const idle = r.cinematic ? window.setTimeout(() => { if (!sawCine.current) endReaction(); }, 2500) : 0;
+    return () => { clearTimeout(t); clearTimeout(idle); };
+  }, [reacting, endReaction]);
+  useEffect(() => {
+    if (cine.active) sawCine.current = true;
+    else if (reactingRef.current && sawCine.current) { const t = window.setTimeout(endReaction, 650); return () => clearTimeout(t); }
+  }, [cine.active, endReaction]);
   // any save change (a quest accepted, a lesson done) refreshes what the world offers
   useEffect(() => { stageRef.current?.refresh(); }, [save]);
 
@@ -234,12 +267,12 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   // overlays take the keyboard: the world stops listening (and stops rendering behind a full-screen terminal)
   useEffect(() => {
     const s = stageRef.current; if (!s) return;
-    s.setInputEnabled(!(panelOpen || talk || terminal || paused || gate || training || mapOpen || sim || boss || finale || daily || manual || welcome));
-    if (panelOpen || terminal || paused || training || mapOpen || boss || daily || manual || welcome) s.suspend(); else if (ready) s.start();
-    if (!panelOpen && !talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && pending.current.length) { const evs = pending.current; pending.current = []; s.react(evs); }
+    s.setInputEnabled(!(panelOpen || talk || terminalOn || paused || gate || training || mapOpen || sim || boss || finale || daily || manual || welcome));
+    if (panelOpen || terminalOn || paused || training || mapOpen || boss || daily || manual || welcome) s.suspend(); else if (ready) s.start();
+    if (!panelOpen && !talk && !terminalOn && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && pending.current.length) { const evs = pending.current; pending.current = []; s.react(evs); }
     // the ending: once the beacon has had its moment, the campaign-complete card appears
-    if (!panelOpen && !talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && finalePending.current) { finalePending.current = false; window.setTimeout(() => setFinale(true), s.reduced ? 500 : 7000); }
-  }, [panelOpen, talk, terminal, paused, gate, training, mapOpen, sim, boss, finale, daily, manual, welcome, ready]);
+    if (!panelOpen && !talk && !terminalOn && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && finalePending.current) { finalePending.current = false; window.setTimeout(() => setFinale(true), s.reduced ? 500 : 7000); }
+  }, [panelOpen, talk, terminalOn, paused, gate, training, mapOpen, sim, boss, finale, daily, manual, welcome, ready]);
 
   function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); else if (panel === 'daily') setDaily(true); else if (panel === 'setup') void watchLap(); }
 
@@ -286,7 +319,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         st.apply(recordSeen(st.save, a.id));
         break;
       }
-      case 'terminal': setTermNote(''); setTermStart(null); setTerminal(a.station); break;
+      case 'terminal': setTermStart(null); setTerminal(a.station); break;
       case 'exit': {
         const exit = stageRef.current?.def?.exits.find((e) => `exit:${e.id}` === it.id);
         const check = exit ? canUseExit(st.save, exit) : { ok: true, reason: '' };
@@ -350,17 +383,17 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       const obj = sceneId ? objectiveFor(getStore().save, sceneId, { scenes, getNpc: getNpc3D, stationMatches: stationServes, trainingOwed: !!requiredTraining(getStore().save) }) : null;
       const w = obj && sceneId ? nextWaypoint(obj, sceneId, scenes) : null;
       const npcPos = stage?.targetPos({ npc: id });
-      if (stage && w && npcPos && Math.hypot(w.x - npcPos.x, w.z - npcPos.z) > 3.5 && (accepted || obj?.kind === 'quest')) stage.npcPoint(id, w.x, w.z);
+      if (stage && w && npcPos && Math.hypot(w.x - npcPos.x, w.z - npcPos.z) > 3.5 && (obj?.kind === 'lesson' || obj?.kind === 'review' || obj?.kind === 'activity')) stage.npcPoint(id, w.x, w.z);
     } else if (stageRef.current) { stageRef.current.endConversationShot(''); }
   }
 
   /** A failure owes training: walk the player to the Simulation Room, and open its console. Nothing is lost by going. */
-  const goTraining = () => { setTerminal(null); setPaused(false); setMapOpen(false); setBoss(null); travel('sim-room', 'training'); setTraining(true); };
+  const goTraining = () => { endReaction(); setTerminal(null); setPaused(false); setMapOpen(false); setBoss(null); travel('sim-room', 'training'); setTraining(true); };
   /** Training is done: back to the exact place (and lesson) the player left. */
   const returnFromTraining = (r: ReturnPoint) => {
     setTraining(false);
     const station = r.kind === 'lesson' && r.lessonId ? stationOfLesson(r.lessonId) : undefined;
-    if (station) { travel(station.scene); setTermNote(''); setTermStart(r.lessonId ?? null); setTerminal(station.id); return; }
+    if (station) { travel(station.scene); setTermStart(r.lessonId ?? null); setTerminal(station.id); return; }
     if (r.kind === 'boss') { travel('summit'); setBoss({ start: r.bossId ?? null }); return; }
   };
   void cast; void getLesson; void requiredTraining; void setPlaySettings; void game;
@@ -406,7 +439,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           {sim && stageRef.current && <SimOverlay stage={stageRef.current} onClose={() => setSim(false)} />}
           {training && <TrainingOverlay onClose={() => setTraining(false)} onReturn={returnFromTraining} />}
           {mapOpen && <MapOverlay sceneId={sceneId} onClose={() => setMapOpen(false)} onTravel={(to, spawn) => { setMapOpen(false); travel(to, spawn); }} />}
-          {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} note={termNote} start={termStart} onClose={() => setTerminal(null)} onGoTraining={goTraining} />}
+          {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} hidden={reacting} start={termStart} onClose={() => { endReaction(); setTerminal(null); }} onGoTraining={goTraining} />}
           {paused && <PauseMenu onResume={() => setPaused(false)} stage={stageRef.current} />}
         </div>
       )}

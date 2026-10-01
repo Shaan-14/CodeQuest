@@ -1,42 +1,17 @@
 /**
- * QUEST MARKERS (pure): which things in a scene the player should look at next. A marker is a hint about WHERE the story continues (a
- * glowing "!" over a person who has a quest, a pulse on the console that holds the next step); it never says how to solve anything.
+ * THE MARKER (pure): the one thing in a scene the objective points at gets a glowing diamond. It is the same target the trail and the light
+ * column lead to (see objective.ts), so there is exactly one answer to "where do I go?": no second set of quest hints that could disagree.
+ * It says WHERE, never how to solve anything.
  */
-import type { SaveData } from '../../core/save';
-import { nextObjective, questStatus } from '../../game/quests';
-import { quests } from '../../content/world';
-import type { QuestObjective } from '../../content/schema';
-import { conversationWith } from './dialogue';
-import type { Npc3D } from './dialogue';
-import type { Interactable, SceneDef } from './sceneTypes';
+import type { Waypoint } from './objective';
+import type { Interactable } from './sceneTypes';
 
-export type MarkerKind = 'offer' | 'step';
+export type MarkerKind = 'step';
 export interface Marker { id: string; kind: MarkerKind; x: number; z: number }
 
-/** Does this objective point at this interactable? (talk → the NPC, inspect → the object, challenge/effect/lesson → the station whose lessons lead there.) */
-function pointsAt(o: QuestObjective, it: Interactable, stationMatches: (station: string, o: QuestObjective) => boolean): boolean {
-  const a = it.action;
-  switch (o.kind ?? 'lesson') {
-    case 'talk': return a.type === 'talk' && a.npc === (o as { ref: string }).ref;
-    case 'inspect': return a.type === 'inspect' && a.id === (o as { ref: string }).ref;
-    default: return a.type === 'terminal' && stationMatches(a.station, o);
-  }
-}
-
-export function markersFor(save: SaveData, scene: SceneDef, interactables: readonly Interactable[], cast: (id: string) => Npc3D | undefined, stationMatches: (station: string, o: QuestObjective) => boolean): Marker[] {
-  const out: Marker[] = [];
-  const steps: QuestObjective[] = [];
-  for (const q of quests) {
-    const st = questStatus(save, q);
-    if (st === 'accepted' || st === 'in-progress') { const n = nextObjective(save, q); if (n) steps.push(n); }
-  }
-  for (const it of interactables) {
-    if (it.action.type === 'talk') {
-      const npc = cast(it.action.npc);
-      if (npc && conversationWith(save, npc).canOffer) { out.push({ id: it.id, kind: 'offer', x: it.x, z: it.z }); continue; }
-    }
-    if (steps.some((o) => pointsAt(o, it, stationMatches))) out.push({ id: it.id, kind: 'step', x: it.x, z: it.z });
-  }
-  void scene;
-  return out;
+/** The interactable the waypoint stands on (a doorway on the way is marked by the trail and the beam, not a diamond). */
+export function markersAt(w: Waypoint | null, interactables: readonly Interactable[]): Marker[] {
+  if (!w || w.via) return [];
+  const it = interactables.find((i) => Math.abs(i.x - w.x) < 0.01 && Math.abs(i.z - w.z) < 0.01 && i.action.type !== 'exit');
+  return it ? [{ id: it.id, kind: 'step', x: it.x, z: it.z }] : [];
 }

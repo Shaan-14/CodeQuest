@@ -4,7 +4,8 @@
  * derived from evidence, never stored, so none of these functions can repair a robot.
  */
 import type { PlayState, SaveData } from '../core/save';
-import { gain, settle, type Result } from './actions';
+import { acceptQuest, gain, settle, type Result } from './actions';
+import { getQuest, objectiveDone, questStatus } from './quests';
 import type { GameEvent } from './events';
 
 const draftOf = (save: SaveData): { s: SaveData; events: GameEvent[] } => ({ s: structuredClone(save), events: [] });
@@ -53,4 +54,21 @@ export function worldReward(save: SaveData, xp: number, coins: number, note: str
   gain(s, events, xp, coins, note);
   settle(s, events);
   return { save: s, events };
+}
+
+/**
+ * Story quests are taken up by DOING the work, not by finding the person who hands them out: the first time a step of an available quest is
+ * done in the world, the quest is accepted on the spot (and completes at once if that was its last step). Talking to the quest giver stays
+ * possible and optional. Repeats until nothing more can start, because finishing one quest can make the next available.
+ */
+export function acceptWorkedQuests(save: SaveData, questIds: readonly string[]): Result {
+  let cur = save;
+  const events: GameEvent[] = [];
+  for (let guard = 0; guard < questIds.length + 1; guard++) {
+    const q = questIds.map(getQuest).find((x) => x && questStatus(cur, x) === 'available' && x.objectives.some((o) => objectiveDone(cur, o)));
+    if (!q) break;
+    const r = acceptQuest(cur, q.id);
+    cur = r.save; events.push(...r.events);
+  }
+  return { save: cur, events };
 }

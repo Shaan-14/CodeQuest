@@ -7,7 +7,7 @@ import { cast } from './cast';
 
 /**
  * THE CINEMATICS of the world: short cue sheets (see play/logic/cinematic.ts) that SHOW what the player's code just did. A scene's
- * `reactions[].cinematic` / `consequences[].cinematic` names one of these; quest completions and level-ups look theirs up by `quest:<id>` /
+ * `reactions[].cinematic` names one of these; quest completions and level-ups look theirs up by `quest:<id>` /
  * `level:<n>` (with a generic one when none is authored). A cinematic only presents: it sets the same prop states the bare reaction would.
  */
 
@@ -129,21 +129,6 @@ export const CINEMATICS: Record<string, Cinematic> = {
       { t: 12.6, do: 'cam', at: 'player', blend: 1.8 },
       { t: 13.0, do: 'npc', id: 'juno', mood: 'neutral', look: null },
       { t: 13.0, do: 'npc', id: 'rowan', mood: 'neutral', look: null },
-    ],
-  },
-
-  // ---- a failed attempt: it goes wrong in the world and the player is told what that means (no answers)
-  'bolt-fail': {
-    id: 'bolt-fail', len: 6.5,
-    cues: [
-      { t: 0, do: 'cam', at: { prop: 'bolt' }, dist: 5, yaw: 0.3, pitch: 0.34, height: 1.3, blend: 0.7 },
-      { t: 0.3, do: 'npc', id: 'rowan', face: { prop: 'bolt' }, look: { prop: 'bolt' }, mood: 'worried' },
-      { t: 0.6, do: 'prop', id: 'bolt', play: 'malfunction' },
-      { t: 0.7, do: 'shake', amount: 0.5 },
-      { t: 1.0, do: 'player', anim: 'damage' },
-      { t: 1.8, do: 'say', who: 'Technician Rowan', text: 'The program did not do what the robot needed. Nothing is lost: find out why, then try again.', for: 3.6 },
-      { t: 5.4, do: 'cam', at: 'player', blend: 1.2 },
-      { t: 5.6, do: 'npc', id: 'rowan', mood: 'neutral', look: null },
     ],
   },
 };

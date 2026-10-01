@@ -46,5 +46,4 @@ export const garage: SceneDef = {
     { prop: 'car', effect: 'garage.car:tyres', state: 'tyres', say: '', cinematic: 'car-tyres' }, { prop: 'car', effect: 'garage.car:brakes', state: 'brakes', say: '', cinematic: 'car-brakes' },
     { prop: 'car', effect: 'garage.car:fuel', state: 'fuel', say: '', cinematic: 'car-fuel' }, { prop: 'car', effect: 'garage.car:aero', state: 'aero', say: '', cinematic: 'car-aero' },
   ],
-  consequences: [{ prop: 'car', station: 'telemetry-console', play: 'malfunction', say: 'The telemetry reading was wrong: the pit crew fit the wrong pressures and the car smokes on the lift. No harm done; read the data again.' }],
 };

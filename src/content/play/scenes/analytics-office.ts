@@ -38,7 +38,4 @@ export const analyticsOffice: SceneDef = {
     { prop: 'positions-board', effect: 'office.positions:group', state: 'on', say: 'The position board shows how each group performs.', cinematic: 'office-positions' },
     { prop: 'lineup-board', effect: 'field.lineup:set', state: 'on', say: 'LINEUP SET. The card goes to Coach Reyes.', cinematic: 'office-lineup' },
   ],
-  consequences: [
-    { prop: 'roster-board', station: 'analytics-console', play: 'malfunction', say: 'The boards flicker and show nonsense for a moment: a query that did not ask what you meant it to. The data is fine; check the question.' },
-  ],
 };

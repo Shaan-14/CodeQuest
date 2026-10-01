@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import * as A from '../../game/actions';
-import { recordSeen, recordTalk } from '../../game/play';
+import { acceptWorkedQuests, recordSeen, recordTalk } from '../../game/play';
 import { lessons, challenges } from '../../content';
 import { cast, getNpc3D } from '../../content/play/cast';
-import { getScene } from '../../content/play/scenes';
+import { getScene, scenes } from '../../content/play/scenes';
 import { stationServes } from '../../content/play/stations';
 import { getQuest, questStatus } from '../../game/quests';
 import { newSave, type SaveData } from '../../core/save';
 import { deriveWorldState } from '../../game/worldEvents';
 import { conversationWith } from './dialogue';
 import { hasEffect, holds } from './conditions';
-import { markersFor } from './markers';
+import { markersAt } from './markers';
+import { nextWaypoint, objectiveFor } from './objective';
+
+import { playQuests } from '../../content/play/quests';
 import { canUseExit } from './travel';
 
 const fresh = (): SaveData => A.createPlayer(newSave(), 'Ada', 'spellwright').save;
@@ -53,14 +56,14 @@ describe('dialogue follows the story', () => {
 });
 
 describe('the world is what the player’s code did (derived, never stored)', () => {
-  it('passing the first lesson causes bay.bolt:eyes, completes the briefing quest once its other steps are done, and survives a JSON round-trip', () => {
-    let s = A.acceptQuest(fresh(), 'q-bay-briefing').save;
-    s = recordTalk(s, 'juno').save;
-    s = recordSeen(s, 'bolt-table').save;
-    expect(questStatus(s, getQuest('q-bay-briefing')!)).toBe('in-progress');
+  it('passing the first lesson causes bay.bolt:eyes; the quest it belongs to is taken up by the work itself and completes, and it survives a JSON round-trip', () => {
+    let s = fresh();
+    expect(questStatus(s, getQuest('q-bay-briefing')!)).toBe('available');
     s = passLesson(s, 'py-01-first-program');
     expect(hasEffect(s, 'bay.bolt:eyes')).toBe(true);
+    s = acceptWorkedQuests(s, playQuests.map((q) => q.id)).save;
     expect(questStatus(s, getQuest('q-bay-briefing')!)).toBe('completed');
+    expect(questStatus(s, getQuest('q-bay-repair')!)).toBe('available'); // finishing one makes the next available (the next lesson then takes it up)
     expect(s.stats.xp).toBeGreaterThan(0);
     const reloaded = JSON.parse(JSON.stringify(s)) as SaveData;
     expect(deriveWorldState(reloaded)['bay.bolt']?.actions).toContain('eyes');
@@ -87,21 +90,17 @@ describe('the world is what the player’s code did (derived, never stored)', ()
   });
 });
 
-describe('quest markers say where the story continues', () => {
+describe('the marker is the objective\u2019s own target (one answer to "where?")', () => {
   const scene = getScene('maintenance-bay')!;
-  const cast3 = (id: string) => getNpc3D(id);
-  const interactables = scene.interactables;
-  it('a new player sees Juno marked with an offer', () => {
-    const m = markersFor(fresh(), scene, interactables, cast3, stationServes);
-    expect(m.find((x) => x.id === 'talk-juno')?.kind).toBe('offer');
+  it('the console is marked when the objective is in this room, and nothing else is', () => {
+    const o = objectiveFor(fresh(), 'maintenance-bay', { scenes, stationMatches: stationServes, trainingOwed: false })!;
+    const m = markersAt(nextWaypoint(o, 'maintenance-bay', scenes), scene.interactables);
+    expect(m.map((x) => x.id)).toEqual(['bolt-console']);
   });
-  it('after accepting: Bolt is the next step; after inspecting: the console', () => {
-    let s = recordTalk(A.acceptQuest(fresh(), 'q-bay-briefing').save, 'juno').save;
-    expect(markersFor(s, scene, interactables, cast3, stationServes).map((x) => x.id)).toContain('bolt-table');
-    s = recordSeen(s, 'bolt-table').save;
-    const ids = markersFor(s, scene, interactables, cast3, stationServes).map((x) => x.id);
-    expect(ids).toContain('bolt-console');
-    expect(ids).not.toContain('bolt-table');
+  it('no diamond for a doorway on the way, nor when there is no objective', () => {
+    const o = objectiveFor(fresh(), 'robotics-atrium', { scenes, stationMatches: stationServes, trainingOwed: false })!;
+    expect(markersAt(nextWaypoint(o, 'robotics-atrium', scenes), getScene('robotics-atrium')!.interactables)).toEqual([]);
+    expect(markersAt(null, scene.interactables)).toEqual([]);
   });
 });
 

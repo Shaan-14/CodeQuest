@@ -43,8 +43,4 @@ export const arena: SceneDef = {
     { prop: 'oracle', effect: 'arena.oracle:answer', state: 'answer', say: 'The oracle answers: your request reached the server and came back.', cinematic: 'arena-oracle' },
     { prop: 'hound', effect: 'arena.hound:defeat', state: 'defeat', say: 'The Gloomhound dissolves into motes of light. The Dueling Ring is safe.', cinematic: 'arena-defeat' },
   ],
-  consequences: [
-    { prop: 'shield', station: 'spell-lectern', play: 'malfunction', say: '' },
-    { prop: 'hound', station: 'spell-lectern', play: 'malfunction', say: 'The spell misfires. The Gloomhound lunges and your ward-shield cracks. Nothing is lost: look at what the spell actually did, then try again.' },
-  ],
 };

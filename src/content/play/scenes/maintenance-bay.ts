@@ -77,7 +77,4 @@ export const maintenanceBay: SceneDef = {
     { prop: 'bolt', effect: 'bay.bolt:routine', state: 'routine', say: 'Bolt-7 performs the routine you wrote, arms swinging.', cinematic: 'bolt-routine' },
     { prop: 'bolt', effect: 'bay.bolt:awake', state: 'awake', say: 'Your control program runs. Bolt-7 sits up… and stands.', cinematic: 'bolt-awake' },
   ],
-  consequences: [
-    { prop: 'bolt', station: 'bolt-console', play: 'malfunction', cinematic: 'bolt-fail', say: 'Bolt-7 convulses: sparks, smoke, eyes flashing red. The program did not do what the robot needed. Nothing is lost; look at what went wrong.' },
-  ],
 };

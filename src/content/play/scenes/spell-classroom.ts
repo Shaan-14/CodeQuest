@@ -45,8 +45,4 @@ export const spellClassroom: SceneDef = {
     { prop: 'dome', effect: 'ward.dome:adapt', state: 'adapt', say: 'The dome now fits the hall however it is shaped.', cinematic: 'acad-dome-adapt' },
     { prop: 'dome', effect: 'ward.dome:aegis', state: 'aegis', say: 'The Aegis: a complete ward, teal and whole. The Style Studio trial is yours.', cinematic: 'acad-dome-aegis' },
   ],
-  consequences: [
-    { prop: 'portal', station: 'rune-lectern', play: 'malfunction', say: 'The runes do not hold: the hall flickers. Something you wrote says less, or something else, than you meant.' },
-    { prop: 'dome', station: 'ward-lectern', play: 'malfunction', say: 'The ward stutters and snaps back: a style that did not do what you needed. Look at what it did.' },
-  ],
 };

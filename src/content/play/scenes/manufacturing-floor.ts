@@ -64,8 +64,4 @@ export const manufacturingFloor: SceneDef = {
     { prop: 'logs-screen', effect: 'floor.logs:open', state: 'on', say: 'The machine logs unlock on the wall screen.' },
     { prop: 'dashboard', effect: 'floor.dashboard:light', state: 'on', say: 'The plant dashboard lights up with clean data.' },
   ],
-  consequences: [
-    { prop: 'belt', station: 'line-console', play: 'malfunction', say: 'The belt jams with a screech, sparks fly and the alarm lamp flashes. The program did not do what the machine needed.' },
-    { prop: 'arm-a', station: 'line-console', play: 'malfunction', say: '' },
-  ],
 };
