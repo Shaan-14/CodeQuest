@@ -75,8 +75,8 @@ export function simulateGame(us: TeamModel, them: TeamModel, seed: number, innin
   const rand = rng(seed);
   const plays: Play[] = [];
   let ourRuns = 0, theirRuns = 0, ourBatter = 0, theirBatter = 0;
-  // extra innings decide a tie (at most two), so every game has a winner
-  for (let inning = 1; inning <= innings + 2; inning++) {
+  // extra innings decide a tie, so every game has a winner (after a long stalemate the home side wins on a walk-off)
+  for (let inning = 1; inning <= innings + 9; inning++) {
     if (inning > innings && ourRuns !== theirRuns) break;
     for (const half of ['them', 'us'] as const) {
       const m = half === 'us' ? us : them;
@@ -101,6 +101,7 @@ export function simulateGame(us: TeamModel, them: TeamModel, seed: number, innin
       }
     }
   }
+  if (ourRuns === theirRuns) { ourRuns++; plays.push({ half: 'us', inning: innings + 9, outsBefore: 0, type: 'homerun', batter: 0, runs: 1, bases: [-1, -1, -1], text: 'Walk-off home run! 1 run scores.' }); }
   return { plays, us: ourRuns, them: theirRuns, innings: plays.length ? plays[plays.length - 1]!.inning : innings, won: ourRuns > theirRuns };
 }
 

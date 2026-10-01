@@ -11,7 +11,7 @@ const fenceWalls: Collider[] = Array.from({ length: 30 }, (_, i) => {
 export const ballpark: SceneDef = {
   id: 'ballpark', world: 'ballpark', title: 'Harborview Park', blurb: 'The ballpark. The Analytics Office is behind third base; home plate is where games start.',
   bounds: { minX: -46, maxX: 46, minZ: -44, maxZ: 26 },
-  spawns: { default: { x: 0, z: 18, ry: 0 }, 'from-plaza': { x: 0, z: 22, ry: 0 }, 'from-office': { x: -24, z: 11, ry: Math.PI / 2 } },
+  spawns: { default: { x: 0, z: 18, ry: 0 }, 'from-plaza': { x: 0, z: 22, ry: 0 }, 'from-office': { x: -21, z: 12.6, ry: Math.PI / 2 } },
   look: { sky: 0x8fc6ff, fog: 0xc9e2ff, fogNear: 55, fogFar: 140, ground: 0x2f6a45, ambient: 0.55, sun: 1.3, sunDir: [0.4, 1, 0.5] },
   ambience: 'crowd',
   zones: [{ id: 'home', label: 'Home plate', x: 0, z: 6, w: 6, d: 6 }, { id: 'office', label: 'Analytics Office', x: -26, z: 10, w: 8, d: 8 }],

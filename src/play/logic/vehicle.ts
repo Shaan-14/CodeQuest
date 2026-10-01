@@ -61,18 +61,19 @@ export function stepCar(c: Car, d: Driving, setup: Setup, cl: CentreLine, dt: nu
     if (vf < 0 && d.throttle === 0 && d.brake > 0.9) vf = Math.max(vf - ACC * 0.4 * dt, -8); // reverse when stopped
   }
   vf -= vf * DRAG * dt * (grass ? 4 : 1) + (d.throttle === 0 && d.brake === 0 ? Math.sign(vf) * Math.min(Math.abs(vf), 2.5 * dt) : 0);
-  // steering: authority grows with speed, then fades so a fast car cannot turn on the spot
+  // the engine and brakes act along the OLD heading; the world velocity is rebuilt from them
+  c.vx = fx * vf + rx * vl; c.vz = fz * vf + rz * vl;
+  // steering turns the car (authority grows with speed, then fades so a fast car cannot turn on the spot)
   const target = d.steer;
   c.steer += (target - c.steer) * Math.min(1, 9 * dt);
   const authority = Math.min(1, Math.abs(vf) / 7) * (1 / (1 + (Math.abs(vf) / top) * 0.9));
   c.heading -= c.steer * YAW * authority * Math.sign(vf || 1) * dt * (0.55 + 0.45 * Math.min(1, setup.grip + setup.aero * 0.3));
-  // lateral grip pulls the sideways velocity away; with low grip the car keeps sliding
-  const slip = Math.abs(vl);
-  vl -= vl * Math.min(1, gripK * dt);
-  if (slip > 7 && !grass) c.sliding = true;
-  // back to the world frame (heading may have changed this step)
+  // the car now points somewhere new but is still MOVING the old way: the difference is sideways slip, and grip is what removes it.
   const nfx = -Math.sin(c.heading), nfz = -Math.cos(c.heading), nrx = Math.cos(c.heading), nrz = -Math.sin(c.heading);
-  c.vx = nfx * vf + nrx * vl; c.vz = nfz * vf + nrz * vl;
+  let vf2 = c.vx * nfx + c.vz * nfz, vl2 = c.vx * nrx + c.vz * nrz;
+  if (Math.abs(vl2) > 7 && !grass) c.sliding = true;
+  vl2 -= vl2 * Math.min(1, gripK * dt);
+  c.vx = nfx * vf2 + nrx * vl2; c.vz = nfz * vf2 + nrz * vl2;
   c.x += c.vx * dt; c.z += c.vz * dt;
   return c;
 }

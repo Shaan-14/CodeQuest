@@ -58,6 +58,8 @@ async function newPage(viewport = { width: 1280, height: 900 }) {
   // reducedMotion: the game honours it, and Playwright cannot click elements with endless CSS animations.
   const ctx = await browser.newContext({ viewport, reducedMotion: 'reduce' });
   const page = await ctx.newPage();
+  // the classic scenarios test the classic screens: the 3D world has its own suite (e2e/play.mjs)
+  await page.addInitScript(() => localStorage.setItem('codequest.mode', 'classic'));
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));

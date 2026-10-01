@@ -164,7 +164,10 @@ export function PlayScreen({ onClassic, onOpenTraining, onLeaveToLesson }: { onC
         };
       } catch (e) { if (!disposed) setFailed(String((e as Error).message ?? e)); }
     })();
-    return () => { disposed = true; const st = getStore(), s = stageRef.current; if (s?.def) st.apply(setPosition(st.save, s.def.id, s.body.x, s.body.z, s.body.ry), { silent: true }); s?.dispose(); stageRef.current = null; delete window.__cq3d; clearTimeout(captionTimer.current); };
+    // leaving the page (reload, close, navigate away) saves where the player stands, like leaving the world does
+    const flush = () => { const st = getStore(), s = stageRef.current; if (s?.def) st.apply(setPosition(st.save, s.def.id, s.body.x, s.body.z, s.body.ry), { silent: true }); };
+    window.addEventListener('pagehide', flush); window.addEventListener('beforeunload', flush);
+    return () => { window.removeEventListener('pagehide', flush); window.removeEventListener('beforeunload', flush); disposed = true; const st = getStore(), s = stageRef.current; if (s?.def) st.apply(setPosition(st.save, s.def.id, s.body.x, s.body.z, s.body.ry), { silent: true }); s?.dispose(); stageRef.current = null; delete window.__cq3d; clearTimeout(captionTimer.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
