@@ -8,7 +8,7 @@ export const guideEnabled = (): boolean => { try { return window.localStorage.ge
 const setGuidePref = (on: boolean) => { try { window.localStorage.setItem('codequest.guide', on ? 'on' : 'off'); } catch { /* private window */ } };
 
 /** Pause: settings that matter for comfort (sound, motion, quality) Saved with the game. */
-export function PauseMenu({ onResume, stage }: { onResume: () => void; stage: Stage | null }) {
+export function PauseMenu({ onResume, stage, onReplay, onReplayEnding }: { onResume: () => void; stage: Stage | null; onReplay?: () => void; onReplayEnding?: () => void }) {
   const { save } = useGame();
   const s = save.play.settings;
   const [guide, setGuide] = useState(guideEnabled());
@@ -29,6 +29,8 @@ export function PauseMenu({ onResume, stage }: { onResume: () => void; stage: St
           </select>
         </label>
         <p class="muted small">Quality changes apply the next time the world loads.</p>
+        {onReplay && <button class="btn small" onClick={onReplay} data-testid="pause-replay-opening">Replay the opening (your progress is not touched)</button>}
+        {onReplayEnding && <button class="btn small" onClick={onReplayEnding} data-testid="pause-replay-ending">Replay the ending</button>}
       </div>
     </div>
   );

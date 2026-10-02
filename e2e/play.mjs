@@ -52,13 +52,14 @@ async function newGame(opts = {}) {
   page.on('pageerror', (e) => page.errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') page.errors.push(m.text()); if (process.env.E2E_DEBUG && m.text().startsWith('DBG')) console.log('   ', m.text()); });
   await page.addInitScript(() => { try { localStorage.setItem('codequest.e2e', '1'); } catch { /* sandboxed iframe */ } });
+  if (opts.opening) await page.addInitScript(() => { try { localStorage.setItem('codequest.opening', 'play'); } catch { /* sandboxed iframe */ } }); // the real opening and ending (tests skip them otherwise)
   if (opts.save) await page.addInitScript((s) => { if (!localStorage.getItem('codequest.save')) localStorage.setItem('codequest.save', s); }, opts.save);
   await page.goto(BASE);
   if (!opts.save) { await tid(page, 'name-input').fill(opts.name ?? 'Ada'); await tid(page, 'begin').click(); }
   await page.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
   if (!opts.welcome && await tid(page, 'welcome-start').count()) { await tid(page, 'welcome-start').click(); await page.waitForTimeout(600); } // input is re-enabled one render after the card closes
   // software WebGL renders this scene at a few frames per second; the game caps a frame at 0.1 s, so run it faster to keep the timing-based checks meaningful
-  await page.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
+  await page.evaluate((k) => { window.__cq3d.stage.timeScale = k; }, opts.timeScale ?? 4);
   return page;
 }
 const st = (p) => p.evaluate(() => window.__cq3d.state());
@@ -188,11 +189,17 @@ async function main() {
   try {
     console.log('3D world: robotics vertical slice');
 
-    await test('A new player lands in the 3D world and can walk with WASD and the arrow keys (collision stops them at the wall)', async () => {
+    await test('A new player lands in the Bytehaven plaza at its defined start, is told what the story needs, and can walk with WASD and the arrow keys (collision stops them at the wall)', async () => {
       const p = await newGame();
-      eq((await st(p)).scene, 'robotics-atrium', 'a new player starts in the Robotics Academy atrium');
-      // they are told what to do and where, and the world shows the way
+      const s0 = await st(p);
+      eq(s0.scene, 'plaza', 'a new player starts in the plaza, never in a world');
+      assert(Math.abs(s0.x) < 0.8 && Math.abs(s0.z - 12.6) < 1.5, `at the plaza's defined start (0, 12.6), not a remembered place: ${s0.x}, ${s0.z}`);
       await tid(p, 'objective-title').waitFor();
+      assert((await tid(p, 'objective-title').innerText()).includes('Bring Bytehaven back online'), 'the first objective is the story: bring Bytehaven back online');
+      assert((await save(p)).play.seen.opening, 'the opening is recorded as seen');
+      // through the Robotics gate: the world names its own next step from the learning record
+      await go(p, 'robotics-atrium', 'from-plaza');
+      await p.waitForFunction(() => document.querySelector('[data-testid=objective-text]')?.textContent?.includes('Repair Console'), null, { timeout: 8000 });
       assert((await tid(p, 'objective-text').innerText()).includes('Repair Console'), 'the objective names the Python lesson\'s console, from the learning record');
       assert((await tid(p, 'objective-where').innerText()).includes('Maintenance Bay'), 'and where: the door to take');
       assert((await st(p)).markers.length >= 0, 'markers exist');
@@ -211,10 +218,132 @@ async function main() {
       await p.context().close();
     });
 
+    await test('Opening: a new game plays the story over the real world (the city at its best, the failure world by world, the arrival, Juno, the four worlds) and hands the player the plaza', async () => {
+      const p = await newGame({ opening: true, timeScale: 8 });
+      await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
+      const seen = new Set(); const subs = [];
+      const t0 = Date.now();
+      while (await tid(p, 'cine-skip').count() && Date.now() - t0 < 240000) {
+        const s = await p.evaluate(() => ({ scene: window.__cq3d.state().scene, sub: document.querySelector('[data-testid=cine-subtitle]')?.textContent ?? '' }));
+        if (s.scene) seen.add(s.scene); if (s.sub && !subs.includes(s.sub)) subs.push(s.sub);
+        await p.waitForTimeout(250);
+      }
+      for (const sc of ['plaza', 'manufacturing-floor', 'ballpark', 'spell-classroom', 'track', 'garage']) assert(seen.has(sc), `the opening visits ${sc}: ${[...seen]}`);
+      for (const line of ['wasn’t always like this', 'designed to work with the others', 'everything went offline', 'bring it back']) assert(subs.some((x) => x.includes(line)), `Juno says: ${line}`);
+      assert(subs.some((x) => x.includes('Mentor Juno')), 'subtitles name the speaker');
+      eq((await st(p)).scene, 'plaza', 'it ends in the plaza');
+      const s1 = await st(p);
+      assert(Math.hypot(s1.x, s1.z - 9.4) < 3.5, `where the arrival walk ended, in the plaza: ${s1.x}, ${s1.z}`);
+      assert((await save(p)).play.seen.opening, 'seen is recorded');
+      assert((await save(p)).evidence.length === 0 && Object.keys((await save(p)).learning.lessons).length === 0, 'the story changed no learning state');
+      await tid(p, 'welcome-start').waitFor(); await tid(p, 'welcome-start').click(); await p.waitForTimeout(600);
+      assert((await tid(p, 'objective-title').innerText()).includes('Bring Bytehaven back online'), 'the first objective is established');
+      await p.keyboard.down('w'); await p.waitForTimeout(900); await p.keyboard.up('w');
+      assert((await st(p)).z < s1.z - 0.3, 'the player can walk: the story became gameplay with no "press X"');
+      await p.context().close();
+    });
+
+    await test('Opening: Skip initialises the world at the plaza start and never corrupts progress; it never plays again; it can be replayed from the menu without touching the save', async () => {
+      const p = await newGame({ opening: true });
+      await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
+      await p.waitForTimeout(1500);
+      await tid(p, 'cine-skip').click();
+      await tid(p, 'cine-skip').waitFor({ state: 'detached', timeout: 20000 });
+      const s1 = await st(p); eq(s1.scene, 'plaza', 'skipping lands in the plaza');
+      assert(Math.abs(s1.x) < 0.8 && Math.abs(s1.z - 12.6) < 1.5, `at its defined start: ${s1.x}, ${s1.z}`);
+      const sv = await save(p);
+      assert(sv.play.seen.opening && sv.evidence.length === 0 && sv.stats.xp === 0 && sv.stats.focus === 100, 'skipping changed no progress');
+      await tid(p, 'welcome-start').click(); await p.waitForTimeout(600);
+      assert(await tid(p, 'objective-title').innerText() !== '', 'and the starting objective is there');
+      // replay from the menu: the same story, then back to exactly where the player stood, save untouched
+      await tp(p, 5, 3, 1);
+      await p.keyboard.press('Escape'); await tid(p, 'play-pause').waitFor();
+      const before = JSON.stringify((await save(p)).evidence) + (await save(p)).stats.xp;
+      await tid(p, 'pause-replay-opening').click();
+      await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
+      await p.waitForTimeout(1200); await tid(p, 'cine-skip').click();
+      await tid(p, 'cine-skip').waitFor({ state: 'detached', timeout: 20000 });
+      const s2 = await st(p); eq(s2.scene, 'plaza', 'replay returns to the place it was started from');
+      assert(Math.hypot(s2.x - 5, s2.z - 3) < 1.5, `at the same spot: ${s2.x}, ${s2.z}`);
+      eq(JSON.stringify((await save(p)).evidence) + (await save(p)).stats.xp, before, 'a replay changes nothing');
+      await p.reload(); await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 }); await p.waitForTimeout(1500);
+      eq(await tid(p, 'cine-skip').count(), 0, 'after a reload the opening does not play again');
+      await p.context().close();
+    });
+
+    await test('Opening: an existing save never plays it; a full reset spawns in the plaza (never a remembered place) and plays it again', async () => {
+      // a save made before the opening existed (version 10), standing deep in a world
+      const old = JSON.parse(JSON.stringify(saves.baseball)); old.version = 10; delete old.play.seen.opening; old.play.scene = 'ballpark'; old.play.pos = { x: 4, z: 6, ry: 0 };
+      const p = await newGame({ opening: true, save: JSON.stringify(old) });
+      await p.waitForTimeout(2500);
+      eq(await tid(p, 'cine-skip').count(), 0, 'an existing save does not play the opening');
+      eq((await st(p)).scene, 'ballpark', 'it resumes where the player was');
+      // a full reset, from inside the world
+      await p.evaluate(() => window.__cq3d.reset());
+      await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
+      await p.waitForTimeout(1000); await tid(p, 'cine-skip').click();
+      await tid(p, 'cine-skip').waitFor({ state: 'detached', timeout: 20000 });
+      const s1 = await st(p); eq(s1.scene, 'plaza', 'a reset always spawns in the plaza');
+      assert(Math.abs(s1.x) < 0.8 && Math.abs(s1.z - 12.6) < 1.5, `at the defined start, not (4, 6) in the ballpark: ${s1.x}, ${s1.z}`);
+      assert((await save(p)).evidence.length === 0, 'the reset really reset');
+      await p.context().close();
+    });
+
+    await test('Restoration: a world is dark until the player\'s work lights it, the plaza fills with people as worlds return, and the ending restores everything', async () => {
+      const p = await newGame();
+      const offline = await p.evaluate(() => ({ r: window.__cq3d.glow('robotics'), core: window.__cq3d.glow(''), people: window.__cq3d.state().npcs.map((n) => n.id) }));
+      eq(offline.r, 0, 'a new game\'s Robotics is offline'); eq(offline.core, 0, 'and so is the core');
+      assert(!offline.people.includes('halden') && offline.people.includes('juno-hub'), `the plaza starts with its guide only: ${offline.people}`);
+      // the finished game: a completed campaign restores every world, and the plaza shows everyone
+      const done = JSON.parse(JSON.stringify(saves.baseball)); done.campaign = { completedAt: new Date().toISOString() }; done.play.seen.opening = 'x'; done.play.scene = 'plaza'; done.play.pos = { x: 0, z: 10, ry: 0 };
+      const q = await newGame({ save: JSON.stringify(done) });
+      const alive = await q.evaluate(() => ({ r: window.__cq3d.glow('robotics'), a: window.__cq3d.glow('academy'), core: window.__cq3d.glow(''), people: window.__cq3d.state().npcs.map((n) => n.id) }));
+      eq(alive.r, 1, 'every world is restored when the campaign is complete'); eq(alive.core, 1, 'the core is alive');
+      for (const id of ['halden', 'fenn', 'quill', 'jory']) assert(alive.people.includes(id), `${id} is back in the plaza`);
+      await p.context().close(); await q.context().close();
+    });
+
+    await test('Ending: the summit, each world waking, the plaza, the credits and the last scene play over the real world; the end card and the summary follow; nothing in the save changes', async () => {
+      const done = JSON.parse(JSON.stringify(saves.baseball)); done.campaign = { completedAt: new Date().toISOString() }; done.play.seen.opening = 'x'; done.play.scene = 'plaza'; done.play.pos = { x: 3, z: 8, ry: 0 };
+      const p = await newGame({ opening: true, save: JSON.stringify(done), timeScale: 8 });
+      const before = JSON.stringify((await save(p)).evidence);
+      await p.evaluate(() => window.__cq3d.ending('replay'));
+      await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
+      const seen = new Set(); const subs = []; let credits = false, endcard = false;
+      const t0 = Date.now();
+      while (!endcard && Date.now() - t0 < 300000) {
+        const s = await p.evaluate(() => ({ scene: window.__cq3d.state().scene, sub: document.querySelector('[data-testid=cine-subtitle]')?.textContent ?? '', credits: !!document.querySelector('[data-testid=credits]'), end: !!document.querySelector('[data-testid=endcard]') }));
+        if (s.scene) seen.add(s.scene); if (s.sub && !subs.includes(s.sub)) subs.push(s.sub); credits ||= s.credits; endcard ||= s.end;
+        await p.waitForTimeout(250);
+      }
+      for (const sc of ['summit', 'manufacturing-floor', 'ballpark', 'spell-classroom', 'garage', 'plaza']) assert(seen.has(sc), `the ending visits ${sc}: ${[...seen]}`);
+      assert(credits, 'the credits roll over the plaza'); assert(endcard, 'and the story ends on the name');
+      for (const line of ['There they are.', 'The one who brought Bytehaven back.', 'Bytehaven is alive again.']) assert(subs.some((x) => x.includes(line)), `the last scene says: ${line}`);
+      await tid(p, 'endcard').click();
+      await p.waitForFunction(() => !document.querySelector('[data-testid=cine-skip]'), null, { timeout: 20000 });
+      const s1 = await st(p); eq(s1.scene, 'plaza', 'a replay returns the player to where they were'); assert(Math.hypot(s1.x - 3, s1.z - 8) < 1.5, 'at the same spot');
+      eq(JSON.stringify((await save(p)).evidence), before, 'the ending changed no evidence');
+      await p.context().close();
+    });
+
+    await test('Training Grounds: finishing a plan makes the room do something real for that family of skill (an arm that works, rows that fill in, a page that loads), the coach reacts, then the lesson comes back', async () => {
+      const p = await newGame({ opening: true });
+      await go(p, 'sim-room', 'training');
+      for (const [kind, prop, line] of [['python', 'train-arm', 'predicted it'], ['data', 'train-data', 'Thirty-eight rows'], ['web', 'train-web', 'tested it the way a visitor would'], ['stats', 'train-stats', 'denominator'], ['sheet', 'train-sheet', 'Change one input']]) {
+        await p.evaluate((k) => { window.__cq3d.play(`trainwin:${k}`); }, kind);
+        await p.waitForFunction((l) => (document.querySelector('[data-testid=cine-subtitle]')?.textContent ?? '').includes(l), line, { timeout: 60000 });
+        assert((await p.evaluate((id) => window.__cq3d.dynStates(id), prop)).length > 0, `${kind}: ${prop} came to life`);
+        await skipCine(p);
+        await go(p, 'sim-room', 'training');
+      }
+      await p.context().close();
+    });
+
     await test('Lesson flow: guided to the console, solve the lesson, the world answers by itself (no button, no errand), the lesson comes back, the quest is taken up by doing the work', async () => {
       const p = await newGame();
       await p.evaluate(() => { window.__tl = []; const t0 = performance.now(); new MutationObserver(() => { const c = document.querySelector('[data-testid=cine]'); const b = document.querySelector('[data-testid=cine-banner]'); const term = document.querySelector('[data-testid=play-terminal]'); window.__tl.push([Math.round(performance.now() - t0), c?.getAttribute('data-active'), b ? b.textContent.slice(0, 40) : '', term ? (term.hidden ? 'hid' : 'vis') : 'none']); }).observe(document.body, { subtree: true, childList: true, attributes: true }); });
-      // the guide names the Python lesson and the console, no NPC needed
+      // through the Robotics gate, the guide names the Python lesson and the console, no NPC needed
+      await go(p, 'robotics-atrium', 'from-plaza'); await p.waitForTimeout(400);
       assert((await tid(p, 'play-tracker').getAttribute('data-objective')) === 'lesson', 'the objective is the next lesson');
       assert((await tid(p, 'objective-text').innerText()).includes('Repair Console'), 'it names the console');
       await go(p, 'maintenance-bay');
@@ -295,9 +424,9 @@ async function main() {
       await playTraining(p);
       await tid(p, 'focus-restored').waitFor();
       assert((await tid(p, 'focus').innerText()).includes('100/100'), 'Focus is back');
-      await tid(p, 'training-return-btn').click();
+      // no button to press: the room answers the finished plan and the player is walked back to the exact lesson by itself
+      await tid(p, 'play-terminal').waitFor({ timeout: 25000 });
       // back at the same console, same lesson, a DIFFERENT problem
-      await tid(p, 'play-terminal').waitFor();
       eq((await st(p)).scene, 'maintenance-bay', 'returned to the bay');
       await tid(p, 'lesson').waitFor();
       const second = await tid(p, 'briefing').getAttribute('data-challenge');
@@ -645,6 +774,8 @@ async function main() {
       await tid(p, 'finale-continue').click();
       await p.reload();
       await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 }); await p.evaluate(() => { window.__cq3d.stage.timeScale = 4; });
+      eq((await st(p)).scene, 'plaza', 'the ending leaves the player in the restored plaza');
+      await go(p, 'summit', 'from-plaza'); await p.waitForTimeout(500);
       assert((await p.evaluate(() => window.__cq3d.dynStates('b-great'))).includes('lit'), 'the beacon is lit again after a reload (the world is derived from evidence)');
       await p.context().close();
     });

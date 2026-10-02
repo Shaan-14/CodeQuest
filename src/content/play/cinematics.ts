@@ -6,6 +6,10 @@ import { quests } from '../world';
 import { cast } from './cast';
 import { BASEBALL_SEQUENCES } from './cinematics.baseball';
 import { RACING_SEQUENCES } from './cinematics.racing';
+import { OPENING_SHEETS } from './cinematics.opening';
+import { MILESTONES } from './cinematics.milestones';
+import { ENDING_SHEETS } from './cinematics.ending';
+import { TRAINING_WINS } from './cinematics.training';
 
 /**
  * THE CINEMATICS of the world: short cue sheets (see play/logic/cinematic.ts) that SHOW what the player's code just did. A scene's
@@ -307,7 +311,8 @@ function training(kind: string, o: { act: Cue[]; light: number; line: string; ca
   return { id: `training:${kind}`, cues, len: 7 };
 }
 
-Object.assign(CINEMATICS, BASEBALL_SEQUENCES, RACING_SEQUENCES);
+Object.assign(CINEMATICS, BASEBALL_SEQUENCES, RACING_SEQUENCES, OPENING_SHEETS, MILESTONES, ENDING_SHEETS);
+for (const [k, c] of Object.entries(TRAINING_WINS)) CINEMATICS[`trainwin:${k}`] = c;
 
 CINEMATICS['training:python'] = training('python', {
   line: 'Predict first, then run it. A program shows what it does, not what you meant.', light: 0x4fd1ff,

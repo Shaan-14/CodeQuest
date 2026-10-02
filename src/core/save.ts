@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 export interface PlayerProfile {
   name: string;
@@ -456,6 +456,14 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
     const inv = (old.inventory as Record<string, number> | undefined) ?? {};
     const play = { ...emptyPlay(), ...((old.play as Record<string, unknown> | undefined) ?? {}) };
     return { ...old, play: { ...play, gear: { head: inv['lucky-cap'] ? 'lucky-cap' : null, back: inv['explorer-cape'] ? 'explorer-cape' : null } } };
+  },
+  // v10 -> v11 (the restoration story): a NEW game opens with a cinematic (play.seen['opening'] absent). A player who already has a save has
+  // begun the game, so it is marked as seen: the opening never plays over existing progress. The world's restoration is derived from evidence, so nothing else is backfilled.
+  10: (old) => {
+    const play = { ...emptyPlay(), ...((old.play as Record<string, unknown> | undefined) ?? {}) } as Record<string, unknown>;
+    const seen = { ...((play.seen as Record<string, string> | undefined) ?? {}) };
+    seen.opening = seen.opening ?? 'existing-save';
+    return { ...old, play: { ...play, seen } };
   },
 };
 /** Shop items that restored Focus directly. They no longer exist: Focus is earned through training. */

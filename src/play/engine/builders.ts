@@ -25,6 +25,8 @@ export interface BuildCtx {
   dyn: (id: string) => Dyn | undefined;
   /** Where the player stands now (props that watch the player). */
   player: () => { x: number; z: number };
+  /** How alive a district is now (0..1; '' = this scene's own): props that animate slow down when their place is offline. */
+  level: (group: string) => number;
 }
 
 /** A thing in the world whose look depends on what the player has done. */

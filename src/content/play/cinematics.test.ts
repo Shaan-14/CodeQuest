@@ -33,6 +33,7 @@ describe('the cinematics of the world', () => {
     for (const [id, c] of Object.entries(CINEMATICS)) {
       expect(c.cues.every((q) => q.t >= 0), id).toBe(true);
       const cams = sortedCues(c).filter((q) => q.do === 'cam');
+      if (/^(opening|ending):/.test(id) && id !== 'opening:worlds') continue; // a story segment ends in a CUT to the next place (the sequencer), only the opening's last sheet hands the camera back
       if (cams.length) expect(cams[cams.length - 1]!.do === 'cam' && (cams[cams.length - 1] as { at: unknown }).at, `${id} ends on the player`).toBe('player');
     }
   });

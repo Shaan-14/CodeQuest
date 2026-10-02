@@ -11,7 +11,7 @@ export interface CineState { active: boolean; canSkip: boolean; subtitle: { who?
 export const IDLE_CINE: CineState = { active: false, canSkip: false, subtitle: null, banner: null };
 
 interface Running { c: Cinematic; cues: Cue[]; t: number; len: number; skipped: boolean; /** The cue sheet's clock is held until this prop has finished what it was asked to do. */ wait?: { id: string; left: number } }
-interface Shot { x: number; y: number; z: number; yaw: number; pitch: number; dist: number; spin: number; follow?: Target }
+interface Shot { x: number; y: number; z: number; yaw: number; pitch: number; dist: number; spin: number; follow?: Target; safe?: boolean }
 
 const LAP = '*lap';
 
@@ -25,6 +25,10 @@ export class Director {
   constructor(private s: Stage, private onState: (st: CineState) => void) {}
 
   get active(): boolean { return this.cur !== null || this.queue.length > 0; }
+  private idleWaiters: (() => void)[] = [];
+  /** Resolves when nothing is playing or waiting (at once if already idle). */
+  whenIdle(): Promise<void> { return this.active ? new Promise((res) => this.idleWaiters.push(res)) : Promise.resolve(); }
+  private flushIdle(): void { const w = this.idleWaiters; this.idleWaiters = []; for (const f of w) f(); }
   get running(): boolean { return this.cur !== null; }
   /** Add a cinematic to play after any already waiting. */
   enqueue(c: Cinematic): void { this.queue.push(c); if (!this.cur) this.next(); }
@@ -35,7 +39,7 @@ export class Director {
   private next(): void {
     const c = this.queue.shift();
     if (!c) { this.finishAll(); return; }
-    this.cur = { c, cues: sortedCues(c), t: 0, len: lengthOf(c), skipped: false };
+    this.cur = { c, cues: sortedCues(c), t: -1e-6, len: lengthOf(c), skipped: false }; // a hair before zero, so a cue written at t: 0 fires on the first frame (cues fire for times after `from`)
     this.publish({ active: true, canSkip: true });
     this.s.setControlLocked(true);
     if (this.s.reduced) this.skip(); // reduced motion: no camera work, same end state
@@ -84,15 +88,17 @@ export class Director {
     this.s.releaseNpcs();
     this.publish({ subtitle: null, ...(r.skipped ? {} : { banner: null }) });
     if (this.queue.length) { this.gap = 0.25; return; }
+    this.s.syncPower(false); // once everything queued has played: the glow settles on what the player has restored
     this.s.setControlLocked(false);
     this.s.camRate = 9;
     this.publish({ active: false, canSkip: false });
+    this.flushIdle();
   }
 
   /** The scene is being replaced: drop everything (nothing may fire into a world that no longer exists). */
-  reset(): void { this.queue = []; this.cur = null; this.shot = null; this.state = IDLE_CINE; this.onState(IDLE_CINE); }
+  reset(): void { this.queue = []; this.cur = null; this.shot = null; this.state = IDLE_CINE; this.onState(IDLE_CINE); this.flushIdle(); }
 
-  private finishAll(): void { this.s.setControlLocked(false); this.publish({ active: false, canSkip: false, subtitle: null, banner: null }); }
+  private finishAll(): void { this.s.setControlLocked(false); this.publish({ active: false, canSkip: false, subtitle: null, banner: null }); this.flushIdle(); }
 
   private at(t: Target): { x: number; y: number; z: number } { return this.s.targetPos(t) ?? { x: this.s.body.x, y: 1, z: this.s.body.z }; }
 
@@ -103,9 +109,10 @@ export class Director {
         if (instant) return;
         if (q.at === 'player') { this.shot = null; s.setCinema(null); s.camRate = 3 / (q.blend ?? 1.2); return; }
         const p = this.at(q.at);
-        this.shot = { x: p.x, y: q.height ?? Math.max(0.9, p.y), z: p.z, yaw: q.yaw ?? this.shot?.yaw ?? s.cameraYaw, pitch: q.pitch ?? this.shot?.pitch ?? 0.3, dist: q.dist ?? this.shot?.dist ?? 6, spin: q.spin ?? 0, follow: q.follow ? q.at : undefined };
+        this.shot = { x: p.x, y: q.height ?? Math.max(0.9, p.y), z: p.z, yaw: q.yaw ?? this.shot?.yaw ?? s.cameraYaw, pitch: q.pitch ?? this.shot?.pitch ?? 0.3, dist: q.dist ?? this.shot?.dist ?? 6, spin: q.spin ?? 0, follow: q.follow ? q.at : undefined, safe: q.safe };
         s.camRate = 3 / Math.max(0.2, q.blend ?? 1.2);
         s.setCinema(this.shot);
+        if ((q.blend ?? 1.2) <= 0.06) s.snapCamera(); // a CUT, not a move: the shot is there at once
         return;
       }
       case 'say': if (instant) { s.env_caption?.(q.who ? `${q.who}: ${q.text}` : q.text); return; } this.subLeft = q.for ?? 3; this.publish({ subtitle: { who: q.who, text: q.text } }); return;
@@ -114,6 +121,7 @@ export class Director {
       case 'flash': if (instant) return; { const p = this.at(q.at); s.fx.flash(p.x, q.y ?? p.y, p.z, q.color ?? 0xffd166, q.power ?? 12, q.dur ?? 0.4); } return;
       case 'await': if (!instant) r.wait = { id: q.id, left: q.max ?? 10 }; return;
       case 'sfx': if (!instant) s.audio.sfx(q.name); return;
+      case 'music': s.audio.music(q.name, q.fade ?? 1.5); return;
       case 'npc': {
         const n = s.npcRuntime(q.id); if (!n) return;
         if (q.walk) { if (instant) s.placeNpc(q.id, q.walk[0], q.walk[1]); else n.goal = { x: q.walk[0], z: q.walk[1] }; }
@@ -152,6 +160,7 @@ export class Director {
       }
       case 'shake': if (!instant && !s.reduced) s.shakeCamera(q.amount); return;
       case 'mood': s.setMood(q.k); return;
+      case 'power': s.setPowerOverride(q.k === 'save' ? null : q.k, instant ? 0 : q.over ?? 1.2, q.motion, q.world); return;
       case 'banner': this.bannerUntil = r.t + 3.4; this.publish({ banner: { title: q.title, sub: q.sub, kind: q.kind ?? 'quest' } }); if (instant) this.bannerUntil = Math.max(this.bannerUntil, r.t + 3.4); return;
     }
   }

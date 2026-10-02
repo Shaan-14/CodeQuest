@@ -3,7 +3,9 @@
  * nothing in the game is understood only by sound (every event also has a caption), it starts only after the player's first key or click
  * (browsers require that), and the mute switch is saved. Volume is deliberately low.
  */
-export type Sfx = 'step' | 'interact' | 'open' | 'success' | 'fail' | 'spark' | 'spell' | 'hit' | 'click' | 'quest' | 'jump' | 'whoosh' | 'crack' | 'cheer' | 'error' | 'servo' | 'weld' | 'power' | 'chime' | 'door';
+export type Sfx = 'step' | 'interact' | 'open' | 'success' | 'fail' | 'spark' | 'spell' | 'hit' | 'click' | 'quest' | 'jump' | 'whoosh' | 'crack' | 'cheer' | 'error' | 'servo' | 'weld' | 'power' | 'chime' | 'door'
+  /** The restoration story: a system failing (a falling drone and a crackle), power returning (a rising sweep), a place coming back (a swell). */
+  | 'blackout' | 'surge' | 'swell' | 'crowd';
 export type Ambience = 'workshop' | 'wind' | 'crowd' | 'engine' | 'magic' | 'summit' | 'none';
 
 export class Audio {
@@ -28,6 +30,7 @@ export class Audio {
       const len = this.ctx.sampleRate; this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       if (this.pendingAmb) this.setAmbience(this.pendingAmb);
+      if (this.pendingMusic !== undefined) this.music(this.pendingMusic);
     } catch { this.ctx = null; }
   }
   private pendingAmb: Ambience | null = null;
@@ -73,6 +76,10 @@ export class Audio {
       case 'power': this.tone(90, 0.7, 'sawtooth', 0.05, 520); this.tone(180, 0.7, 'triangle', 0.04, 1040, 0.05); this.noise(0.4, 0.03, 700, 1, 0.3); break;
       case 'chime': [880, 1319].forEach((f, i) => this.tone(f, 0.5, 'sine', 0.06, undefined, i * 0.12)); break;
       case 'door': this.tone(120, 0.5, 'triangle', 0.05, 80); this.noise(0.4, 0.04, 350, 0.6); break;
+      case 'blackout': this.tone(220, 1.6, 'sawtooth', 0.06, 38); this.tone(330, 1.3, 'triangle', 0.04, 55, 0.05); this.noise(0.5, 0.07, 2600, 2, 0.1); this.noise(0.35, 0.05, 1800, 3, 0.6); break;
+      case 'surge': this.tone(70, 1.4, 'sawtooth', 0.05, 640); this.tone(140, 1.4, 'triangle', 0.045, 1280, 0.08); this.noise(0.9, 0.035, 900, 1, 0.2); [523, 784].forEach((f, i) => this.tone(f, 0.5, 'sine', 0.05, undefined, 1.0 + i * 0.12)); break;
+      case 'swell': [262, 330, 392, 523, 659].forEach((f, i) => this.tone(f, 1.8, 'triangle', 0.045, undefined, i * 0.14)); break;
+      case 'crowd': this.noise(1.6, 0.06, 1000, 0.35); this.noise(1.2, 0.04, 2400, 0.5, 0.2); break;
       case 'cheer': this.noise(0.9, 0.05, 1200, 0.4); [392, 523, 659].forEach((f, i) => this.tone(f, 0.25, 'triangle', 0.06, undefined, i * 0.1)); break;
     }
   }
@@ -95,6 +102,35 @@ export class Audio {
     this.ambGain.gain.setTargetAtTime(c.v, this.ctx.currentTime, 0.4);
   }
 
+  /**
+   * A slow musical bed for the story's big moments, made of a few soft tones (no files): 'hope' is the working city, 'loss' the outage, 'dawn' the
+   * restored one. It fades in and out, respects the mute switch and stops with `null`. (Nothing is understood by sound alone: captions carry it.)
+   */
+  private musicNodes: { stop: () => void }[] = []; private musicGain: GainNode | null = null; private musicKey: string | null = null;
+  music(name: 'hope' | 'loss' | 'dawn' | null, fade = 1.5): void {
+    if (!this.ctx || !this.master) { this.pendingMusic = name; return; }
+    this.pendingMusic = undefined;
+    if (name === this.musicKey) return;
+    this.musicKey = name;
+    const ctx = this.ctx, now = ctx.currentTime;
+    const old = this.musicNodes, oldGain = this.musicGain; this.musicNodes = []; this.musicGain = null;
+    if (oldGain) { oldGain.gain.cancelScheduledValues(now); oldGain.gain.setTargetAtTime(0, now, fade / 3); window.setTimeout(() => { for (const n of old) { try { n.stop(); } catch { /* ended */ } } oldGain.disconnect(); }, fade * 1000 + 400); }
+    if (!name) return;
+    const chords: Record<string, { f: number[]; vol: number; type: OscillatorType; lfo: number }> = {
+      hope: { f: [130.8, 196, 261.6, 329.6, 392, 493.9], vol: 0.05, type: 'triangle', lfo: 0.12 },
+      loss: { f: [110, 130.8, 164.8, 196, 220], vol: 0.04, type: 'sine', lfo: 0.07 },
+      dawn: { f: [146.8, 220, 293.7, 370, 440, 587.3, 740], vol: 0.05, type: 'triangle', lfo: 0.16 },
+    };
+    const c = chords[name]!;
+    const g = ctx.createGain(); g.gain.value = 0; g.connect(this.master); g.gain.setTargetAtTime(this.muted ? 0 : c.vol, now, fade / 3);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; lp.connect(g);
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = c.lfo; lg.gain.value = 300; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+    const nodes: { stop: () => void }[] = [{ stop: () => lfo.stop() }];
+    c.f.forEach((f, i) => { const o = ctx.createOscillator(); o.type = c.type; o.frequency.value = f * (1 + (i % 2 ? 0.0015 : -0.0015)); const og = ctx.createGain(); og.gain.value = 1 / c.f.length; o.connect(og); og.connect(lp); o.start(); nodes.push({ stop: () => o.stop() }); });
+    this.musicNodes = nodes; this.musicGain = g;
+  }
+  private pendingMusic: 'hope' | 'loss' | 'dawn' | null | undefined;
+
   /** The car's engine: pitch follows speed. Pass null to stop it. */
   engine(speed01: number | null): void {
     if (!this.ctx || !this.master) return;
@@ -110,6 +146,7 @@ export class Audio {
   }
 
   dispose(): void {
+    for (const n of this.musicNodes) { try { n.stop(); } catch { /* ended */ } }
     try { this.engineOsc?.stop(); } catch { /* not started */ }
     void this.ctx?.close();
     this.ctx = null; this.master = null;

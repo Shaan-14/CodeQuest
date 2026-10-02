@@ -23,6 +23,7 @@ import { reviewsDue } from '../../game/retention';
 import { lessonTeaching } from '../../game/graph';
 import { lessonStatus } from '../../game/lessons';
 import { holds } from './conditions';
+import { restorationTotal } from './restoration';
 import type { Npc3D } from './dialogue';
 import type { Interactable, SceneDef } from './sceneTypes';
 
@@ -94,7 +95,12 @@ export function objectiveFor(save: SaveData, fromScene: string, deps: ObjectiveD
   }
   const world = worldOfScene(fromScene);
   if (!world) return null;
-  if (world.id === 'hub') return { kind: 'choose', title: 'Choose your path', text: 'Every gate leads somewhere to learn. Pick the one you want: nothing here is asking for you.', ...NOWHERE, label: '' };
+  if (world.id === 'hub') {
+    const all = restorationTotal(save);
+    if (save.campaign.completedAt) return { kind: 'choose', title: 'Bytehaven is alive again', text: 'Every gate is open and every world is running. Walk anywhere, or go back to any of them.', ...NOWHERE, label: '' };
+    if (all === 0) return { kind: 'choose', title: 'Bring Bytehaven back online', text: 'Four worlds went offline. Each gate leads to something that stopped working and a skill that can start it again. Choose one: nothing here says which comes first.', ...NOWHERE, label: '' };
+    return { kind: 'choose', title: 'Keep restoring Bytehaven', text: 'What you fixed is awake again; the rest is still dark. Choose a gate and carry on, or go back to one you left.', ...NOWHERE, label: '' };
+  }
   if (world.id === 'summit') {
     for (const sc of deps.scenes.filter((s) => world.scenes.includes(s.id))) for (const it of live(sc)) if (it.action.type === 'boss') return { kind: 'activity', title: 'The Summit Trial', text: 'The Great Outage is waiting. Choose how you will face it.', sceneId: sc.id, x: it.x, z: it.z, label: it.label };
     return null;

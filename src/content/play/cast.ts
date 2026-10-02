@@ -1,4 +1,5 @@
 import type { Npc3D } from '../../play/logic/dialogue';
+import { HUB_PEOPLE } from './cast.hub';
 
 /**
  * THE CAST of the playable world. Each person has a role in a place, a personality and dialogue that follows the player's story: the first
@@ -219,10 +220,10 @@ const SUMMIT: Npc3D[] = [
     ],
   },
 ];
-cast.push(...SUMMIT);
+cast.push(...SUMMIT, ...HUB_PEOPLE);
 /** Idle manner by person: the same few gestures for everybody made the place feel staged. */
 const IDLES: Record<string, NonNullable<Npc3D['idles']>> = {
-  juno: ['think', 'nod', 'point'], rowan: ['stretch', 'shrug', 'nod'], 'ori-floor': ['stretch', 'lift', 'nod'], 'sana-sim': ['think', 'nod', 'point'], kip: ['wave', 'nod', 'shrug'],
+  juno: ['think', 'nod', 'point'], 'juno-hub': ['think', 'nod', 'point'], halden: ['stretch', 'nod', 'lift'], fenn: ['salute', 'point', 'shrug'], quill: ['think', 'bow', 'nod'], jory: ['stretch', 'point', 'nod'], rowan: ['stretch', 'shrug', 'nod'], 'ori-floor': ['stretch', 'lift', 'nod'], 'sana-sim': ['think', 'nod', 'point'], kip: ['wave', 'nod', 'shrug'],
   pip: ['wave', 'point', 'cheer'], tamsin: ['stretch', 'nod', 'shrug'], vera: ['think', 'point', 'nod'], otto: ['nod', 'shrug', 'stretch'], teselle: ['think', 'nod', 'bow'], bram: ['think', 'point', 'nod'], nim: ['shrug', 'stretch', 'wave'],
   reyes: ['salute', 'stretch', 'nod'], dara: ['think', 'point', 'shrug'], marisol: ['stretch', 'point', 'nod'], aurel: ['nod', 'think', 'bow'],
 };

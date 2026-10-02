@@ -33,6 +33,8 @@ import { buildGrid, findPath, pathLength, type PathGrid } from '../logic/path';
 import type { Waypoint } from '../logic/objective';
 import type { Cinematic, Target } from '../logic/cinematic';
 import { clearLabels, mat } from './kit';
+import { PowerGrid } from './power';
+import { fractionFor, restoreWorldOf, RESTORE_WORLDS, stageOf, stagesReached } from '../logic/restoration';
 
 export type Quality = 'low' | 'medium' | 'high';
 
@@ -84,7 +86,7 @@ export class Stage {
   private playerRig: Rig;
   readonly director: Director;
   private guide: Guide;
-  private grid: PathGrid | null = null;
+  private pathGrid: PathGrid | null = null;
   private waypoint: Waypoint | null = null;
   private guideClock = 0; private pathClock = 0; private lastGuideX = 1e9; private lastGuideZ = 1e9;
   private controlLocked = false;
@@ -121,12 +123,33 @@ export class Stage {
   private prompt: Interactable | null = null;
   private yaw = 0; private pitch = 0.42; private dist = 7.4;
   /** A fixed broadcast view (a simulated game, a cutscene): the camera orbits this point instead of the player. */
-  private cinema: { x: number; y: number; z: number; yaw: number; pitch: number; dist: number } | null = null;
+  private cinema: { x: number; y: number; z: number; yaw: number; pitch: number; dist: number; safe?: boolean } | null = null;
   private camPos = new Vector3(); private camLook = new Vector3();
   private raf = 0; private last = 0; private running = false; private t = 0;
   private stepClock = 0; private posClock = 0; private shake = 0;
   private sky: Mesh;
   private lamps: PointLight[] = [];
+  /** The glow of every district: the player's restoration, or a cinematic's override (the opening's working city, the finale's surge). */
+  private grid: PowerGrid;
+  /** Glow overrides by district; '*' is the whole place. */
+  private powerOverrides = new Map<string, number>();
+  private powerToken = 0;
+  private skyLook = { sky: 0, fog: 0, mul: 1 };
+  /** An offline place has a darker sky and fog (the same colours, less of them); full power is exactly as authored. */
+  private dimSky(u: number): void {
+    const k = 0.32 + 0.68 * u, l = this.skyLook;
+    (this.scene.background as Color).setHex(l.sky).multiplyScalar(k);
+    (this.scene.fog as Fog | null)?.color.setHex(l.fog).multiplyScalar(k);
+    this.paintSky(new Color(l.sky).multiplyScalar(l.mul * k), new Color(l.fog).multiplyScalar(k));
+  }
+  /** How much of its motion a place has: 1 running, 0 stopped (an outage winds machines down). Cinematics set it; a new scene starts at 1. */
+  private motion = 1;
+  /** The scene was loaded as it was when everything worked (the demo lap then runs the fully tuned car). */
+  pristine = false;
+  /** Lets a screen take over the skip keys (the opening skips as a whole, not segment by segment). Returns true when it handled the key. */
+  skipHook: (() => boolean) | null = null;
+  /** The stage each district had reached (a new one earns a short moment). */
+  private stages: Record<string, number> = {};
   private hemi: HemisphereLight; private sun: DirectionalLight; private amb: AmbientLight;
   private onResize: () => void;
   private resizeObs: ResizeObserver | null = null;
@@ -221,6 +244,7 @@ export class Stage {
     this.sun.shadow.mapSize.set(1024, 1024);
     this.scene.add(this.hemi, this.amb, this.sun, this.sun.target, this.world);
     for (let i = 0; i < 4; i++) { const l = new PointLight(0xffffff, 0, 14, 1.6); this.scene.add(l); this.lamps.push(l); }
+    this.grid = new PowerGrid(this.hemi, this.amb, this.sun, this.lamps);
     // a gradient sky dome (zenith colour above, horizon colour below) that follows the camera: there is always a sky to look at
     const skyGeo = new SphereGeometry(120, 18, 12); skyGeo.setAttribute('color', new BufferAttribute(new Float32Array(skyGeo.getAttribute('position').count * 3), 3));
     this.sky = new Mesh(skyGeo, new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false, depthWrite: false, toneMapped: false }));
@@ -233,7 +257,7 @@ export class Stage {
     this.scene.add(this.playerRig.group);
     this.director = new Director(this, (st) => env.onCinematic?.(st));
     this.guide = new Guide(this.scene);
-    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced, mood: (k) => this.setMood(k), cinema: (v) => this.setCinema(v), dyn: (id) => this.dyns.get(id), player: () => ({ x: this.body.x, z: this.body.z }) };
+    this.ctx = { fx: this.fx, tweens: this.tweens, audio: this.audio, say: (t) => env.onCaption(t), reduced: this.reduced, mood: (k) => this.setMood(k), cinema: (v) => this.setCinema(v), dyn: (id) => this.dyns.get(id), player: () => ({ x: this.body.x, z: this.body.z }), level: (g) => this.grid.level(g) };
     this.onResize = () => this.resize();
     if (typeof ResizeObserver !== 'undefined') { this.resizeObs = new ResizeObserver(this.onResize); this.resizeObs.observe(host); }
     window.addEventListener('resize', this.onResize);
@@ -253,23 +277,26 @@ export class Stage {
   /* ------------------------------------------------------------------ scenes */
 
   /** Build a scene from data and put the player at a spawn (or a saved position). */
-  load(def: SceneDef, at?: { x: number; z: number; ry: number } | string): void {
+  load(def: SceneDef, at?: { x: number; z: number; ry: number } | string, opts: { power?: number | null; /** Show the place as it was when everything worked: every earnable change applied (the opening, the ending). */ pristine?: boolean } = {}): void {
     this.unload();
     this.def = def;
+    this.powerOverrides.clear(); if (opts.power !== null && opts.power !== undefined) this.powerOverrides.set('*', opts.power); this.pristine = !!opts.pristine; this.motion = 1;
     const look = def.look;
     this.scene.background = new Color(look.sky);
     this.scene.fog = new Fog(look.fog, look.fogNear ?? 28, look.fogFar ?? 75);
     this.paintSky(new Color(look.sky).multiplyScalar(look.night ? 0.7 : 1.15), new Color(look.fog));
+    this.skyLook = { sky: look.sky, fog: look.fog, mul: look.night ? 0.7 : 1.15 };
     this.hemi.color.setHex(look.sky === 0 ? 0x88aaff : 0xbcd2ff); this.hemi.groundColor.setHex(look.ground);
     this.hemi.intensity = look.night ? 0.55 : 0.95; this.amb.intensity = look.ambient ?? 0.25;
     this.sun.intensity = look.sun ?? (look.night ? 0.45 : 1.1);
     const sd = look.sunDir ?? [0.5, 1, 0.4]; this.sun.position.set(sd[0] * 30, sd[1] * 30, sd[2] * 30);
     const lampBudget = this.env.quality === 'low' ? 0 : this.env.quality === 'medium' ? 3 : 4; // coloured point lights are the costly part of the look: fewer on slower settings
     this.lamps.forEach((l, i) => { const d = i < lampBudget ? look.lights?.[i] : undefined; if (d) { l.position.set(d.x, d.y, d.z); l.color.setHex(d.color); l.intensity = d.intensity; l.distance = d.dist ?? 14; } else l.intensity = 0; });
+    this.grid.begin(this.hemi.intensity, this.amb.intensity, this.sun.intensity, (look.lights ?? []).map((l) => l.world ?? ''));
     const b = def.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
     if (this.sun.castShadow) { const s = Math.max(b.maxX - b.minX, b.maxZ - b.minZ) * 0.6; const sc = this.sun.shadow.camera; sc.left = -s; sc.right = s; sc.top = s; sc.bottom = -s; sc.updateProjectionMatrix(); this.sun.target.position.set(cx, 0, cz); }
     // ground
-    const ground = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ color: look.ground }));
+    const ground = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ color: look.ground })); this.grid.addBasic(ground.material as MeshBasicMaterial);
     ground.rotation.x = -Math.PI / 2; ground.scale.set(b.maxX - b.minX + 120, b.maxZ - b.minZ + 120, 1); ground.position.set(cx, 0, cz);
     this.world.add(ground);
     // props
@@ -286,6 +313,7 @@ export class Stage {
       this.built.push({ p, obj: built.object });
       const fit = fitColliders(built.object, p); if (fit.length) fitted.set(p, fit); // before static batching merges the parts: what blocks follows what is drawn
       if (!built.dyn && !built.tick && p.kind !== 'floor') batchStatic(built.object);
+      this.grid.register(built.object, typeof p.p?.world === 'string' ? p.p.world : '');
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
       if (built.tick) this.ticks.push(built.tick);
       if (p.id) this.propPos.set(p.id, { x: p.x, y: (p.y ?? 0) + 1, z: p.z });
@@ -295,7 +323,7 @@ export class Stage {
       if (MOUNTED.has(p.kind)) { const ry = p.ry ?? 0; this.mounted.push({ obj: built.object, nx: Math.sin(ry), nz: Math.cos(ry), px: p.x, pz: p.z }); }
       if (p.kind === 'wall') { const ry = p.ry ?? 0; const n = { x: Math.sin(ry), z: Math.cos(ry) }; const inside = Math.sign(n.x * (cx - p.x) + n.z * (cz - p.z)) || 1; this.walls.push({ obj: built.object, nx: n.x, nz: n.z, px: p.x, pz: p.z, inside }); }
     }
-    this.grid = null; this.waypoint = null; this.guide.setTarget(null);
+    this.pathGrid = null; this.waypoint = null; this.guide.setTarget(null);
     this.colliders = [...(def.walls ?? [])];
     this.propColliders.clear();
     for (const p of def.props) {
@@ -306,7 +334,9 @@ export class Stage {
     }
     this.crownBoxes = crowns; this.rebuildBlockers();
     // NPCs
+    const here = fractionFor(save, def.world);
     for (const pl of def.npcs) {
+      if (pl.minRestore !== undefined && !this.pristine && here < pl.minRestore) continue;
       const npc = this.env.getNpc(pl.npc); if (!npc) continue;
       const rig = createRig(npc.look);
       rig.group.position.set(pl.x, 0, pl.z); rig.setFacing(pl.ry ?? 0, true);
@@ -324,22 +354,62 @@ export class Stage {
     this.snapCamera();
     this.playerRig.group.position.set(s0.x, 0, s0.z); this.playerRig.setFacing(s0.ry, true);
     // state the player's code has already earned: instant, no animation
-    for (const r of def.reactions ?? []) if (hasEffect(save, r.effect)) { this.dyns.get(r.prop)?.setState(r.state, true); if (r.state === 'open') this.openGate(r.prop); }
+    for (const r of def.reactions ?? []) if (this.pristine || hasEffect(save, r.effect)) { this.dyns.get(r.prop)?.setState(r.state, true); if (r.state === 'open') this.openGate(r.prop); }
     this.refresh();
+    for (const w of RESTORE_WORLDS) this.stages[w] = stageOf(fractionFor(save, w));
+    this.syncPower(true);
     this.audio.setAmbience(def.ambience ?? 'none');
   }
 
+
+  /* ------------------------------------------------------------------ power */
+
+  /** Where each district's glow should be right now: the override while a cinematic holds one, else how much of it the player has restored. */
+  private powerTargets(): Map<string, number> {
+    const out = new Map<string, number>(), save = this.env.getSave(), own = this.def?.world ?? 'hub', on = !!this.def?.alwaysOn;
+    for (const k of this.grid.keys()) out.set(k, this.powerOverrides.get(k) ?? this.powerOverrides.get('*') ?? (on ? 1 : fractionFor(save, k === '' ? own : k)));
+    return out;
+  }
+  /** Bring the glow to what it should be: at once (a scene was just built) or over a moment (something was restored). */
+  syncPower(instant = false, over = 1.6): void {
+    const to = this.powerTargets(), from = new Map(to); for (const k of to.keys()) from.set(k, this.grid.level(k));
+    const token = ++this.powerToken; // a newer change replaces one still moving
+    if (instant || this.reduced || over <= 0) { this.dimSky(this.grid.paint(to)); return; }
+    let changed = false; for (const [k, v] of to) if (Math.abs((from.get(k) ?? 0) - v) > 0.004) changed = true;
+    if (!changed) return;
+    this.tweens.add(over, (k) => { if (token !== this.powerToken) return; const cur = new Map<string, number>(); for (const [key, v] of to) cur.set(key, (from.get(key) ?? v) + (v - (from.get(key) ?? v)) * k); this.dimSky(this.grid.paint(cur)); }, { ease: (t) => t * t * (3 - 2 * t) });
+  }
+  /** A cinematic takes the glow of the whole place to `k` (0 = offline, 1 = alive), or hands it back to the player's restoration (null). */
+  setPowerOverride(k: number | null, over = 1.2, motion?: number, world?: string): void {
+    const key = world ?? '*';
+    if (k === null) { if (world !== undefined) this.powerOverrides.delete(key); else this.powerOverrides.clear(); } else this.powerOverrides.set(key, k);
+    this.syncPower(false, over);
+    if (motion !== undefined) { const from = this.motion; if (over <= 0 || this.reduced) this.motion = motion; else this.tweens.add(over, (t) => { this.motion = from + (motion - from) * t; }); }
+  }
+  /** Has the player's work carried a district to its next stage? The cinematic for it, or none. A stage is only ever noticed once. */
+  private newStage(): Cinematic | undefined {
+    const save = this.env.getSave(), mine = restoreWorldOf(this.def?.world ?? 'hub');
+    let found: Cinematic | undefined;
+    for (const { world, stage } of stagesReached(this.stages, save)) {
+      this.stages[world] = stage;
+      if (!found && (mine === world || mine === 'all')) found = this.env.cinematic?.(`milestone:${world}:${stage}`);
+    }
+    return found;
+  }
+  /** How alive a district's glow is right now, 0..1 ('' = this place's own). For tests and the e2e hooks. */
+  glow(group = ''): number { return this.grid.level(group); }
+
   private unload(): void {
     this.tweens.clear();
-    for (const o of [...this.world.children]) this.world.remove(o);
     const dispose = (o: Mesh) => {
       const m = o.material as MeshBasicMaterial | undefined;
       if (m && !m.userData.shared) { (m.map && !m.map.userData.shared) && m.map.dispose(); m.dispose(); }
       if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
     };
-    this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); });
+    this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); }); // BEFORE the children are taken out: a loaded place must give its GPU memory back (the story visits many)
+    for (const o of [...this.world.children]) this.world.remove(o);
     clearLabels();
-    for (const n of this.npcs) this.scene.remove(n.rig.group);
+    for (const n of this.npcs) { this.scene.remove(n.rig.group); n.rig.group.traverse((o) => { const m = o as Mesh; if (!m.isMesh) return; const mt = m.material as Material | undefined; if (mt && !mt.userData.shared) mt.dispose(); if (m.geometry && !m.geometry.userData.shared) m.geometry.dispose(); }); } // a rig's own parts go with it: a long story visits many places
     this.npcs = []; this.npcColliders.clear(); this.built.length = 0; this.dyns.clear(); this.ticks = []; this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.camBlockers = []; this.mounted = [];
     for (const m of this.markerMeshes.values()) this.scene.remove(m);
     this.markerMeshes.clear();
@@ -351,7 +421,7 @@ export class Stage {
     const def = this.def; if (!def) return;
     const save = this.env.getSave();
     const all: Interactable[] = [...def.interactables.map((i) => ({ ...i })), ...def.exits.map((e): Interactable => ({ id: `exit:${e.id}`, verb: 'Enter', label: e.label, x: e.x, z: e.z, range: 1.9, action: { type: 'exit', to: e.to, spawn: e.spawn } }))];
-    this.active = all.filter((i) => holds(save, i.when));
+    this.active = all.filter((i) => holds(save, i.when) && (i.action.type !== 'talk' || this.npcs.some((n) => n.npc.id === (i.action as { npc: string }).npc))); // nobody to talk to if they are not here (yet)
     this.markers = markersAt(this.waypoint, this.active);
     const want = new Set(this.markers.map((m) => m.id));
     for (const [id, mesh] of this.markerMeshes) if (!want.has(id)) { this.scene.remove(mesh); this.markerMeshes.delete(id); }
@@ -393,6 +463,8 @@ export class Stage {
       else if (e.type === 'questAccepted') this.audio.sfx('quest');
     }
     if (won) { this.playerRig.play('success'); this.fx.burst('confetti', this.body.x, 2, this.body.z, 26); this.audio.sfx('success'); }
+    const ms = this.newStage(); if (ms) { this.director.enqueue(ms); out.cinematic = true; }
+    if (!out.cinematic) this.syncPower(false);
     this.refresh();
     return out;
   }
@@ -411,7 +483,7 @@ export class Stage {
   /** Play a named cinematic now (the training arrival). Returns false when there is none, so the caller carries on without it. */
   playCinematic(ref: string): boolean { const c = this.env.cinematic?.(ref); if (!c) return false; this.director.enqueue(c); return true; }
 
-  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.grid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => !c.includes(x)); this.propColliders.delete(prop); this.rebuildBlockers(); } }
+  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.pathGrid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => !c.includes(x)); this.propColliders.delete(prop); this.rebuildBlockers(); } }
 
   /** Paint the sky dome: `zenith` at the top blending to `horizon` at eye level. */
   private paintSky(zenith: Color, horizon: Color): void {
@@ -455,12 +527,12 @@ export class Stage {
   suspend(): void { this.wantRun = false; this.pause(); }
   setInputEnabled(on: boolean): void { this.input.enabled = on; if (!on) { this.input.clear(); this.input.releaseLock(); } else this.input.requestLock(); }
 
-  private snapCamera(): void {
+  snapCamera(): void {
     this.updateCamera(0, true);
   }
 
   /** Take the camera to a fixed viewpoint (null returns it to the player). */
-  setCinema(v: { x: number; y?: number; z: number; yaw: number; pitch: number; dist: number } | null): void { this.cinema = v ? { y: 1, ...v } : null; }
+  setCinema(v: { x: number; y?: number; z: number; yaw: number; pitch: number; dist: number; safe?: boolean } | null): void { this.cinema = v ? { y: 1, ...v } : null; }
 
   private updateCamera(dt: number, snap = false): void {
     const b = this.cinema ? { x: this.cinema.x, z: this.cinema.z, y: 0 } : this.body;
@@ -479,7 +551,7 @@ export class Stage {
     let ez = b.z + dirZ * flat;
     // THE CAMERA IS A SPRING ARM: walls, tall furniture and tree crowns between the character and the wanted camera position shorten the arm, so the
     // camera stays on the player's side of things instead of cutting objects away. (Nothing in the world ever hides because the player is near it.)
-    if (!this.cinema && this.camBlockers.length) {
+    if ((!this.cinema || this.cinema.safe) && this.camBlockers.length) {
       const hx = b.x, hy = cy, hz = b.z, ax = ex - hx, ay = ey - hy, az = ez - hz, len = Math.hypot(ax, ay, az) || 1;
       this.ray.origin.set(hx, hy, hz); this.ray.direction.set(ax / len, ay / len, az / len);
       let near = len;
@@ -519,7 +591,7 @@ export class Stage {
     if (inp.wheel) this.dist = Math.max(3.5, Math.min(12, this.dist + inp.wheel * 0.8));
 
     if (this.director.active) {
-      if (inp.wasPressed(' ', 'e', 'f', 'Escape') && this.director.running) this.director.skip();
+      if (inp.wasPressed(' ', 'e', 'f', 'Escape') && this.director.running && !this.skipHook?.()) this.director.skip();
       this.director.update(dt);
     }
     if (this.driver) this.driver(dt, inp);
@@ -527,8 +599,9 @@ export class Stage {
 
     // NPCs: patrol, and watch the player when close
     for (const n of this.npcs) this.updateNpc(n, dt);
-    for (const d of this.dyns.values()) d.update?.(dt, this.t);
-    for (const f of this.ticks) f(dt, this.t);
+    const mdt = dt * this.motion;
+    for (const d of this.dyns.values()) d.update?.(mdt, this.t);
+    for (const f of this.ticks) f(mdt, this.t);
     for (const h of this.hooks) h(dt, this.t);
     this.tweens.update(dt);
     this.fx.update(dt);
@@ -562,8 +635,8 @@ export class Stage {
     this.pathClock += dt; this.guideClock += dt;
     if (this.pathClock > 0.4 && Math.hypot(this.body.x - this.lastGuideX, this.body.z - this.lastGuideZ) > 0.6) {
       this.pathClock = 0; this.lastGuideX = this.body.x; this.lastGuideZ = this.body.z;
-      this.grid ??= buildGrid(def.bounds, this.colliders.filter((c) => !(c.kind === 'circle' && c.r === 0.5)));
-      const pts = findPath(this.grid, { x: this.body.x, z: this.body.z }, { x: w.x, z: w.z });
+      this.pathGrid ??= buildGrid(def.bounds, this.colliders.filter((c) => !(c.kind === 'circle' && c.r === 0.5)));
+      const pts = findPath(this.pathGrid, { x: this.body.x, z: this.body.z }, { x: w.x, z: w.z });
       this.guide.setPath(pts);
       this.pathDist = pts ? pathLength(pts) : Math.hypot(w.x - this.body.x, w.z - this.body.z);
       this.pathHeading = pts && pts.length > 1 ? Math.atan2(pts[1]!.x - this.body.x, pts[1]!.z - this.body.z) : Math.atan2(w.x - this.body.x, w.z - this.body.z);

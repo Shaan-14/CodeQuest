@@ -15,7 +15,7 @@ export type Target = { prop: string } | { npc: string } | { player: true } | { a
 
 export type CueAction =
   /** Move the camera to look at `at` from a distance/angle (yaw 0 = looking north from the south). `blend` = seconds to get there; `spin` = slow orbit in rad/s. 'player' hands the camera back. */
-  | { do: 'cam'; at: Target | 'player'; dist?: number; yaw?: number; pitch?: number; height?: number; blend?: number; spin?: number; /** Keep the shot on the target as it moves (a ball in flight). */ follow?: boolean }
+  | { do: 'cam'; at: Target | 'player'; dist?: number; yaw?: number; pitch?: number; height?: number; blend?: number; spin?: number; /** Keep the shot on the target as it moves (a ball in flight). */ follow?: boolean; /** Keep the shot out of walls and tall things (the same spring arm as play): for shots framed on the player in places the author has not seen. */ safe?: boolean }
   /** A line of dialogue / narration shown as a subtitle (and announced to screen readers). */
   | { do: 'say'; text: string; who?: string; for?: number }
   /** Put a prop into a state (the world change itself) and/or run one of its animations (`play`, optionally with an argument). */
@@ -25,6 +25,8 @@ export type CueAction =
   | { do: 'fx'; kind: FxKind; at: Target; n?: number; scale?: number; y?: number }
   | { do: 'flash'; at: Target; color?: number; power?: number; dur?: number; y?: number }
   | { do: 'sfx'; name: Sfx }
+  /** The musical bed (see Audio.music): the working city, the outage, the restored one; null fades it out. */
+  | { do: 'music'; name: 'hope' | 'loss' | 'dawn' | null; fade?: number }
   /** An NPC reacts: a one-shot or held gesture, turns to face something, walks somewhere, changes mood, talks, points. */
   | { do: 'npc'; id: string; anim?: OneShot; hold?: OneShot; release?: boolean; face?: Target; walk?: [number, number]; mood?: Mood; talk?: boolean; point?: Target; look?: Target | null }
   | { do: 'player'; anim?: OneShot; face?: Target; walk?: [number, number]; look?: Target | null; mood?: Mood; /** Hide the player (they have got into the car) or show them again. */ show?: boolean }
@@ -33,6 +35,8 @@ export type CueAction =
   | { do: 'shake'; amount: number }
   /** Light the place toward dawn (0..1). */
   | { do: 'mood'; k: number }
+  /** Take the glow of the whole place to `k` (0 offline .. 1 alive) over `over` seconds, or `'save'` to hand it back to what the player has restored. */
+  | { do: 'power'; k: number | 'save'; over?: number; /** How much machinery keeps moving (0 stopped .. 1 running). */ motion?: number; /** Only this district's glow (robotics, academy, ballpark, racing); omitted = the whole place. */ world?: string }
   /** A banner moment: quest complete, level up, something unlocked. */
   | { do: 'banner'; title: string; sub?: string; kind?: 'quest' | 'level' | 'unlock' | 'info' };
 
@@ -59,7 +63,7 @@ export function lengthOf(c: Cinematic): number {
 export function cuesBetween(sorted: readonly Cue[], from: number, to: number): Cue[] { return sorted.filter((q) => q.t > from && q.t <= to); }
 
 /** Does the cue change what the world IS (as opposed to how it is shown)? Those run even when the cinematic is skipped. */
-export const changesWorld = (q: CueAction): boolean => (q.do === 'prop' && !!q.state) || q.do === 'npc' || q.do === 'mood' || q.do === 'banner';
+export const changesWorld = (q: CueAction): boolean => (q.do === 'prop' && !!q.state) || q.do === 'npc' || q.do === 'mood' || q.do === 'power' || q.do === 'banner';
 
 /** Every prop id and NPC id a cinematic refers to (so content tests can check them against the scene and cast). */
 export function referencedIds(c: Cinematic): { props: string[]; npcs: string[] } {

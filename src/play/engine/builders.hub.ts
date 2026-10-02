@@ -65,7 +65,7 @@ const hubdais: Builder = () => {
 };
 
 /** The animated core: a light column, three orbiting rings, a spinning ring of lettering and data cubes round a bright orb. */
-const hubcore: Builder = (p) => {
+const hubcore: Builder = (p, ctx) => {
   const g = new Group(); const text = str(p, 'text', 'BYTEHAVEN').toUpperCase();
   g.add(rcyl(0.22, 0.22, 7.2, CYAN, { y: 2.1, glow: 1.1, transparent: 0.28, cast: false }));
   const orb = rsph(0.62, CYAN, { y: 3.2, glow: 1.6 }); g.add(orb);
@@ -76,7 +76,8 @@ const hubcore: Builder = (p) => {
   band.position.y = 6.3; g.add(band);
   const cubes = [0, 1, 2, 3].map((i) => { const c = new Mesh(new BoxGeometry(0.28, 0.28, 0.28), mat(i % 2 ? 0xffd166 : CYAN, 1.2)); c.userData.i = i; g.add(c); return c; });
   g.children.forEach((c) => { if ((c as Mesh).isMesh) (c as Mesh).castShadow = false; });
-  return { object: g, tick: (dt, t) => {
+  return { object: g, tick: (dt0, t) => {
+    const u = ctx.level(''), dt = dt0 * (0.12 + 0.88 * u); // an offline core barely turns: it wakes as the place is restored
     band.rotation.y += dt * 0.35; rings.forEach((r, i) => { r.rotation.y += dt * (0.5 + i * 0.3) * (i % 2 ? -1 : 1); r.rotation.x += dt * 0.12; });
     orb.scale.setScalar(1 + 0.06 * Math.sin(t * 2.4));
     cubes.forEach((c, i) => { const a = t * 0.9 + (i * Math.PI) / 2; c.position.set(Math.cos(a) * 1.9, 3.2 + Math.sin(t * 1.3 + i) * 0.5, Math.sin(a) * 1.9); c.rotation.y = a * 2; });

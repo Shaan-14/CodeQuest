@@ -47,3 +47,11 @@ describe('gear (the Pack)', () => {
     expect(migrate({ ...v9, inventory: {} })!.play.gear).toEqual({ head: null, back: null });
   });
 });
+
+describe('save v10 -> v11 (the opening)', () => {
+  it('an existing save never gets the opening; a new game does', () => {
+    const v10 = { ...newSave(), version: 10 };
+    expect(migrate(v10)!.play.seen.opening).toBeTruthy();
+    expect(newSave().play.seen.opening).toBeUndefined();
+  });
+});

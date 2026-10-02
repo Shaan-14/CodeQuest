@@ -63,6 +63,8 @@ export interface NpcPlacement {
   patrol?: Vec2[];
   /** What they are busy doing while nobody talks to them (held until the player comes close). */
   activity?: import('../engine/rig').OneShot;
+  /** Appears only once this share (0..1) of the scene's district (the whole of Bytehaven in the plaza) has been restored: the place fills with people as it comes back. */
+  minRestore?: number;
 }
 
 export interface Exit {
@@ -106,11 +108,13 @@ export interface SceneDef {
   title: string;
   /** One line shown when the player arrives. */
   blurb: string;
+  /** The place is never dark: it does not wait to be restored (the Training Grounds are where a player goes to get better, so they are always on). */
+  alwaysOn?: boolean;
   /** The walkable rectangle. */
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   spawns: Record<string, { x: number; z: number; ry: number }>;
   /** Sky/fog/ground colours and light mood. */
-  look: { sky: number; fog: number; fogNear?: number; fogFar?: number; ground: number; ambient?: number; sun?: number; sunDir?: [number, number, number]; night?: boolean; /** Up to four coloured point lights (lamps, screens, magic) that give a place its mood. */ lights?: { x: number; y: number; z: number; color: number; intensity: number; dist?: number }[] };
+  look: { sky: number; fog: number; fogNear?: number; fogFar?: number; ground: number; ambient?: number; sun?: number; sunDir?: [number, number, number]; night?: boolean; /** Up to four coloured point lights (lamps, screens, magic) that give a place its mood. */ lights?: { x: number; y: number; z: number; color: number; intensity: number; dist?: number; /** The district whose restoration this lamp follows (default: the scene's own). */ world?: string }[] };
   props: Prop[];
   npcs: NpcPlacement[];
   interactables: Interactable[];

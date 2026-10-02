@@ -6,11 +6,11 @@ import { getStation, stationOfChallenge, stationServes } from '../../content/pla
 import { playerLook } from '../../content/play/looks';
 import { getLesson } from '../../content';
 import { playQuests } from '../../content/play/quests';
-import { acceptQuest } from '../../game/actions';
+import { acceptQuest, resetAll } from '../../game/actions';
 import { acceptWorkedQuests, enterScene, recordSeen, worldReward, recordTalk, setPlaySettings, setPosition } from '../../game/play';
 import { getStore, useGame } from '../../game/store';
-import { requiredTraining } from '../../game/training';
-import { trainingKind } from '../logic/trainingKind';
+import { planOf, requiredTraining } from '../../game/training';
+import { trainingKind, type TrainingKind } from '../logic/trainingKind';
 import { remarkFor } from '../logic/hints';
 import { conversationWith, type Conversation } from '../logic/dialogue';
 import { holds } from '../logic/conditions';
@@ -46,6 +46,11 @@ import type { PanelTab } from '../../app/components/Hud';
 import { DailyOverlay } from './DailyOverlay';
 import { ManualOverlay } from './ManualOverlay';
 import { Welcome } from './Welcome';
+import { OpeningCard } from './OpeningCard';
+import { playSegments } from './sequencer';
+import { ENDING as ENDING_SEGMENTS, OPENING, START } from '../../content/play/opening';
+import { Credits } from './Credits';
+import { EndCard } from './EndCard';
 import { TouchControls } from './TouchControls';
 import './play.css';
 
@@ -75,12 +80,15 @@ function autopilot(stage: Stage, on: boolean): void {
   stage.hooks.push(autoHook);
 }
 
-/** A new game starts in the Robotics Academy atrium: the first world is the guided one. The plaza hub is one door away. */
-export const DEFAULT_SCENE = 'robotics-atrium';
+/** Automated browser runs (the e2e switch) skip the opening and the ending unless a test asks to see them (`codequest.opening` = `play`), so the many tests that start a new game or finish the campaign are not each a minute and a half long. */
+const e2eSkipsStory = (): boolean => { try { return localStorage.getItem('codequest.e2e') === '1' && localStorage.getItem('codequest.opening') !== 'play'; } catch { return false; } };
+
+/** Where a player who has seen the opening and has no saved place begins. A NEW game (or a reset) is different: it plays the opening and lands at `START` in the plaza, never in a remembered place. */
+export const DEFAULT_SCENE = 'plaza';
 
 type Talk = { conv: Conversation; lines: string[] } | { inspect: { name: string; lines: string[] } } | null;
 
-declare global { interface Window { __cq3dHud?: DriveHudState | null; __cq3d?: { autopilot?: (on: boolean, scale?: number) => void; stage: Stage; state: () => unknown; drive?: () => Promise<void>; dynStates: (id: string) => string[]; teleport?: (x: number, z: number, ry?: number) => void; integrity?: () => Promise<unknown>; colliders?: (on?: boolean) => Promise<number>; visibility?: () => Promise<{ hidden: string[]; badBounds: string[]; culled: string[] }>; travel: (scene: string, spawn?: string) => void; open: (what: string) => void } } }
+declare global { interface Window { __cq3dHud?: DriveHudState | null; __cq3d?: { autopilot?: (on: boolean, scale?: number) => void; stage: Stage; state: () => unknown; drive?: () => Promise<void>; dynStates: (id: string) => string[]; teleport?: (x: number, z: number, ry?: number) => void; integrity?: () => Promise<unknown>; colliders?: (on?: boolean) => Promise<number>; visibility?: () => Promise<{ hidden: string[]; badBounds: string[]; culled: string[] }>; travel: (scene: string, spawn?: string) => void; open: (what: string) => void; reset?: () => void; ending?: (kind: 'ending' | 'replay') => void; glow?: (group: string) => number; look?: (scene: string, o: { spawn?: string; power?: number | null; pristine?: boolean; cam?: { x: number; z: number; yaw: number; pitch: number; dist: number; y?: number } }) => void; play?: (ref: string) => boolean; skipSeq?: () => void } } }
 
 /**
  * The playable world screen: the 3D view plus everything drawn over it. All game rules stay where they were: quests, evidence, Focus and
@@ -117,16 +125,31 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const [showControls, setShowControls] = useState(true);
   useEffect(() => { if (!ready) return; const t = window.setTimeout(() => setShowControls(false), 30000); return () => clearTimeout(t); }, [ready]);
   const lastObj = useRef('');
-  const [welcome, setWelcome] = useState(() => !getStore().save.play.seen['play-welcome']);
+  const [welcome, setWelcome] = useState(() => !!getStore().save.play.seen.opening && !getStore().save.play.seen['play-welcome']);
+  /** The story sequence on screen (the opening, its replay, the ending): the HUD steps aside and a Skip button shows. */
+  const [seq, setSeq] = useState<null | 'opening' | 'replay' | 'ending'>(() => (getStore().save.play.seen.opening ? null : 'opening')); // a new game shows no HUD for even a frame
+  const [credits, setCredits] = useState(false);
+  const [endCard, setEndCard] = useState(false);
+  const creditsDone = useRef<(() => void) | null>(null);
+  const endCardDone = useRef<(() => void) | null>(null);
+  const [card, setCard] = useState(false);
+  const seqRef = useRef({ active: false, skipped: false });
+  const skipRef = useRef<() => void>(() => undefined);
+  const endingRef = useRef<(k: 'ending' | 'replay') => Promise<void>>(async () => undefined);
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const [reacting, setReacting] = useState(false);
   const [shop, setShop] = useState(false);
   const trainPending = useRef(false);
+  /** The kind of work the open training is about (so the room can answer in that family's own way), and the way back once a plan is done. */
+  const trainKind = useRef<TrainingKind>('python');
+  const returnRef = useRef<(r: ReturnPoint) => Promise<void>>(async () => undefined);
+  const returning = useRef(false);
+  const trainingOpen = useRef(false);
   const onPanelRef = useRef(onPanel); onPanelRef.current = onPanel;
   /** A cutaway waiting to play after the reaction's own cinematic, and the place to return to once it ends. */
   const thenRef = useRef<string | null>(null);
   const cutRef = useRef<{ scene: string; x: number; z: number; ry: number } | null>(null);
-  const [curtain, setCurtain] = useState(false);
+  const [curtain, setCurtain] = useState(() => !getStore().save.play.seen.opening);
   const [cutting, setCutting] = useState(false);
   const reactingRef = useRef(false);
   const batch = useRef<import('../../game/events').GameEvent[]>([]);
@@ -147,7 +170,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const captionTimer = useRef<number>(0);
 
   const terminalOn = !!terminal && !reacting; // while the world answers the player's code, the terminal steps aside (it stays mounted, so the lesson is exactly where it was)
-  overlayOpen.current = !!(panelOpen || talk || terminalOn || paused || gate || training || shop || mapOpen || sim || boss || finale || daily || manual || welcome);
+  overlayOpen.current = !!(seq || card || panelOpen || talk || terminalOn || paused || gate || training || shop || mapOpen || sim || boss || finale || daily || manual || welcome);
 
   const say = useCallback((text: string) => {
     setCaption(text);
@@ -165,6 +188,82 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     st.apply(enterScene(st.save, def.id, sp), { silent: true });
     setSceneId(def.id); setPrompt(null);
   }, []);
+
+  // ---- the opening (and its replay): story segments over the real world. Nothing here writes progress except "the opening has been seen" and where the player stands afterwards.
+  const cardDone = useRef<(() => void) | null>(null);
+  const loadStory = useCallback((scene: string, spawn: Parameters<typeof playSegments>[1][number]['spawn'], opts: { power: number | null; pristine: boolean }) => {
+    const stage = stageRef.current, def = getScene(scene); if (!stage || !def) return;
+    stage.load(def, spawn ?? 'default', opts); setSceneId(def.id); setPrompt(null);
+  }, []);
+  const runStory = useCallback(async (kind: 'opening' | 'replay') => {
+    const stage = stageRef.current; if (!stage || seqRef.current.active) return;
+    const back = kind === 'replay' && stage.def ? { scene: stage.def.id, x: stage.body.x, z: stage.body.z, ry: stage.body.ry } : null;
+    seqRef.current = { active: true, skipped: false }; setSeq(kind); setPaused(false); setTalk(null); setTerminal(null);
+    skipRef.current = () => { seqRef.current.skipped = true; stage.director.skip(); cardDone.current?.(); };
+    const sleep = (ms: number) => new Promise<void>((res) => window.setTimeout(res, ms));
+    let result: 'done' | 'skipped';
+    // Automated browser runs (the e2e switch) skip the opening unless a test asks for it, so the many tests that start a new game are not each 85 s long.
+    if (e2eSkipsStory() && kind === 'opening') result = 'skipped';
+    else if (stage.reduced) { // reduced motion: no camera work at all, the same story as a card
+      setCard(true); stage.setControlLocked(true);
+      await new Promise<void>((res) => { cardDone.current = res; });
+      cardDone.current = null; setCard(false); result = 'skipped';
+    } else {
+      setCurtain(true); await sleep(60);
+      stage.audio.resume(); stage.audio.music('hope');
+      result = await playSegments({ stage: () => stageRef.current, load: loadStory, curtain: async (on) => { setCurtain(on); await sleep(on ? 260 : 140); }, skipped: () => seqRef.current.skipped }, OPENING);
+    }
+    const st = getStore(), cur = stageRef.current; if (!cur) return;
+    cur.audio.music(null, 1.5);
+    if (kind === 'replay' && back) { loadStory(back.scene, { x: back.x, z: back.z, ry: back.ry }, { power: null, pristine: false }); cur.setPlayerVisible(true); }
+    else {
+      // the story ended where gameplay begins (or was skipped): the world is the real one, the player stands at the defined start of the plaza
+      if (result === 'skipped' || cur.def?.id !== START.scene) { loadStory(START.scene, START.spawn, { power: null, pristine: false }); }
+      cur.setPlayerVisible(true);
+      const sp = getScene(START.scene)!.spawns[START.spawn]!;
+      st.apply(recordSeen(st.save, 'opening'), { silent: true });
+      st.apply(enterScene(st.save, START.scene, result === 'skipped' ? sp : { x: cur.body.x, z: cur.body.z, ry: cur.body.ry }), { silent: true });
+    }
+    cur.setControlLocked(false); cur.releaseNpcs();
+    setCurtain(false); setSeq(null); seqRef.current = { active: false, skipped: false };
+    if (kind === 'opening' && !getStore().save.play.seen['play-welcome']) setWelcome(true);
+  }, [loadStory]);
+  /**
+   * THE ENDING: the summit holds its breath, each world wakes from the dark, the plaza lights its core and four lanes, the credits roll over it, a last
+   * scene among the people of Bytehaven, then the name. It plays after the campaign is complete (the restoration it shows is already earned), can be
+   * skipped at any point, and the world it leaves is the real, restored one. `replay` returns the player to where they were.
+   */
+  const runEnding = useCallback(async (kind: 'ending' | 'replay') => {
+    const stage = stageRef.current; if (!stage || seqRef.current.active) return;
+    const back = kind === 'replay' && stage.def ? { scene: stage.def.id, x: stage.body.x, z: stage.body.z, ry: stage.body.ry } : null;
+    seqRef.current = { active: true, skipped: false }; setSeq('ending'); setPaused(false); setTalk(null); setTerminal(null); setBoss(null);
+    skipRef.current = () => { seqRef.current.skipped = true; stage.director.skip(); creditsDone.current?.(); endCardDone.current?.(); };
+    const sleep = (ms: number) => new Promise<void>((res) => window.setTimeout(res, ms));
+    if (kind === 'replay' || stage.def?.id !== 'summit') { loadStory('summit', 'default', { power: null, pristine: false }); stage.setPlayerVisible(true); }
+    stage.audio.resume();
+    if (e2eSkipsStory() && kind === 'ending') { /* straight to the ending card below */ }
+    else if (stage.reduced) { // reduced motion: no camera work; the credits as a plain list, the same ending card
+      loadStory('plaza', 'from-summit', { power: null, pristine: false }); stage.setPlayerVisible(true);
+      setCredits(true); await new Promise<void>((res) => { creditsDone.current = () => { setCredits(false); res(); }; });
+    } else {
+      await playSegments({ stage: () => stageRef.current, load: loadStory, curtain: async (on) => { setCurtain(on); await sleep(on ? 260 : 140); }, skipped: () => seqRef.current.skipped, credits: () => new Promise<void>((res) => { setCredits(true); creditsDone.current = () => { creditsDone.current = null; setCredits(false); res(); }; }) }, ENDING_SEGMENTS);
+      if (!seqRef.current.skipped) { setCurtain(true); await sleep(900); setEndCard(true); await new Promise<void>((res) => { endCardDone.current = res; }); endCardDone.current = null; setEndCard(false); }
+    }
+    const cur = stageRef.current; if (!cur) return;
+    cur.audio.music(null, 1.5);
+    if (kind === 'replay' && back) { loadStory(back.scene, { x: back.x, z: back.z, ry: back.ry }, { power: null, pristine: false }); }
+    else { // the real, restored plaza, where the player's story goes on
+      loadStory(START.scene, 'from-summit', { power: null, pristine: false });
+      const st = getStore(), sp = getScene(START.scene)!.spawns['from-summit']!;
+      st.apply(enterScene(st.save, START.scene, sp), { silent: true });
+    }
+    cur.setPlayerVisible(true); cur.setControlLocked(false); cur.releaseNpcs();
+    setCurtain(false); setSeq(null); seqRef.current = { active: false, skipped: false };
+    if (kind === 'ending') setFinale(true);
+  }, [loadStory]);
+  endingRef.current = runEnding;
+  const openingSeen = !!save.play.seen.opening;
+  useEffect(() => { if (ready && !openingSeen && !seqRef.current.active) void runStory('opening'); }, [ready, openingSeen, runStory]);
 
   // ---- create the stage once
   useEffect(() => {
@@ -216,9 +315,12 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         stage.input.onReveal = setRevealed;
         stage.audio.setMuted(s.play.settings.muted);
         stage.setGuideVisible(guideEnabled());
-        // resume where the player was (same scene, same spot), else the first place of the story
-        const scene = getScene(s.play.scene ?? '') ?? getScene(DEFAULT_SCENE)!;
-        stage.load(scene, s.play.scene === scene.id && s.play.pos ? s.play.pos : 'default');
+        stage.skipHook = () => { if (!seqRef.current.active) return false; skipRef.current(); return true; };
+        // A NEW game (or a reset) never resumes a remembered place: it begins in the plaza at its defined start, behind the opening.
+        // Anyone else resumes where they were (same scene, same spot), else the plaza.
+        const fresh = !s.play.seen.opening;
+        const scene = fresh ? getScene(START.scene)! : getScene(s.play.scene ?? '') ?? getScene(DEFAULT_SCENE)!;
+        stage.load(scene, fresh ? START.spawn : s.play.scene === scene.id && s.play.pos ? s.play.pos : 'default');
         setSceneId(scene.id);
         stage.start();
         setReady(true);
@@ -229,6 +331,12 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           integrity: localStorage.getItem('codequest.e2e') === '1' ? async () => (await import('../engine/integrity')).meshIssues(stage) : undefined,
           teleport: localStorage.getItem('codequest.e2e') === '1' ? (x, z, ry) => stage.teleport(x, z, ry) : undefined,
           autopilot: localStorage.getItem('codequest.e2e') === '1' ? (on, scale) => { stage.timeScale = on ? (scale ?? 4) : 1; autopilot(stage, on); } : undefined,
+          look: localStorage.getItem('codequest.e2e') === '1' ? (sc, o) => { const d = getScene(sc); if (!d) return; stage.load(d, o.spawn ?? 'default', { power: o.power ?? null, pristine: o.pristine }); setSceneId(d.id); if (o.cam) stage.setCinema({ ...o.cam }); } : undefined,
+          play: localStorage.getItem('codequest.e2e') === '1' ? (ref) => stage.playCinematic(ref) : undefined,
+          reset: localStorage.getItem('codequest.e2e') === '1' ? () => getStore().apply(resetAll()) : undefined,
+          ending: localStorage.getItem('codequest.e2e') === '1' ? (k) => void endingRef.current(k) : undefined,
+          glow: localStorage.getItem('codequest.e2e') === '1' ? (g) => stage.glow(g) : undefined,
+          skipSeq: () => skipRef.current(),
           open: (w) => { if (w === 'pause') setPaused(true); if (w === 'sim') setSim(true); if (w === 'map') setMapOpen(true); if (w === 'daily') setDaily(true); if (w === 'manual') setManual(true); },
         };
       } catch (e) { if (!disposed) setFailed(String((e as Error).message ?? e)); }
@@ -245,6 +353,8 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   useEffect(() => {
     const route = (e: import('../../game/events').GameEvent) => {
       if (e.type === 'campaignComplete') finalePending.current = true;
+      // a required plan is finished: the room answers (a scene for the family of skill) and the player is walked back to the exact lesson: no button to press
+      if (e.type === 'trainingComplete') { const plan = planOf(getStore().save, e.planId); if (plan?.required) window.setTimeout(() => { if (trainingOpen.current) void returnRef.current(plan.returnTo); }, 2400); return; }
       // a lesson is open: a pass is answered by the world RIGHT AWAY (no button, no errand); a failure is not acted out at all
       if (terminalRef.current) {
         if (e.type === 'levelUp') { pending.current.push(e); return; } // a level banner waits until the lesson is closed (it never interrupts one)
@@ -333,8 +443,8 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     if (panelOpen || terminalOn || paused || training || mapOpen || boss || daily || manual || welcome) s.suspend(); else if (ready) s.start();
     if (!panelOpen && !talk && !terminalOn && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && pending.current.length) { const evs = pending.current; pending.current = []; s.react(evs); }
     // the ending: once the beacon has had its moment, the campaign-complete card appears
-    if (!panelOpen && !talk && !terminalOn && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && finalePending.current) { finalePending.current = false; window.setTimeout(() => setFinale(true), s.reduced ? 500 : 7000); }
-  }, [panelOpen, talk, terminalOn, paused, gate, training, shop, mapOpen, sim, boss, finale, daily, manual, welcome, ready]);
+    if (!panelOpen && !talk && !terminalOn && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && finalePending.current) { finalePending.current = false; window.setTimeout(() => void runEnding('ending'), s.reduced ? 500 : 9500); } // after the great beacon's own moment (its camera lets go at 8 s)
+  }, [panelOpen, talk, terminalOn, paused, gate, training, shop, mapOpen, sim, boss, finale, daily, manual, welcome, ready, runEnding]);
 
   function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); else if (panel === 'daily') setDaily(true); else if (panel === 'shop') setShop(true); else if (panel === 'setup') void watchLap(); }
 
@@ -461,12 +571,21 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     if (played) { trainPending.current = true; window.setTimeout(() => { if (trainPending.current) { trainPending.current = false; setTraining(true); } }, 15000); } else setTraining(true);
   };
   /** Training is done: back to the exact place (and lesson) the player left. */
-  const returnFromTraining = (r: ReturnPoint) => {
+  const returnFromTraining = async (r: ReturnPoint): Promise<void> => {
+    if (returning.current) return; returning.current = true;
     setTraining(false);
+    const stage = stageRef.current;
+    if (stage && stage.def?.id === 'sim-room' && r.kind !== 'map' && !e2eSkipsStory()) {
+      await new Promise<void>((res) => window.setTimeout(res, 380)); // the world is drawn again behind the closing console
+      if (stage.playCinematic(`trainwin:${trainKind.current}`)) await stage.director.whenIdle();
+    }
+    returning.current = false;
     const station = r.kind === 'lesson' && r.lessonId ? stationOfLesson(r.lessonId) : undefined;
     if (station) { travel(station.scene); setTermStart(r.lessonId ?? null); setTerminal(station.id); return; }
     if (r.kind === 'boss') { travel('summit'); setBoss({ start: r.bossId ?? null }); return; }
   };
+  returnRef.current = returnFromTraining; trainingOpen.current = training;
+  useEffect(() => { if (training) trainKind.current = trainingKind(getStore().save); }, [training]);
   void cast; void getLesson; void requiredTraining; void setPlaySettings; void game;
 
   const scene = getScene(sceneId);
@@ -481,17 +600,21 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     );
   }
   return (
-    <div class={`play ${cine.active ? 'cine-on' : ''} ${locked ? 'mouse-captured' : ''} ${revealed ? 'bar-revealed' : ''}`} ref={hostRef} data-testid="play" data-scene={sceneId} data-ready={ready ? '1' : '0'}>
+    <div class={`play ${cine.active || seq ? 'cine-on' : ''} ${seq ? 'seq-on' : ''} ${locked ? 'mouse-captured' : ''} ${revealed ? 'bar-revealed' : ''}`} ref={hostRef} data-testid="play" data-scene={sceneId} data-ready={ready ? '1' : '0'}>
       <canvas ref={canvasRef} role="img" aria-label={scene ? `3D view: ${scene.title}. ${scene.blurb} Use the keyboard to move; every event is also described in text.` : '3D view'} tabIndex={0} data-testid="play-canvas" />
       {!ready && <div class="play-loading" role="status">Loading the world…</div>}
       {ready && (
         <div class="play-overlay">
-          {scene && <LocationCard title={scene.title} blurb={scene.blurb} sceneKey={scene.id} quiet={curtain || cutting} />}
+          {scene && <LocationCard title={scene.title} blurb={scene.blurb} sceneKey={scene.id} quiet={curtain || cutting || !!seq} />}
           <ObjectiveWidget objective={objective} guide={guide} fresh={freshObj} />
           <Caption text={caption} />
           {!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !driving && !boss && !finale && !daily && !manual && !welcome && <Prompt it={prompt} />}
-          {driving ? <DriveHud hud={hud} par={par.current} onExit={() => stopDrive.current?.()} /> : showControls ? <Controls /> : null}
-          <CinematicOverlay cine={cine} />
+          {driving ? <DriveHud hud={hud} par={par.current} onExit={() => stopDrive.current?.()} /> : showControls && !seq ? <Controls /> : null}
+          <CinematicOverlay cine={cine} hold={!!seq} />
+          {seq && !card && <button class="cine-skipbtn" onClick={() => skipRef.current()} data-testid="cine-skip" aria-label="Skip cinematic">Skip cinematic <kbd>Space</kbd></button>}
+          {card && <OpeningCard onContinue={() => skipRef.current()} />}
+          {credits && <Credits reduced={!!stageRef.current?.reduced} onDone={() => creditsDone.current?.()} />}
+          {endCard && <EndCard reduced={!!stageRef.current?.reduced} onDone={() => endCardDone.current?.()} />}
           <div class={`play-curtain ${curtain ? 'on' : ''}`} aria-hidden="true" />
           <GameHud onPanel={onPanel} onMap={() => setMapOpen(true)} onManual={() => setManual(true)} onMenu={() => setPaused(true)} />
           {locked && !touch && <div class="play-pushhint" aria-hidden="true">▲ push the mouse up for the menu</div>}
@@ -513,7 +636,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           {training && <TrainingOverlay onClose={() => setTraining(false)} onReturn={returnFromTraining} />}
           {mapOpen && <MapOverlay sceneId={sceneId} onClose={() => setMapOpen(false)} onTravel={(to, spawn) => { setMapOpen(false); travel(to, spawn); }} />}
           {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} hidden={reacting} start={termStart} onClose={() => { endReaction(); stageRef.current?.useStation(false); setTerminal(null); }} onGoTraining={goTraining} />}
-          {paused && <PauseMenu onResume={() => setPaused(false)} stage={stageRef.current} />}
+          {paused && <PauseMenu onResume={() => setPaused(false)} stage={stageRef.current} onReplay={() => void runStory('replay')} onReplayEnding={save.campaign.completedAt ? () => void runEnding('replay') : undefined} />}
         </div>
       )}
     </div>
