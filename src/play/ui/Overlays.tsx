@@ -31,7 +31,7 @@ export function Controls() {
     <div class="play-controls" aria-hidden="true">
       <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows move</span>
       <span><kbd>Shift</kbd> run</span><span><kbd>Space</kbd> jump</span><span><kbd>E</kbd> interact</span>
-      <span>drag mouse / <kbd>Q</kbd><kbd>R</kbd> look</span><span><kbd>M</kbd> map</span><span><kbd>Esc</kbd> menu</span>
+      <span>drag mouse / <kbd>Q</kbd><kbd>R</kbd> look</span><span><kbd>J</kbd> journal</span><span><kbd>I</kbd> pack</span><span><kbd>M</kbd> map</span><span><kbd>Esc</kbd> menu</span>
     </div>
   );
 }

@@ -9,7 +9,7 @@ export function Welcome({ onStart }: { onStart: () => void }) {
         <div class="welcome-keys" aria-label="Controls">
           <div><span class="kbds"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>move<small>arrows work too · <kbd>Shift</kbd> run · <kbd>Space</kbd> jump</small></div>
           <div><span class="kbds"><kbd>🖱</kbd></span>look around<small>just move the mouse · <kbd>Esc</kbd> to release it</small></div>
-          <div><span class="kbds"><kbd>E</kbd></span>talk · inspect · use<small><kbd>M</kbd> map · <kbd>H</kbd> Field Manual</small></div>
+          <div><span class="kbds"><kbd>E</kbd></span>talk · inspect · use<small><kbd>J</kbd> journal · <kbd>I</kbd> pack · <kbd>M</kbd> map · <kbd>H</kbd> Manual</small></div>
         </div>
         <ul class="welcome-promises">
           <li><strong>Your code changes the world.</strong> Terminals open real lessons with a real editor. A program that works moves something you can see.</li>

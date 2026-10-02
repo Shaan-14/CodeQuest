@@ -21,6 +21,7 @@ await p.addInitScript(() => localStorage.setItem('codequest.e2e', '1'));
 await p.goto(`http://localhost:${PORT}`);
 await p.getByTestId('name-input').fill('Ada'); await p.getByTestId('begin').click();
 await p.locator('[data-testid=play][data-ready="1"]').waitFor({ timeout: 30000 });
+if (await p.getByTestId('welcome-start').count()) { await p.getByTestId('welcome-start').click(); await p.waitForTimeout(500); }
 const out = process.argv[2] ?? '/tmp/shot';
 const shots = process.argv.slice(3).length ? process.argv.slice(3) : ['maintenance-bay:0,7,0'];
 let n = 0;
