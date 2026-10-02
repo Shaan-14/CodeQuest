@@ -330,14 +330,14 @@ async function main() {
     });
 
     await test('Training Grounds: finishing a plan makes the room do something real for that family of skill (an arm that works, rows that fill in, a page that loads), the coach reacts, then the lesson comes back', async () => {
-      const p = await newGame({ opening: true });
+      const p = await newGame();
       await go(p, 'sim-room', 'training');
       for (const [kind, prop, line] of [['python', 'train-arm', 'predicted it'], ['data', 'train-data', 'Thirty-eight rows'], ['web', 'train-web', 'tested it the way a visitor would'], ['stats', 'train-stats', 'denominator'], ['sheet', 'train-sheet', 'Change one input']]) {
         await p.evaluate((k) => { window.__cq3d.play(`trainwin:${k}`); }, kind);
-        await p.waitForFunction((l) => (document.querySelector('[data-testid=cine-subtitle]')?.textContent ?? '').includes(l), line, { timeout: 60000 });
+        await p.waitForFunction((l) => (document.querySelector('[data-testid=cine-subtitle]')?.textContent ?? '').includes(l), line, { timeout: 60000 }).catch(() => { throw new Error(`${kind}: the coach's line never appeared`); });
         assert((await p.evaluate((id) => window.__cq3d.dynStates(id), prop)).length > 0, `${kind}: ${prop} came to life`);
-        await skipCine(p);
-        await go(p, 'sim-room', 'training');
+        await skipCine(p); await p.waitForTimeout(600);
+        await go(p, 'sim-room', 'training'); await p.waitForTimeout(600);
       }
       await p.context().close();
     });
