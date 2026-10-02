@@ -280,7 +280,9 @@ async function main() {
       eq((await st(p)).scene, 'ballpark', 'it resumes where the player was');
       // a full reset, from inside the world
       await p.evaluate(() => window.__cq3d.reset());
-      await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
+      await tid(p, 'name-input').waitFor({ timeout: 20000 }); // a full reset starts over from the name
+      await tid(p, 'name-input').fill('Ada'); await tid(p, 'begin').click();
+      await tid(p, 'cine-skip').waitFor({ timeout: 40000 });
       await p.waitForTimeout(1000); await tid(p, 'cine-skip').evaluate((b) => b.click());
       await tid(p, 'cine-skip').waitFor({ state: 'detached', timeout: 20000 });
       const s1 = await st(p); eq(s1.scene, 'plaza', 'a reset always spawns in the plaza');
