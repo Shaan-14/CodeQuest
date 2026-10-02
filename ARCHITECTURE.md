@@ -313,6 +313,11 @@ src/game/play.ts, quests.ts   pure actions for play state and quest state
 - **Gear** (`save.play.gear`, save v10; items carry `slot`/`wear`): `game/play.ts equipGear`, `buyItem` wears what it buys; the Pack tab and the in-world Bolt & Barrel kiosk (`ui/ShopOverlay.tsx`). **I** opens the Pack, **J** the Journal (the same key closes it).
 - **Remarks and idles** (`content/play/hints.ts`, `play/logic/hints.ts`, `Npc3D.idles`).
 
+## Phase 6 final polish pass: avatar arms, the plaza hub, racing reverse and lap timing
+- **Rig arms** (`engine/rig.ts`): upper arm swing (±0.36 walk, ±0.7 run, forward further than back), an elbow that only flexes (more in a run, more as the hand comes forward), abduction away from the torso, a landing dip, an idle hand adjustment; airborne arms open out to the sides. `scripts/armlab.mjs` is the review tool.
+- **Plaza** (`engine/builders.hub.ts`, `content/play/scenes/plaza.ts`): `hubfloor` (one painted plane: tiles, rings, a coloured lane with chevrons per district), `hubdais` + `hubcore` (the Bytehaven core), `gatehouse` x4 (themes robotics / ballpark / web / racing), `hublamp`, `datapanel`, `hubboard`, `hubskyline`; dusk lighting with one coloured light per gate; NPCs Pip and Courier Tam walk, Vera and Otto work; talk prompts follow walkers (`Stage.updateNpc`). The camera keeps out of a gatehouse's lintel (`crowns`).
+- **Racing** (`play/logic/vehicle.ts`, `lapTimer.ts`, `engine/drive.ts`): `Driving.reverse` (brakes while rolling forward, reverses from a near-standstill, throttle brakes a rolling-back car), the chase camera pulls back and rises when reversing, the world edge stops the car, and the lap timer is a pure state machine on the start line's own geometry; the HUD shows "Cross the line" until it starts and the in-world timing board shows each lap.
+
 ## Security model (what is and isn't guaranteed)
 Player code is untrusted and runs only inside a Web Worker running WebAssembly CPython:
 - No DOM, no `localStorage`/`document.cookie` (workers don't have them), no host filesystem or OS access (Emscripten virtual FS only), no subprocess/socket access from Python itself.

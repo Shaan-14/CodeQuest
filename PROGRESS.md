@@ -1,10 +1,19 @@
 # PROGRESS.md
 
-_Last updated: Phase 6 polish pass 3 (RPG systems, visibility, avatar, cinematic gameplay). Phase 6 is the final planned phase._
+_Last updated: Phase 6 final polish pass (avatar arms, plaza hub, racing reverse and lap timing). Phase 6 is the final planned phase._
 
 ## Current phase
 **Phase 6 (a playable 3D world on top of the finished learning engine): COMPLETE.** There is no Phase 7; the post-game ideas in `docs/FUTURE_WORLDS.md` are suggestions only.
 Save format v1 → … → v8 → v9 (`play`: scene, position, who you talked to, things seen, sound/motion/quality settings) → **v10** (`play.gear`: worn cosmetics); migrations tested.
+
+## Phase 6 final polish pass (avatar arms, plaza, racing)
+- **Avatar arms, diagnosed and fixed at the joints.** Root cause: the abduction rotation had the wrong sign, so every arm was tucked INTO the torso (and the run swing plus a 1.4 rad elbow folded the fists to the chin). Walk and run now swing modestly from the shoulder with an elbow that only flexes; jump opens the arms out for balance, the landing dips them, idle adds an occasional hand adjustment. Checked from four angles for idle, walk, run, stop, jump, land, turn, typing, swing, pitch and catch with `scripts/armlab.mjs`. The jump itself was not touched.
+- **Bytehaven plaza**: a dusk hub with a central Bytehaven core (dais, light column, orbiting rings, a ring of lettering), a painted floor whose coloured lanes lead to four gatehouses (robotics: hazard stripes, gear, arm; baseball: scoreboard, emblems, floodlights; web: interface panel and node graph; racing: chequered pylons, kerbs, timing board), lamps in district colours, holographic panels and notice boards, a skyline for depth, and four people about the place (Pip and Courier Tam walk, Vera and Otto work). One coloured light per gate. Draw calls ~150 (the busiest scene is the ballpark at 318); one 1024 px floor texture.
+- **Racing reverse**: S brakes a moving car and, once nearly stopped, reverses it (slow, weighted, modest top speed, slower on grass); the throttle brakes a car that is rolling backwards; steering follows the wheel (the nose swings the other way); the camera pulls back and rises; barriers and the world edge apply as in forward driving; the replay and lap AI never reverse.
+- **Lap timing at the real line**: the timer waits at 0 ("Cross the line") until the car crosses the start/finish line forwards, then runs until it crosses it again after all five checkpoints; backing over the line, sitting on it, crossing beside the asphalt or skipping checkpoints counts for nothing. The in-world timing board shows each lap.
+- Also fixed: roaming NPCs could not be talked to away from their start point.
+Verified: type check; unit tests (new: reverse physics, lap timer crossing logic); real-browser playtests of the avatar, the plaza (every gate), and driving (forward, braking, reverse, steering in reverse, line, lap); 3D and classic e2e; integrity and visibility audits (0 issues).
+Limits: software-WebGL only; the plaza's first load builds its floor texture (~0.3 s in software rendering); no human playtest on real hardware.
 
 ## Phase 6 polish pass 3 (RPG systems, visibility, avatar, cinematic gameplay)
 Done:

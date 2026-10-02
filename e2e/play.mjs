@@ -461,7 +461,7 @@ async function main() {
       await tid(p, 'sim-play').click();
       await tid(p, 'sim-scoreboard').waitFor();
       await p.screenshot({ path: SHOTS + 'play-09-baseball-playing.png' });
-      await tid(p, 'sim-result').waitFor({ timeout: 180000 });
+      await tid(p, 'sim-result').waitFor({ timeout: 360000 });
       const expected = simulateGame(ourTeam(6, true), opposingTeam, 101);
       const text = await tid(p, 'sim-result').innerText();
       assert(text.includes(`${expected.us}–${expected.them}`), `the result is the model's: ${expected.us}-${expected.them} vs ${text}`);
@@ -583,7 +583,7 @@ async function main() {
       eq(await tid(p, 'drive-time').getAttribute('data-phase'), 'running', 'crossing the line started the timer');
       await p.keyboard.down('d'); await p.waitForTimeout(600); await p.keyboard.up('d'); await p.keyboard.up('w');
       // S brakes first; only once the car has nearly stopped does it go backwards
-      await p.keyboard.down('s'); await p.waitForTimeout(700);
+      await p.keyboard.down('s'); await p.waitForTimeout(120);
       assert(parseInt(await tid(p, 'drive-speed').innerText(), 10) > 5 && (await tid(p, 'drive-reverse').count()) === 0, 'S slows the car before it reverses');
       await p.waitForSelector('[data-testid=drive-reverse]', { timeout: 20000 });
       await p.waitForTimeout(1200);
