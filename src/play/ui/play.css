@@ -198,7 +198,7 @@
 
 /* ---------- the story sequences (opening, ending): the HUD steps aside; a plain Skip button stays reachable ---------- */
 .play.seq-on .ghud-card, .play.seq-on .ghud-menu, .play.seq-on .objective, .play.seq-on .play-where, .play.seq-on .play-prompt, .play.seq-on .play-lockhint, .play.seq-on .play-pushhint, .play.seq-on .play-caption { opacity: 0; pointer-events: none; }
-.cine-skipbtn { position: absolute; right: 18px; bottom: calc(9vh + 12px); z-index: 7; background: rgba(10,12,30,.78); color: #dfe3ff; border: 1px solid #4a52a8; border-radius: 999px; padding: .35rem .9rem; font-size: .85rem; cursor: pointer; pointer-events: auto !important; opacity: .7; transition: opacity .2s; }
+.cine-skipbtn { position: absolute; right: 18px; bottom: calc(9vh + 12px); z-index: 45; background: rgba(10,12,30,.78); color: #dfe3ff; border: 1px solid #4a52a8; border-radius: 999px; padding: .35rem .9rem; font-size: .85rem; cursor: pointer; pointer-events: auto !important; opacity: .7; transition: opacity .2s; }
 .cine-skipbtn:hover, .cine-skipbtn:focus-visible { opacity: 1; outline: 2px solid var(--gold, #f2c14e); outline-offset: 2px; }
 .cine-skipbtn kbd { background: #242a55; border: 1px solid #4a52a8; border-radius: 5px; padding: 0 .35rem; margin-left: .35rem; color: #fff; }
 
