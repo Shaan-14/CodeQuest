@@ -32,5 +32,6 @@ export const HINTS: Hint[] = [
   { id: 'py-to-sheets', npcs: ['marisol'], when: { strong: ['python'], untouched: ['sheets'] }, line: 'Telemetry is only data. A spreadsheet can model it by formula, and you will see the car change when it is right. The telemetry console is behind me.' },
   { id: 'sql-to-py', npcs: PARK, when: { strong: ['sql'], untouched: ['python'] }, line: 'Queries only get you so far. When you want to clean, loop and decide, the Programming Hall in the Robotics Academy is where that is taught.' },
   { id: 'wobble', npcs: ['sana-sim', ...ROBOTICS, ...ACADEMY, ...PARK, 'marisol'], when: { trouble: true }, line: 'Something in {world} is still wobbly after a recent attempt. The Training Grounds, here in the Simulation Room, will shore it up. It costs your progress nothing.' },
+  { id: 'summit-word', npcs: ['aurel'], when: { strongWorlds: 2 }, line: 'Word travels up this trail: {n} worlds speak well of your work. The Summit asks that you beat three guardians, each in a world of your choosing, with no hints and one attempt. Choose the ones you trust yourself in.' },
   { id: 'summit-near', npcs: ['pip', 'juno', 'teselle', 'reyes', 'marisol'], when: { strongWorlds: 2 }, line: '{n} worlds are in good shape now. Keeper Aurel on the Summit Trail asks for three guardians beaten; the trail leaves from the north-east of the plaza.' },
 ];

@@ -20,6 +20,8 @@ Done:
 Decisions:
 - **Focus energy bars were NOT built.** A bar either skips part of a required training plan (forbidden by the Focus rules) or does nothing (a fake item). The Pack sells and holds looks only; documented in CLAUDE.md.
 - The J key was unbound in the 3D view before this pass (the HUD advertised it); it now opens the Journal, and I opens the Pack.
+Verified: `npx tsc --noEmit` clean; unit tests 5,689 (Quest Journal, ballplay-driven cutaway sheets, training scenes, source data, gear + save v9→v10, remarks); 3D e2e 16 of 16 (adds: automatic training scene, cutaway round trip, source data, Pack/Journal keys); classic e2e 44 of 44 (two checks updated for save v10); dev-server visit of 13 scenes; `integrity3d` 0 issues; `visaudit` 0 hidden/culled (it now means: a mesh culled while its geometry is in view).
+Performance (production build, software WebGL; `scripts/perf3d.mjs`, before = commit before this pass): draw calls identical in every scene (ballpark 318, bay 261, atrium 196, garage 219, track 90); triangles identical; per-frame JS render submission 1.1-5 ms (noise-level changes); scene load times unchanged; startup chunk sizes unchanged (the new viewer, journal and shop are in the existing chunks; ballplay is in the lazy 3D chunk). The ballpark's 318 calls are mostly its eleven players (about 10 calls each).
 Not done / limits: story connections between worlds are the progress remarks and the Summit hint, not new quests; visual polish was targeted (readable baseball and racing sequences, UI) rather than a full relighting of every scene; Fantasy and Summit scenes got no new cinematics; verified only in headless software-WebGL Chromium (no real GPU timings, no hands-on playtest).
 
 ## What Phase 6 built

@@ -25,6 +25,7 @@ export function meshIssues(stage: Stage): MeshIssue[] {
   const add = (kind: string, what: string) => out.push({ scene: def.id, kind, what });
   const colliders = stage.solidColliders;
   const boxes: { id: string; box: Box3; tall: boolean }[] = [];
+  const floaters: { box: Box3; text: string }[] = [];
   const tmp = new Box3();
   const label = (k: string, id: string | undefined, x: number, z: number) => `${k}${id ? `#${id}` : ''}@(${x},${z})`;
   for (const { p, obj } of stage.built) {
@@ -39,7 +40,7 @@ export function meshIssues(stage: Stage): MeshIssue[] {
     boxes.push({ id: label(p.kind, p.id, p.x, p.z), box, tall });
     const name = label(p.kind, p.id, p.x, p.z);
     // floating / sunken
-    if (!HUNG.has(p.kind) && p.kind !== 'tree' && box.min.y > 0.45 && dy < 6) add('floating', `${name} hangs ${box.min.y.toFixed(2)} m above the ground (height ${dy.toFixed(2)})`);
+    if (!HUNG.has(p.kind) && p.kind !== 'tree' && box.min.y > 0.45 && dy < 6) floaters.push({ box, text: `${name} hangs ${box.min.y.toFixed(2)} m above the ground (height ${dy.toFixed(2)})` });
     if (box.min.y < -0.7 && box.max.y < 1.5) add('sunken', `${name} sinks to ${box.min.y.toFixed(2)} m`);
     // outside the place
     const b = def.bounds;
@@ -59,6 +60,8 @@ export function meshIssues(stage: Stage): MeshIssue[] {
   }
   // the player's own spawn
   for (const [name, sp] of Object.entries(def.spawns)) for (const t of boxes) if (t.tall && sp.x > t.box.min.x - PLAYER_RADIUS * 0.5 && sp.x < t.box.max.x + PLAYER_RADIUS * 0.5 && sp.z > t.box.min.z - PLAYER_RADIUS * 0.5 && sp.z < t.box.max.z + PLAYER_RADIUS * 0.5) add('spawn-in-mesh', `spawn ${name} is inside ${t.id}`);
+  // a roof slab or a lintel sits ON something: floating means nothing is under it
+  for (const f of floaters) if (!boxes.some((o) => o.box !== f.box && Math.abs(o.box.max.y - f.box.min.y) < 0.12 && f.box.min.x < o.box.max.x && f.box.max.x > o.box.min.x && f.box.min.z < o.box.max.z && f.box.max.z > o.box.min.z)) add('floating', f.text);
   return out;
 }
 
@@ -81,7 +84,7 @@ export async function showColliders(stage: Stage, on = true): Promise<number> {
 
 /** What is hidden or culled right now: props whose `visible` flag is off, and meshes whose bounding sphere is wrong or that the frustum rejects although their box is in view. */
 export async function visibilityNow(stage: Stage): Promise<{ hidden: string[]; badBounds: string[]; culled: string[] }> {
-  const { Frustum, Matrix4, Box3, Sphere, Mesh } = await import('three');
+  const { Frustum, Matrix4, Sphere, Mesh } = await import('three');
   const cam = (stage as unknown as { camera: import('three').PerspectiveCamera }).camera;
   cam.updateMatrixWorld(true);
   const fr = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
@@ -92,15 +95,20 @@ export async function visibilityNow(stage: Stage): Promise<{ hidden: string[]; b
     obj.traverse((o) => {
       const m = o as import('three').Mesh;
       if (!(m instanceof Mesh) || !m.geometry) return;
-      m.geometry.computeBoundingBox(); const gb = m.geometry.boundingBox!;
+      
       if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
       const gs = m.geometry.boundingSphere!;
       // the sphere must contain the box corners (a stale sphere makes a big mesh vanish when the camera is close)
-      const c = gb.getCenter(new (gs.center.constructor as new () => import('three').Vector3)()); const r = gb.getSize(new (gs.center.constructor as new () => import('three').Vector3)()).length() / 2;
-      if (gs.radius + 1e-3 < r - 1e-3 || gs.center.distanceTo(c) > gs.radius * 0.6 + 1) badBounds.push(`${name}: sphere r=${gs.radius.toFixed(1)} vs box r=${r.toFixed(1)}`);
+      // the sphere must contain EVERY vertex (a stale or tight-but-wrong sphere makes a mesh vanish at the screen edge or when the camera is close)
+      const pos = m.geometry.getAttribute('position'); let far = 0;
+      for (let i = 0; i < pos.count; i++) far = Math.max(far, Math.hypot(pos.getX(i) - gs.center.x, pos.getY(i) - gs.center.y, pos.getZ(i) - gs.center.z));
+      if (far > gs.radius * 1.001 + 0.01) badBounds.push(`${name}: sphere r=${gs.radius.toFixed(2)} but a vertex is ${far.toFixed(2)} from its centre`);
       m.updateWorldMatrix(true, false);
-      const wb = new Box3().copy(gb).applyMatrix4(m.matrixWorld);
-      if (m.frustumCulled && o.visible && obj.visible) { const sp = new Sphere().copy(gs).applyMatrix4(m.matrixWorld); if (!fr.intersectsSphere(sp) && fr.intersectsBox(wb)) culled.push(`${name}: sphere rejected but box in view`); }
+      // culled by the frustum although a vertex of it is in view: the real symptom (not a box corner poking into the view)
+      if (m.frustumCulled && o.visible && obj.visible) {
+        const sp = new Sphere().copy(gs).applyMatrix4(m.matrixWorld);
+        if (!fr.intersectsSphere(sp)) { const v = new (gs.center.constructor as new () => import('three').Vector3)(); const step = Math.max(1, Math.floor(pos.count / 300)); for (let i = 0; i < pos.count; i += step) { v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld); if (fr.containsPoint(v)) { culled.push(`${name}: culled but its geometry is in view`); break; } } }
+      }
     });
   }
   return { hidden, badBounds: [...new Set(badBounds)], culled: [...new Set(culled)] };

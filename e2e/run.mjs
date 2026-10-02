@@ -623,7 +623,7 @@ async function main() {
       await openPanel(page, 'menu');
       await tid(page, 'export').click();
       const exported = await tid(page, 'save-text').inputValue();
-      assert(exported.includes('"version":9'), 'exported');
+      assert(exported.includes('"version":10'), 'exported');
       await tid(page, 'import').click();
       assert((await page.getByRole('status').innerText()).includes('restored'), 'import ok');
       // reset
@@ -1249,7 +1249,7 @@ async function main() {
       assert(await tid(page, 'prereq-missing').count() === 1, 'lists what is missing');
       await page.screenshot({ path: SHOTS + '61-prerequisite-panel.png' });
       const save = await readSave(page);
-      eq(save.version, 9, 'save version');
+      eq(save.version, 10, 'save version');
       assert(save.explore && save.explore.last, 'the last world is remembered');
       await page.context().close();
     });
