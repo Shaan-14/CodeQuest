@@ -2,11 +2,11 @@
  * Harborview Park props: a painted field with real proportions, the curved outfield wall and warning track, tiered stands with a crowd, dugouts,
  * a backstop, the player tunnel and the TEAM (players who appear when the analysis sets a lineup, and play the simulated game).
  */
-import { CanvasTexture, DoubleSide, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, RepeatWrapping, Shape, SphereGeometry, SRGBColorSpace } from 'three';
+import { CanvasTexture, DoubleSide, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, RepeatWrapping, Shape, SRGBColorSpace } from 'three';
 import type { Play } from '../logic/baseballSim';
 import { BASE_PATH, FOUL_ANGLE, fencePoints, fenceRadius } from '../logic/ballparkGeom';
+import { createBallplay } from './ballplay';
 import { createRig, type Rig } from './rig';
-import { ease } from './tween';
 import { mat, rbox, rcyl, shape, sign } from './kit';
 import { col, num } from './props';
 import type { Builder, BuildCtx, Dyn } from './builders';
@@ -17,7 +17,6 @@ const G1 = '#3c8a4b', G2 = '#47995a', DIRT = '#c4915a', TRACK = '#a8744a', OUTSI
 const B = BASE_PATH / Math.SQRT2;
 export const BASE = { home: [0, 0], first: [B, -B], second: [0, -2 * B], third: [-B, -B] } as const;
 export const POS: Record<string, [number, number]> = { P: [0, -BASE_PATH * 0.672], C: [0, 1.4], '1B': [B * 0.86, -B * 0.9], '2B': [B * 0.42, -B * 1.62], SS: [-B * 0.42, -B * 1.62], '3B': [-B * 0.86, -B * 0.9], LF: [-17, -27], CF: [0, -31], RF: [17, -27] };
-const FENCE_R = fenceRadius(0);
 
 /* ------------------------------------------------------------------ the field, painted from above (one plane, one draw call) */
 
@@ -208,82 +207,54 @@ const team: Builder = (p, ctx) => {
   const order = ['P', 'C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF'];
   // before the analysis sets a lineup the players are loosely warming up in front of the first-base dugout: the ballpark is never empty
   const warm: [number, number][] = [[7.5, -3.6], [9.3, -4.4], [11.1, -3.6], [12.9, -4.4], [8.4, -5.6], [10.2, -6.0], [12.0, -5.6], [13.8, -6.4], [9.0, -7.4]];
-  const mover = new Map<string, { x: number; z: number } | null>();
   order.forEach((pos, i) => {
     const rig = createRig({ ...uniform, head: [0xd9a877, 0xc99267, 0xf0c9a0, 0x8d5a3b][i % 4]!, hair: [0x2a1a12, 0x1f1a1a, 0x5a3a22, 0xc94f6d][i % 4]! });
-    g.add(rig.group); rigs.set(pos, rig); mover.set(pos, null);
+    g.add(rig.group); rigs.set(pos, rig);
     rig.group.position.set(warm[i]![0], 0, warm[i]![1]); rig.setFacing(((i * 2.1) % 6.28) - 3.14, true);
     if (i % 3 === 0) rig.hold('stretch'); else if (i % 3 === 1) rig.hold('lift');
   });
   const batter = createRig({ ...uniform, body: 0x1d4d8f, hat: 'helmet' as const }); batter.group.position.set(-1.3, 0, 0.3); batter.setFacing(-Math.PI / 2, true); batter.hold('ready'); g.add(batter.group);
   const runner = createRig({ ...uniform, body: 0x1d4d8f, hat: 'helmet' as const }); runner.group.visible = false; g.add(runner.group);
-  const ball = new Mesh(new SphereGeometry(0.16, 10, 8), new MeshBasicMaterial({ color: 0xffffff })); ball.visible = false; g.add(ball);
   const marks: Mesh[] = [BASE.first, BASE.second, BASE.third].map(([x, z]) => { const m = shape('cyl', 0.6, 0.5, 0.6, 0xffd166, { x, z, y: 0.3, glow: 1 }); m.visible = false; g.add(m); return m; });
-  let isSet = false, t = 0, busy = false;
+  const bp = createBallplay({ group: g, ctx, field: { P: POS.P!, base: BASE, pos: POS }, rigs, batter, runner, marks, home: { x: p.x, z: p.z } });
+  let isSet = false;
   /** Send every fielder to their position at a jog; `instant` places them (a loaded save). */
   const place = (instant: boolean) => {
     for (const [pos, rig] of rigs) {
       rig.release();
       const [x, z] = POS[pos]!;
-      if (instant || ctx.reduced) { rig.group.position.set(x, 0, z); rig.setFacing(0, true); rig.hold('ready'); continue; }
-      mover.set(pos, { x, z });
-    }
-  };
-  const step = (dt: number) => {
-    for (const [pos, rig] of rigs) {
-      const goal = mover.get(pos);
-      if (!goal) { rig.update(dt, 'idle', 0); continue; }
-      const dx = goal.x - rig.group.position.x, dz = goal.z - rig.group.position.z, d = Math.hypot(dx, dz);
-      if (d < 0.2) { mover.set(pos, null); rig.setFacing(0); rig.hold('ready'); rig.update(dt, 'idle', 0); continue; }
-      const sp = Math.min(4.8, 1.5 + d * 0.6) * dt; rig.group.position.x += (dx / d) * Math.min(sp, d); rig.group.position.z += (dz / d) * Math.min(sp, d);
-      rig.setFacing(Math.atan2(-dx, -dz)); rig.update(dt, 'run', sp / Math.max(dt, 1e-4));
+      if (instant || ctx.reduced) { rig.group.position.set(x, 0, z); rig.setFacing(pos === 'C' ? 0 : Math.PI, true); rig.hold('ready'); continue; }
+      void bp.move(rig, [[x, z]], Math.min(4.8, 3.2), pos === 'C' ? 0 : Math.PI).then(() => rig.hold('ready'));
     }
   };
   const dyn: Dyn = {
-    id: p.id ?? 'team', object: g, at: () => ({ x: p.x, y: 1.5, z: p.z - 9 }), states: () => (isSet ? ['set'] : []),
+    id: p.id ?? 'team', object: g, states: () => (isSet ? ['set'] : []),
+    // the camera and effects follow the ball while it is in play, else the plate
+    at: () => { const b = bp.ball(); return b ? { x: p.x + b.x, y: Math.max(0.6, b.y), z: p.z + b.z } : { x: p.x, y: 1.5, z: p.z - 9 }; },
+    where: (name) => { const r = name === 'batter' ? batter : name === 'runner' ? runner : rigs.get(name); return r ? { x: p.x + r.group.position.x, y: 1.2, z: p.z + r.group.position.z } : null; },
+    busy: () => bp.busy(),
     setState(s, instant) { if (s === 'set' && !isSet) { isSet = true; place(instant); if (!instant) { ctx.audio.sfx('cheer'); ctx.say('Nine players jog onto the field in your lineup. Batting order: by the numbers you found.'); } } },
-    update(dt) { t += dt; step(dt); batter.update(dt, 'idle', 0); runner.update(dt, 'idle', 0); },
-    /** Play a simulated game. `plays` come from logic/baseballSim. Resolves when the last play is done. */
-    run(name, arg) {
-      if (name !== 'sim' || busy) return Promise.resolve();
-      busy = true;
-      const plays = (arg as { plays: Play[]; onPlay?: (p: Play) => void; speed?: number }).plays;
-      const onPlay = (arg as { onPlay?: (p: Play) => void }).onPlay;
-      const speed = (arg as { speed?: number }).speed ?? 1;
+    /** `seq:<kind>[:n]` plays one plate appearance of that kind (hit, homerun, strikeout, groundout, flyout, walk, single, double, steal, predict). */
+    play(name) {
+      const [head, kind, n] = name.split(':');
+      if (head !== 'seq' || !kind) return;
       if (!isSet) { isSet = true; place(true); }
-      return new Promise<void>((resolve) => {
-        let i = 0;
-        const next = () => {
-          const pl = plays[i++];
-          if (!pl) { ball.visible = false; runner.group.visible = false; marks.forEach((m) => (m.visible = false)); busy = false; resolve(); return; }
-          onPlay?.(pl);
-          if (pl.half === 'them') { ctx.tweens.after(0.05, next); return; } // the opponent's half is summarised by the caller
-          const dur = (ctx.reduced ? 0.01 : 1.5) / speed;
-          // pitch
-          ball.visible = true; ball.position.set(0, 1.6, POS.P![1]);
-          batter.play('interact');
-          ctx.audio.sfx('whoosh');
-          ctx.tweens.add(0.45 * dur / 1.5 + 0.0001, (k) => ball.position.set(0, 1.6 - 0.6 * k, POS.P![1] * (1 - k) + 0.3 * k), { ease: ease.linear, done: () => {
-            const hit = ['single', 'double', 'homerun', 'groundout', 'flyout', 'error'].includes(pl.type);
-            if (!hit) { ctx.audio.sfx('click'); ball.visible = false; marks.forEach((m, bi) => (m.visible = pl.bases[bi]! >= 0)); ctx.tweens.after(0.5 * dur / 1.5, next); return; }
-            ctx.audio.sfx('crack'); ctx.fx.burst('dust', p.x, 1, p.z, 10, 0.5);
-            // where the ball goes
-            const dest: [number, number, number] = pl.type === 'homerun' ? [(pl.batter % 3 - 1) * 14, 4, -FENCE_R - 6] : pl.type === 'double' ? [(pl.batter % 2 ? 20 : -20), 0, -30] : pl.type === 'flyout' ? [((pl.batter + 1) % 3 - 1) * 14, 0, -28] : pl.type === 'single' || pl.type === 'error' ? [((pl.batter + 2) % 3 - 1) * 10, 0, -20] : [((pl.batter + 2) % 3 - 1) * 6, 0, -12];
-            const arc = pl.type === 'groundout' || pl.type === 'single' ? 1.5 : pl.type === 'homerun' ? 18 : pl.type === 'double' ? 6 : 12;
-            ctx.tweens.add(1.1 * dur / 1.5 + 0.0001, (k) => ball.position.set(dest[0] * k, 0.4 + Math.sin(k * Math.PI) * arc + (dest[1] * k), dest[2] * k), { ease: ease.linear, done: () => {
-              if (pl.type === 'homerun') { ctx.audio.sfx('cheer'); ctx.fx.burst('confetti', p.x + dest[0], 6, p.z + dest[2] + 4, 40); }
-              ball.visible = pl.type === 'single' || pl.type === 'error' || pl.type === 'double';
-              marks.forEach((m, bi) => (m.visible = pl.bases[bi]! >= 0));
-              ctx.tweens.after(0.6 * dur / 1.5, () => { ball.visible = false; next(); });
-            } });
-            // a fielder chases it
-            const f = [...rigs.values()][(pl.batter + 3) % 9]!;
-            const fx = f.group.position.x, fz = f.group.position.z;
-            ctx.tweens.add(1.0 * dur / 1.5 + 0.0001, (k) => f.group.position.set(fx + (dest[0] * 0.8 - fx) * k, 0, fz + (dest[2] * 0.8 - fz) * k), { ease: ease.out, done: () => ctx.tweens.add(0.8, (k) => f.group.position.set(dest[0] * 0.8 + (fx - dest[0] * 0.8) * k, 0, dest[2] * 0.8 + (fz - dest[2] * 0.8) * k)) });
-          } });
-        };
-        next();
-      });
+      const alias: Record<string, string> = { hit: 'single', field: 'groundout', pitch: 'strikeout' };
+      void bp.plate((alias[kind] ?? kind) as Parameters<typeof bp.plate>[0], Number(n ?? 0));
+    },
+    update(dt) { bp.update(dt); },
+    /** Play a simulated game. `plays` come from logic/baseballSim. Resolves when the last play is done. */
+    async run(name, arg) {
+      if (name !== 'sim') return;
+      const { plays, onPlay } = arg as { plays: Play[]; onPlay?: (p: Play) => void; speed?: number };
+      if (!isSet) { isSet = true; place(true); }
+      for (const pl of plays) {
+        onPlay?.(pl);
+        if (pl.half === 'them') { await new Promise<void>((res) => ctx.tweens.after(0.05, res)); continue; } // the opponent's half is summarised by the caller
+        await bp.plate(pl.type, pl.batter);
+        marks.forEach((m, bi) => (m.visible = pl.bases[bi]! >= 0));
+      }
+      marks.forEach((m) => (m.visible = false));
     },
   };
   return { object: g, dyn };

@@ -169,14 +169,18 @@ const statusScreen: Builder = (p, ctx) => {
   const w = num(p, 'w', 3.2), h = num(p, 'h', 1.7), y = num(p, 'y', 1.7);
   g.add(shape('box', w + 0.16, h + 0.16, 0.12, 0x11131f, { y }));
   const off = sign(str(p, 'off', 'OFFLINE').split('|'), w, h, { bg: '#1a1d2a', fg: '#58607a', z: 0.07, y: y + h / 2 });
-  const on = sign(str(p, 'on', 'ONLINE').split('|'), w, h, { bg: str(p, 'bg', '#0b1d17'), fg: str(p, 'fg', '#7dffb3'), z: 0.071, y: y + h / 2 });
+  const face = (text: string) => sign(text.split('|'), w, h, { bg: str(p, 'bg', '#0b1d17'), fg: str(p, 'fg', '#7dffb3'), z: 0.071, y: y + h / 2 });
+  let on = face(str(p, 'on', 'ONLINE'));
   on.visible = false;
   const cover = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ color: str(p, 'bg', '#0b1d17') })); cover.position.set(0, y + h / 2, 0.0725); cover.scale.set(w, h, 1); cover.visible = false;
   const scan = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ color: 0x7dffb3, toneMapped: false })); scan.position.set(0, y + h, 0.073); scan.scale.set(w, 0.035, 1); scan.visible = false;
   g.add(off, on, cover, scan);
   const dyn: Dyn = {
     id: p.id ?? 'status', object: g, at: () => ({ x: p.x, y: y + h / 2, z: p.z }), states: () => (on.visible ? ['on'] : []),
-    play(name) { if (name === 'malfunction') { ctx.audio.sfx('fail'); const was = on.visible; let n = 0; const tick = () => { if (n++ > 6) { on.visible = was; off.visible = !was; return; } on.visible = !on.visible; off.visible = !off.visible; ctx.tweens.after(0.08, tick); }; tick(); ctx.fx.burst('sparks', p.x, y + h / 2, p.z + 0.3, 14); } },
+    play(name) {
+      // `text:LINE|LINE` rewrites the lit display (a scoreboard changing) and keeps it lit
+      if (name.startsWith('text:')) { g.remove(on); on = face(name.slice(5)); off.visible = false; g.add(on); return; }
+      if (name === 'malfunction') { ctx.audio.sfx('fail'); const was = on.visible; let n = 0; const tick = () => { if (n++ > 6) { on.visible = was; off.visible = !was; return; } on.visible = !on.visible; off.visible = !off.visible; ctx.tweens.after(0.08, tick); }; tick(); ctx.fx.burst('sparks', p.x, y + h / 2, p.z + 0.3, 14); } },
     setState(_s, instant) {
       if (on.visible) return;
       on.visible = true; off.visible = false;

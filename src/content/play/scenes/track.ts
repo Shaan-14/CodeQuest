@@ -38,6 +38,7 @@ export const track: SceneDef = {
     ...[-62, -50, -38, -26, -14].map((x): Prop => ({ kind: 'glowstrip', x, z: 108, ry: Math.PI / 2, p: { w: 3.2, d: 0.2, color: 0xffd166, lift: 0.03 } })),
     { kind: 'pitbuilding', x: -40, z: 124, p: { w: 64, d: 8, h: 6.5, bays: 7, text: 'REDLINE RACEWAY|PIT GARAGES' }, solid: { w: 64, d: 8 } },
     { kind: 'timingtower', x: 6, z: 112, solid: { w: 5, d: 4 } },
+    { kind: 'statusScreen', x: -40, z: 94.6, ry: Math.PI, id: 'timing-board', p: { w: 9, h: 2.6, y: 2.4, off: 'LAP TIMING|NO RUN YET|', on: 'LAP TIMING|SECTION {t}', fg: '#ffd166', bg: '#140d0a' } },
     { kind: 'tent', x: -66, z: 104, p: { w: 7, d: 4, color: 0x2b6cb0 }, solid: { w: 7, d: 4 } }, { kind: 'tent', x: -4, z: 110, p: { w: 6, d: 4, color: 0xffd166 }, solid: { w: 6, d: 4 } },
     { kind: 'cones', x: -64, z: 98.6, p: { n: 16, step: 4.2 } },
     ...[-70, -40, -10].map((x): Prop => ({ kind: 'pennant', x, z: 96, p: { h: 8, color: [0xe63946, 0xf5f5f5, 0x2b6cb0][((x + 70) / 30) | 0]! } })),

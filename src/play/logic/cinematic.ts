@@ -15,7 +15,7 @@ export type Target = { prop: string } | { npc: string } | { player: true } | { a
 
 export type CueAction =
   /** Move the camera to look at `at` from a distance/angle (yaw 0 = looking north from the south). `blend` = seconds to get there; `spin` = slow orbit in rad/s. 'player' hands the camera back. */
-  | { do: 'cam'; at: Target | 'player'; dist?: number; yaw?: number; pitch?: number; height?: number; blend?: number; spin?: number }
+  | { do: 'cam'; at: Target | 'player'; dist?: number; yaw?: number; pitch?: number; height?: number; blend?: number; spin?: number; /** Keep the shot on the target as it moves (a ball in flight). */ follow?: boolean }
   /** A line of dialogue / narration shown as a subtitle (and announced to screen readers). */
   | { do: 'say'; text: string; who?: string; for?: number }
   /** Put a prop into a state (the world change itself) and/or run one of its animations (`play`, optionally with an argument). */
@@ -27,7 +27,9 @@ export type CueAction =
   | { do: 'sfx'; name: Sfx }
   /** An NPC reacts: a one-shot or held gesture, turns to face something, walks somewhere, changes mood, talks, points. */
   | { do: 'npc'; id: string; anim?: OneShot; hold?: OneShot; release?: boolean; face?: Target; walk?: [number, number]; mood?: Mood; talk?: boolean; point?: Target; look?: Target | null }
-  | { do: 'player'; anim?: OneShot; face?: Target; walk?: [number, number]; look?: Target | null; mood?: Mood }
+  | { do: 'player'; anim?: OneShot; face?: Target; walk?: [number, number]; look?: Target | null; mood?: Mood; /** Hide the player (they have got into the car) or show them again. */ show?: boolean }
+  /** Run a real SECTION of the replay lap (from..to as fractions of the circuit) with the setup the player's work earned. The sheet's clock waits for it; `board` then rewrites a display with the section time (`{t}` becomes seconds). */
+  | { do: 'lap'; from: number; to: number; board?: { id: string; text: string } }
   | { do: 'shake'; amount: number }
   /** Light the place toward dawn (0..1). */
   | { do: 'mood'; k: number }
@@ -65,6 +67,7 @@ export function referencedIds(c: Cinematic): { props: string[]; npcs: string[] }
   const t = (x: Target | 'player' | null | undefined) => { if (x && typeof x === 'object') { if ('prop' in x) props.add(x.prop); if ('npc' in x) npcs.add(x.npc); } };
   for (const q of c.cues) {
     if (q.do === 'prop' || q.do === 'await') props.add(q.id);
+    if (q.do === 'lap' && q.board) props.add(q.board.id);
     if (q.do === 'cam' || q.do === 'fx' || q.do === 'flash') t(q.at);
     if (q.do === 'npc') { npcs.add(q.id); t(q.face); t(q.point); t(q.look); }
     if (q.do === 'player') { t(q.face); t(q.look); }

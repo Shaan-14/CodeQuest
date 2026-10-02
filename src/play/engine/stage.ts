@@ -39,6 +39,8 @@ export type Quality = 'low' | 'medium' | 'high';
 /** What the stage needs from the outside world. */
 export interface StageEnv {
   getSave(): SaveData;
+  /** Run a section of the replay lap for a cinematic (provided by the screen, which knows the player's setup). Returns a function that stops it. */
+  lapSection?(from: number, to: number, done: (ms: number | null) => void): () => void;
   getNpc(id: string): Npc3D | undefined;
   /** Which station (terminal) a quest objective is worked at. */
   stationMatches(station: string, o: QuestObjective): boolean;
@@ -328,7 +330,7 @@ export class Stage {
     this.npcs = []; this.npcColliders.clear(); this.built.length = 0; this.dyns.clear(); this.ticks = []; this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.camBlockers = []; this.mounted = [];
     for (const m of this.markerMeshes.values()) this.scene.remove(m);
     this.markerMeshes.clear();
-    this.director.reset(); this.controlLocked = false; this.playerGoal = null; this.playerFace = null; this.prompt = null; this.driver = null; this.hooks = []; this.chase = null; this.playerRig.group.visible = true; this.audio.engine(null); this.cinema = null;
+    this.director.reset(); this.lapBusy = false; this.lapStop = null; this.controlLocked = false; this.playerGoal = null; this.playerFace = null; this.prompt = null; this.driver = null; this.hooks = []; this.chase = null; this.playerRig.group.visible = true; this.audio.engine(null); this.cinema = null;
   }
 
   /** The save changed: which interactables exist now, which things to mark, and what the world shows. Cheap; call after every action. */
@@ -356,14 +358,15 @@ export class Stage {
    * state change), a quest completion and a level-up have their own moments. A failure is not acted out here: the lesson's own feedback,
    * Focus and training handle it. Returns what the player is about to see so the screen can step aside for it.
    */
-  react(events: readonly GameEvent[]): { cinematic: boolean; quick: boolean } {
-    const out = { cinematic: false, quick: false };
+  react(events: readonly GameEvent[]): { cinematic: boolean; quick: boolean; then?: string } {
+    const out: { cinematic: boolean; quick: boolean; then?: string } = { cinematic: false, quick: false };
     const def = this.def; if (!def) return out;
     let won = false;
     for (const e of events) {
       if (e.type === 'worldEffect') {
         const ref = `${e.target}:${e.action}`;
         for (const r of def.reactions ?? []) if (r.effect === ref && !r.loadOnly) {
+          if (r.then && !out.then) out.then = r.then;
           const cine = r.cinematic ? this.env.cinematic?.(r.cinematic) : undefined;
           if (cine) { this.director.enqueue(cine); out.cinematic = true; if (r.state === 'open') this.openGate(r.prop); continue; } // the cinematic itself sets the prop's state
           this.dyns.get(r.prop)?.setState(r.state, false); if (r.state === 'open') this.openGate(r.prop); if (r.say) this.env.onCaption(r.say); won = true; out.quick = true;
@@ -380,6 +383,17 @@ export class Stage {
     this.refresh();
     return out;
   }
+
+  /** A section of the replay lap is running for a cinematic (the sheet's clock waits for it). */
+  lapBusy = false;
+  private lapStop: (() => void) | null = null;
+  runLap(from: number, to: number, done: (ms: number | null) => void): void {
+    const run = this.env.lapSection;
+    if (!run) { done(null); return; }
+    this.lapBusy = true;
+    this.lapStop = run(from, to, (ms) => { this.lapBusy = false; this.lapStop = null; done(ms); });
+  }
+  stopLap(): void { this.lapStop?.(); }
 
   /** Play a named cinematic now (the training arrival). Returns false when there is none, so the caller carries on without it. */
   playCinematic(ref: string): boolean { const c = this.env.cinematic?.(ref); if (!c) return false; this.director.enqueue(c); return true; }

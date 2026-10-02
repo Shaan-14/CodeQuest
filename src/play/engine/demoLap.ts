@@ -18,21 +18,33 @@ export interface DemoHooks {
 
 const SHOTS = ['chase', 'side', 'front', 'heli', 'trackside'] as const;
 
-export function startDemoLap(stage: Stage, setup: Setup, hooks: DemoHooks): () => void {
+/** `from`/`to` (fractions of the lap) run just a SECTION, the car already up to speed at `from` (the same physics and driver, run ahead out of sight). `embedded`: a cinematic owns the controls, the player and the letterbox. */
+export interface DemoSection { from?: number; to?: number; embedded?: boolean }
+
+export function startDemoLap(stage: Stage, setup: Setup, hooks: DemoHooks, section: DemoSection = {}): () => void {
   const cl = centreLine(REDLINE), N = cl.pts.length;
   const grid = startGrid(cl, 14);
   const built = builders.car!({ kind: 'car', x: grid.x, z: grid.z, p: { number: '7' } }, stage.buildCtx);
   const obj = built.object as Group; stage.worldGroup.add(obj);
   for (const s of hooks.states) built.dyn?.setState(s, true);
   obj.position.set(grid.x, 0, grid.z); obj.rotation.y = grid.heading;
-  stage.setPlayerVisible(false); stage.setControlLocked(true);
+  const embedded = !!section.embedded;
+  if (!embedded) { stage.setPlayerVisible(false); stage.setControlLocked(true); }
   const car = newCar(grid.x, grid.z, grid.heading);
-  stage.director.show({ active: true, canSkip: true, subtitle: null, banner: null });
+  if (!embedded) stage.director.show({ active: true, canSkip: true, subtitle: null, banner: null });
   stage.camRate = 5;
 
   let hint = locate(cl, car.x, car.z).i, t = 0, lapT = 0, going = false, late = false, shot = 0, shotT = 0, ended = false, worst = 0;
   let fixed: { x: number; z: number } | null = null; let said = 0, smoke = 0;
-  const say = (text: string, ms = 3.4) => { stage.director.show({ subtitle: { who: 'Crew Chief Marisol', text } }); window.setTimeout(() => stage.director.show({ subtitle: null }), ms * 1000); };
+  // a section that starts mid-lap: drive the lap out of sight until the car gets there, so it arrives at speed with the same setup
+  let secStart = 0, crossed = false;
+  /** Progress round the lap as a fraction, negative on the grid (just behind the line) until the car crosses it. */
+  const prog = (i: number): number => { const f = i / N; if (!crossed && f > 0.9) return f - 1; crossed = true; return f; };
+  if (section.from) {
+    for (let n = 0; n < 9000 && prog(hint) < section.from; n++) { const d0 = aiDrive(car, cl, setup, hint); hint = d0.here.i; stepCar(car, { throttle: d0.throttle, brake: d0.brake, steer: d0.steer }, setup, cl, 1 / 60, hint); lapT += 1 / 60; }
+    going = true; t = 3.1; secStart = lapT; said = 4;
+  }
+  const say = (text: string, ms = 3.4) => { if (embedded) return; stage.director.show({ subtitle: { who: 'Crew Chief Marisol', text } }); window.setTimeout(() => stage.director.show({ subtitle: null }), ms * 1000); };
   const has = (k: string) => hooks.states.includes(k);
   // commentary: what the lap is showing, by how far round the car is (never an answer; only what the setup visibly does)
   const lines: { at: number; text: string }[] = [
@@ -68,6 +80,7 @@ export function startDemoLap(stage: Stage, setup: Setup, hooks: DemoHooks): () =
       lapT += dt;
       const frac = d.here.i / N;
       while (lines.length && frac >= lines[0]!.at && !(frac > 0.95 && lines[0]!.at < 0.5)) { say(lines.shift()!.text); }
+      if (section.to !== undefined && prog(d.here.i) >= section.to) { finish(Math.round((lapT - secStart) * 1000), false); return; }
       if (frac > 0.8) late = true;
       if (late && frac < 0.1) { finish(Math.round(lapT * 1000), false); return; }
       if (lapT > 120) { finish(null, true); return; }
@@ -91,8 +104,8 @@ export function startDemoLap(stage: Stage, setup: Setup, hooks: DemoHooks): () =
     if (ended) return; ended = true;
     stage.hooks = stage.hooks.filter((x) => x !== frame);
     stage.audio.engine(null); obj.removeFromParent();
-    stage.setCinema(null); stage.camRate = 9; stage.setControlLocked(false); stage.setPlayerVisible(true);
-    stage.director.show({ active: false, canSkip: false, subtitle: null });
+    stage.setCinema(null); stage.camRate = 9;
+    if (!embedded) { stage.setControlLocked(false); stage.setPlayerVisible(true); stage.director.show({ active: false, canSkip: false, subtitle: null }); }
     hooks.onEnd({ ms: cancelled ? null : ms, cancelled });
     void worst;
   }

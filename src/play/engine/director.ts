@@ -11,7 +11,9 @@ export interface CineState { active: boolean; canSkip: boolean; subtitle: { who?
 export const IDLE_CINE: CineState = { active: false, canSkip: false, subtitle: null, banner: null };
 
 interface Running { c: Cinematic; cues: Cue[]; t: number; len: number; skipped: boolean; /** The cue sheet's clock is held until this prop has finished what it was asked to do. */ wait?: { id: string; left: number } }
-interface Shot { x: number; y: number; z: number; yaw: number; pitch: number; dist: number; spin: number }
+interface Shot { x: number; y: number; z: number; yaw: number; pitch: number; dist: number; spin: number; follow?: Target }
+
+const LAP = '*lap';
 
 export class Director {
   private queue: Cinematic[] = [];
@@ -42,7 +44,7 @@ export class Director {
   /** Fast-forward the running cinematic: the world ends in the same state, without the motion. */
   skip(): void {
     const r = this.cur; if (!r) return;
-    r.skipped = true;
+    r.skipped = true; this.s.stopLap();
     for (const q of cuesBetween(r.cues, r.t - 1e-9, Infinity)) this.fire(q, true);
     this.s.tweens.clear();
     r.t = r.len;
@@ -55,14 +57,24 @@ export class Director {
     if (this.state.subtitle && (this.subLeft -= dt) <= 0) this.publish({ subtitle: null }); // lines time out on their own clock, so a long wait on a machine never leaves one hanging
     if (r.wait) { // the sheet's clock waits for a machine to finish (an arm mid-move), however long it takes within its limit
       r.wait.left -= dt;
-      if (this.s.dyn(r.wait.id)?.busy?.() && r.wait.left > 0) { if (this.shot && this.shot.spin) { this.shot.yaw += this.shot.spin * dt; this.s.setCinema(this.shot); } return; }
+      const busy = r.wait.id === LAP ? this.s.lapBusy : this.s.dyn(r.wait.id)?.busy?.();
+      if (busy && r.wait.left > 0) { if (r.wait.id !== LAP) this.tick(dt); return; }
       r.wait = undefined;
     }
     const from = r.t; r.t += dt;
     for (const q of cuesBetween(r.cues, from, r.t)) this.fire(q, false);
-    if (this.shot && this.shot.spin) { this.shot.yaw += this.shot.spin * dt; this.s.setCinema(this.shot); }
+    this.tick(dt);
     if (this.state.banner && r.t > this.bannerUntil) this.publish({ banner: null });
     if (r.t >= r.len) this.end();
+  }
+
+  /** Per-frame camera work: a slow orbit, and following a moving target (a ball in flight). */
+  private tick(dt: number): void {
+    const sh = this.shot; if (!sh) return;
+    if (!sh.spin && !sh.follow) return;
+    if (sh.spin) sh.yaw += sh.spin * dt;
+    if (sh.follow) { const p = this.at(sh.follow); sh.x = p.x; sh.z = p.z; sh.y = Math.max(0.9, p.y); }
+    this.s.setCinema(sh);
   }
 
   private end(): void {
@@ -91,7 +103,7 @@ export class Director {
         if (instant) return;
         if (q.at === 'player') { this.shot = null; s.setCinema(null); s.camRate = 3 / (q.blend ?? 1.2); return; }
         const p = this.at(q.at);
-        this.shot = { x: p.x, y: q.height ?? Math.max(0.9, p.y), z: p.z, yaw: q.yaw ?? this.shot?.yaw ?? s.cameraYaw, pitch: q.pitch ?? this.shot?.pitch ?? 0.3, dist: q.dist ?? this.shot?.dist ?? 6, spin: q.spin ?? 0 };
+        this.shot = { x: p.x, y: q.height ?? Math.max(0.9, p.y), z: p.z, yaw: q.yaw ?? this.shot?.yaw ?? s.cameraYaw, pitch: q.pitch ?? this.shot?.pitch ?? 0.3, dist: q.dist ?? this.shot?.dist ?? 6, spin: q.spin ?? 0, follow: q.follow ? q.at : undefined };
         s.camRate = 3 / Math.max(0.2, q.blend ?? 1.2);
         s.setCinema(this.shot);
         return;
@@ -117,14 +129,26 @@ export class Director {
         return;
       }
       case 'player': {
-        if (instant) return;
+        if (instant) { if (q.show !== undefined) s.setPlayerVisible(q.show); return; }
         const rig = s.playerRigRef;
         if (q.walk) s.playerGoal = { x: q.walk[0], z: q.walk[1] };
         if (q.face) { const p = this.at(q.face); s.playerFace = { x: p.x, z: p.z }; }
         if (q.look !== undefined) { if (q.look) { const p = this.at(q.look); rig.lookAt(p.x, p.z); } else rig.lookAt(null); }
         if (q.mood) rig.mood(q.mood);
         if (q.anim) rig.play(q.anim);
+        if (q.show !== undefined) s.setPlayerVisible(q.show);
         return;
+      }
+      case 'lap': {
+        if (instant) return;
+        const board = q.board;
+        s.runLap(q.from, q.to, (ms) => {
+          if (ms === null) return;
+          const sec = (ms / 1000).toFixed(2);
+          if (board) s.dyn(board.id)?.play?.(`text:${board.text.replace('{t}', sec)}`);
+          s.env_caption?.(`Section time: ${sec} s`);
+        });
+        r.wait = { id: LAP, left: 60 }; return;
       }
       case 'shake': if (!instant && !s.reduced) s.shakeCamera(q.amount); return;
       case 'mood': s.setMood(q.k); return;

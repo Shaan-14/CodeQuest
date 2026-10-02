@@ -190,3 +190,8 @@
 .play.cine-on .play-pushhint { display: none; }
 
 .play-terminal[hidden] { display: none !important; }
+
+/* the fade used when a cutaway takes the player to another place and back */
+.play-curtain { position: absolute; inset: 0; background: #05060f; opacity: 0; pointer-events: none; transition: opacity .3s ease; z-index: 40; }
+.play-curtain.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .play-curtain { transition: none; } }

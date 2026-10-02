@@ -4,6 +4,8 @@ import type { Sfx } from '../../play/engine/audio';
 import type { OneShot } from '../../play/engine/rig';
 import { quests } from '../world';
 import { cast } from './cast';
+import { BASEBALL_SEQUENCES } from './cinematics.baseball';
+import { RACING_SEQUENCES } from './cinematics.racing';
 
 /**
  * THE CINEMATICS of the world: short cue sheets (see play/logic/cinematic.ts) that SHOW what the player's code just did. A scene's
@@ -304,6 +306,8 @@ function training(kind: string, o: { act: Cue[]; light: number; line: string; ca
   ];
   return { id: `training:${kind}`, cues, len: 7 };
 }
+
+Object.assign(CINEMATICS, BASEBALL_SEQUENCES, RACING_SEQUENCES);
 
 CINEMATICS['training:python'] = training('python', {
   line: 'Predict first, then run it. A program shows what it does, not what you meant.', light: 0x4fd1ff,

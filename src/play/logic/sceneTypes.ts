@@ -97,7 +97,7 @@ export interface Condition {
 }
 
 /** When code causes `effect` (`target:action`), put `state` on the prop named `prop` (animated live, instant when the scene is loaded later). */
-export interface Reaction { prop: string; effect: string; state: string; /** Caption shown (and announced) when it happens live. */ say?: string; /** A cinematic (content/play/cinematics.ts) that shows this change with camera, animation, sound and NPC reactions instead of a bare state change. It must set the prop's state itself. */ cinematic?: string; /** Applied only when the place is loaded (restoring earned state); a live change is shown by another reaction's cinematic instead of twice. */ loadOnly?: boolean }
+export interface Reaction { prop: string; effect: string; state: string; /** Caption shown (and announced) when it happens live. */ say?: string; /** A cinematic (content/play/cinematics.ts) that shows this change with camera, animation, sound and NPC reactions instead of a bare state change. It must set the prop's state itself. */ cinematic?: string; /** Applied only when the place is loaded (restoring earned state); a live change is shown by another reaction's cinematic instead of twice. */ loadOnly?: boolean; /** A CUTAWAY (content/play/cutaways.ts) played after this reaction: a short sequence in another place that shows what the code's result means (the ballpark, the track), then the player is brought back to where they stood. */ then?: string }
 /** When a graded attempt at a station's challenges FAILS, the prop reacts (sparks, a jam, a misfire) and the caption says what went wrong in the world. */
 
 export interface SceneDef {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { quests } from '../world';
 import { referencedIds, sortedCues } from '../../play/logic/cinematic';
 import { cinematicFor, CINEMATICS } from './cinematics';
+import { cutawayFor, CUTAWAYS } from './cutaways';
 import { getNpc3D } from './cast';
 import { scenes } from './scenes';
 
@@ -69,5 +70,29 @@ describe('training scenes', () => {
   it('the scenes differ by skill family', () => {
     const acts = kinds.map((k) => JSON.stringify(CINEMATICS[`training:${k}`]!.cues.filter((q) => q.do === 'player' || q.do === 'say' || q.do === 'flash')));
     expect(new Set(acts).size).toBe(kinds.length);
+  });
+});
+
+describe('cutaways', () => {
+  it('every reaction that cuts away names a cutaway that exists, in a scene that exists', () => {
+    for (const sc of scenes) for (const r of sc.reactions ?? []) if (r.then) {
+      const c = cutawayFor(r.then); expect(c, `${sc.id}: ${r.then}`).toBeDefined();
+      expect(scenes.some((x) => x.id === c!.scene), r.then).toBe(true);
+      expect(CINEMATICS[c!.cinematic], `${r.then} plays ${c!.cinematic}`).toBeDefined();
+    }
+  });
+  it('a cutaway sheet only uses props and people that stand in the place it plays, is short, and returns the camera', () => {
+    for (const [id, cw] of Object.entries(CUTAWAYS)) {
+      const sc = scenes.find((x) => x.id === cw.scene)!, c = CINEMATICS[cw.cinematic]!;
+      const refs = referencedIds(c);
+      for (const prop of refs.props) expect(sc.props.some((p) => p.id === prop), `${id}: prop ${prop} in ${sc.id}`).toBe(true);
+      for (const n of refs.npcs) expect(sc.npcs.some((x) => x.npc === n), `${id}: ${n} in ${sc.id}`).toBe(true);
+      expect(c.len ?? 0, id).toBeLessThan(11.5);
+      const cams = sortedCues(c).filter((q) => q.do === 'cam'); expect((cams[cams.length - 1] as { at: unknown }).at, id).toBe('player');
+    }
+  });
+  it('the baseball sequences cover hitting, a forecast, fielding, pitching and base running, driven by a real play', () => {
+    const plays = ['seq-roster', 'seq-ranking', 'seq-clean', 'seq-stats', 'seq-positions'].map((k) => (CINEMATICS[k]!.cues.find((q) => q.do === 'prop' && q.play?.startsWith('seq:')) as { play: string }).play.split(':')[1]);
+    expect(new Set(plays).size).toBe(5);
   });
 });

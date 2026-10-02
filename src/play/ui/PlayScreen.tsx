@@ -39,6 +39,7 @@ import { nextWaypoint, objectiveFor, type Objective } from '../logic/objective';
 import { scenes } from '../../content/play/scenes';
 import { IDLE_CINE, type CineState } from '../engine/director';
 import { cinematicFor } from '../../content/play/cinematics';
+import { cutawayFor } from '../../content/play/cutaways';
 import type { PanelTab } from '../../app/components/Hud';
 import { DailyOverlay } from './DailyOverlay';
 import { ManualOverlay } from './ManualOverlay';
@@ -118,6 +119,10 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const [reacting, setReacting] = useState(false);
   const trainPending = useRef(false);
+  /** A cutaway waiting to play after the reaction's own cinematic, and the place to return to once it ends. */
+  const thenRef = useRef<string | null>(null);
+  const cutRef = useRef<{ scene: string; x: number; z: number; ry: number } | null>(null);
+  const [curtain, setCurtain] = useState(false);
   const reactingRef = useRef(false);
   const batch = useRef<import('../../game/events').GameEvent[]>([]);
   const batchTimer = useRef(0);
@@ -145,13 +150,13 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     captionTimer.current = window.setTimeout(() => setCaption(''), 7000);
   }, []);
 
-  const travel = useCallback((to: string, spawn?: string) => {
+  const travel = useCallback((to: string, spawn?: string | { x: number; z: number; ry: number }) => {
     const stage = stageRef.current, def = getScene(to);
     if (!stage || !def) return;
     if (stopDrive.current) { stopDrive.current = null; setDriving(false); setHud(null); }
     stage.load(def, spawn ?? 'default');
     const st = getStore();
-    const sp = def.spawns[spawn ?? 'default'] ?? def.spawns.default ?? Object.values(def.spawns)[0]!;
+    const sp = typeof spawn === 'object' ? spawn : def.spawns[spawn ?? 'default'] ?? def.spawns.default ?? Object.values(def.spawns)[0]!;
     st.apply(enterScene(st.save, def.id, sp), { silent: true });
     setSceneId(def.id); setPrompt(null);
   }, []);
@@ -181,6 +186,20 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           onCinematic: setCine,
           onGuide: (g) => setGuide((old) => (g && old && Math.abs(old.dist - g.dist) < 1 && Math.abs(old.bearing - g.bearing) < 0.05 && old.label === g.label ? old : g)),
           cinematic: cinematicFor,
+          lapSection: (from, to, done) => {
+            const st = getStore(), has = (k: string) => hasEffect(st.save, `garage.car:${k}`);
+            const flags = { tyres: has('tyres'), brakes: has('brakes'), fuel: has('fuel'), aero: has('aero') };
+            let stop = () => undefined as void, cancelled = false;
+            void import('../engine/demoLap').then(({ startDemoLap }) => {
+              const stg = stageRef.current; if (!stg || cancelled) { done(null); return; }
+              const parked = stg.dyn('paddock-car')?.object; if (parked) parked.visible = false;
+              stop = startDemoLap(stg, setupFrom(flags), {
+                states: Object.entries(flags).filter(([, v]) => v).map(([k]) => k),
+                onEnd: (r) => { if (parked) parked.visible = true; done(r.cancelled ? null : r.ms); },
+              }, { from, to, embedded: true });
+            });
+            return () => { cancelled = true; stop(); };
+          },
           onAction: (n) => { if (n === 'map') interactPanel('map'); if (n === 'manual') setManual((m) => !m); },
           playerLook: playerLook(s.player?.avatar ?? 'spellwright'),
           quality: s.play.settings.quality,
@@ -239,6 +258,30 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     });
     return off;
   }, []);
+  const pause = (ms: number) => new Promise<void>((res) => window.setTimeout(res, stageRef.current?.reduced ? 0 : ms));
+  /** Cut away to another place to show what the result means there, under a quick fade; the way back is remembered. */
+  async function startCutaway(): Promise<void> {
+    const id = thenRef.current, stage = stageRef.current; thenRef.current = null;
+    const c = id ? cutawayFor(id) : undefined;
+    if (!c || !stage || !sceneId) { endReaction(); return; }
+    cutRef.current = { scene: sceneId, x: stage.body.x, z: stage.body.z, ry: stage.body.ry };
+    setCurtain(true); await pause(320);
+    travel(c.scene, c.spawn);
+    stage.setPlayerVisible(!!c.player);
+    sawCine.current = false;
+    if (!stage.playCinematic(c.cinematic)) { await endCutaway(); return; }
+    await pause(120); setCurtain(false);
+  }
+  /** The sequence is over (or skipped): fade, put the player back exactly where they stood, hand the lesson back. */
+  async function endCutaway(): Promise<void> {
+    const back = cutRef.current, stage = stageRef.current; cutRef.current = null;
+    if (!back || !stage) { endReaction(); return; }
+    setCurtain(true); await pause(320);
+    travel(back.scene, { x: back.x, z: back.z, ry: back.ry });
+    stage.setPlayerVisible(true);
+    await pause(120); setCurtain(false);
+    endReaction();
+  }
   // the terminal has stepped aside: play what happened, then give the lesson back
   useEffect(() => {
     if (!reacting) return;
@@ -246,15 +289,18 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     if (!s || !evs) { endReaction(); return; }
     reactRun.current = null;
     const r = s.react(evs);
-    if (!r.cinematic && !r.quick) { endReaction(); return; }
-    const t = window.setTimeout(endReaction, r.cinematic ? 40000 : 3200); // never leave the player stuck behind a hidden lesson
+    thenRef.current = r.then ?? null;
+    if (!r.cinematic && !r.quick && !r.then) { endReaction(); return; }
+    if (r.then && !r.cinematic) { void startCutaway(); return; }
+    const t = window.setTimeout(endReaction, r.cinematic || r.then ? 40000 : 3200); // never leave the player stuck behind a hidden lesson
     const idle = r.cinematic ? window.setTimeout(() => { if (!sawCine.current) endReaction(); }, 2500) : 0;
     return () => { clearTimeout(t); clearTimeout(idle); };
   }, [reacting, endReaction]);
   useEffect(() => {
     if (!cine.active && trainPending.current) { const t = window.setTimeout(() => { if (trainPending.current) { trainPending.current = false; setTraining(true); } }, 350); return () => clearTimeout(t); }
     if (cine.active) sawCine.current = true;
-    else if (reactingRef.current && sawCine.current) { const t = window.setTimeout(endReaction, 650); return () => clearTimeout(t); }
+    else if (cutRef.current && sawCine.current) { const t = window.setTimeout(() => void endCutaway(), 500); return () => clearTimeout(t); }
+    else if (reactingRef.current && sawCine.current) { const t = window.setTimeout(() => { if (thenRef.current) void startCutaway(); else endReaction(); }, 650); return () => clearTimeout(t); }
   }, [cine.active, endReaction]);
   // any save change (a quest accepted, a lesson done) refreshes what the world offers
   useEffect(() => { stageRef.current?.refresh(); }, [save]);
@@ -432,6 +478,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           {!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !driving && !boss && !finale && !daily && !manual && !welcome && <Prompt it={prompt} />}
           {driving ? <DriveHud hud={hud} par={par.current} onExit={() => stopDrive.current?.()} /> : showControls ? <Controls /> : null}
           <CinematicOverlay cine={cine} />
+          <div class={`play-curtain ${curtain ? 'on' : ''}`} aria-hidden="true" />
           <GameHud onPanel={onPanel} onMap={() => setMapOpen(true)} onManual={() => setManual(true)} onMenu={() => setPaused(true)} />
           {locked && !touch && <div class="play-pushhint" aria-hidden="true">▲ push the mouse up for the menu</div>}
           {!locked && !revealed && !overlayOpen.current && !touch && <div class="play-lockhint pill" data-testid="play-lockhint">Click or press a key to look around with the mouse · Esc to release it</div>}
