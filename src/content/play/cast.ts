@@ -85,6 +85,33 @@ const HUB: Npc3D[] = [
       { lines: ['Welcome to Bytehaven! Four worlds and a mountain. Robotics to the west, the Lanternhollow magic academy to the north, Harborview Park to the east, the Redline Raceway to the south.', 'There is no right first. Some doors ask you to have shown a skill before they open, and they will say exactly which one. Nothing here gives you answers; everything here rewards working things out.', 'Two tips: a glowing diamond above someone means they have work for you, and if something goes wrong, the Simulation Room in the Robotics Academy is where you train.'] },
     ],
   },
+  {
+    id: 'tamsin', icon: '📦', name: 'Courier Tam', role: 'Courier between the districts',
+    personality: 'Quick, friendly, always mid-delivery. Knows every road and what each district is short of.',
+    look: { outfit: 'tech', accessory: 'satchel', hairStyle: 'short', body: 0xe07a3f, head: 0xc99267, accent: 0xffd166, hair: 0x1f1a1a, hat: 'cap', legs: 0x2a2f45 },
+    dialogue: [
+      { when: { met: 'tamsin' }, lines: ['Parcels for the raceway, parcels for the robot academy. Nobody ever sends anything to the mountain.'] },
+      { lines: ['Oh! Mind the lane, I am carrying a rack of sensor boards to Robotics. West gate is the quick way, east is the long way round.'] },
+    ],
+  },
+  {
+    id: 'vera', icon: '🗺️', name: 'Cartographer Vera', role: 'Keeps the Bytehaven map',
+    personality: 'Careful and dry. Redraws the map every time somebody finds a new road.',
+    look: { outfit: 'coat', accessory: 'lanyard', hairStyle: 'bun', body: 0x3f6fb0, head: 0xf2c9a0, accent: 0xe9d8a6, hair: 0x5a3a22, hat: 'none', legs: 0x232a42 },
+    dialogue: [
+      { when: { met: 'vera' }, lines: ['The board shows where you have been and what you have shown. Roads you have not tried are drawn in pencil, on purpose.'] },
+      { lines: ['I update the map board by hand. Do not tell the others, but I like the pencil roads best: they are the ones nobody has walked yet.'] },
+    ],
+  },
+  {
+    id: 'otto', icon: '🔧', name: 'Technician Otto', role: 'Keeps the Bytehaven core running',
+    personality: 'Gruff, gentle with machines. Talks to the core like an old dog.',
+    look: { outfit: 'overalls', accessory: 'toolbelt', hairStyle: 'bald', body: 0x2f9e8f, head: 0xd9a877, accent: 0xffd166, hair: 0x2a1a12, hat: 'hardhat', build: 'broad' },
+    dialogue: [
+      { when: { met: 'otto' }, lines: ['Those rings are not for show. They keep time for every district. If one of them lags, so does the raceway timing board.'] },
+      { lines: ['That is the Bytehaven core. Everything you build in the four districts is wired back to it somehow. Do not lean on it, it hums.'] },
+    ],
+  },
 ];
 
 export const cast: Npc3D[] = [...ROBOTICS, ...HUB];
@@ -196,7 +223,7 @@ cast.push(...SUMMIT);
 /** Idle manner by person: the same few gestures for everybody made the place feel staged. */
 const IDLES: Record<string, NonNullable<Npc3D['idles']>> = {
   juno: ['think', 'nod', 'point'], rowan: ['stretch', 'shrug', 'nod'], 'ori-floor': ['stretch', 'lift', 'nod'], 'sana-sim': ['think', 'nod', 'point'], kip: ['wave', 'nod', 'shrug'],
-  pip: ['wave', 'point', 'cheer'], teselle: ['think', 'nod', 'bow'], bram: ['think', 'point', 'nod'], nim: ['shrug', 'stretch', 'wave'],
+  pip: ['wave', 'point', 'cheer'], tamsin: ['stretch', 'nod', 'shrug'], vera: ['think', 'point', 'nod'], otto: ['nod', 'shrug', 'stretch'], teselle: ['think', 'nod', 'bow'], bram: ['think', 'point', 'nod'], nim: ['shrug', 'stretch', 'wave'],
   reyes: ['salute', 'stretch', 'nod'], dara: ['think', 'point', 'shrug'], marisol: ['stretch', 'point', 'nod'], aurel: ['nod', 'think', 'bow'],
 };
 for (const n of cast) n.idles = IDLES[n.id];

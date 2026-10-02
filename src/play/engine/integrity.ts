@@ -11,7 +11,7 @@ import { PLAYER_RADIUS } from '../logic/movement';
 export interface MeshIssue { scene: string; kind: string; what: string }
 
 /** Flat things (floors, glow strips, decals) and things that are not objects in the room. */
-const FLAT = new Set(['floor', 'floorMetal', 'floorEmblem', 'ground', 'glowstrip', 'hazardstrip', 'void', 'pond', 'circuit', 'peak', 'mountain', 'dome', 'team']);
+const FLAT = new Set(['floor', 'floorMetal', 'floorEmblem', 'ground', 'hubfloor', 'hubskyline', 'glowstrip', 'hazardstrip', 'void', 'pond', 'circuit', 'peak', 'mountain', 'dome', 'team']);
 /** Things hung from a ceiling or fixed to a wall: not expected to touch the ground. */
 const HUNG = new Set(['toolrack', 'bolt', 'car', 'runes', 'lamparm', 'monitorwall', 'warnlight', 'pipe', 'cable', 'sign', 'screen', 'statusScreen', 'banner', 'drone', 'hologram', 'beacon', 'flags', 'bunting', 'chandelier', 'lantern']);
 /** Things a player is meant to walk through or over. */

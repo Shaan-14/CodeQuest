@@ -66,5 +66,6 @@ import { academyBuilders } from './builders.academy';
 import { ballparkBuilders } from './builders.ballpark';
 import { racingBuilders } from './builders.racing';
 import { summitBuilders } from './builders.summit';
+import { hubBuilders } from './builders.hub';
 
-export const builders: Record<string, Builder> = { ...coreBuilders, ...roboticsBuilders, ...boltBuilders, ...industrialBuilders, ...academyBuilders, ...ballparkBuilders, ...racingBuilders, ...summitBuilders };
+export const builders: Record<string, Builder> = { ...coreBuilders, ...roboticsBuilders, ...boltBuilders, ...industrialBuilders, ...academyBuilders, ...ballparkBuilders, ...racingBuilders, ...summitBuilders, ...hubBuilders };

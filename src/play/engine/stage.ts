@@ -24,7 +24,7 @@ import { Audio } from './audio';
 import { builders, type BuildCtx, type Dyn } from './builders';
 import { Fx } from './fx';
 import { Input } from './input';
-import { createRig, type Rig } from './rig';
+import { createRig, type OneShot, type Rig } from './rig';
 import { Tweens } from './tween';
 import { Director, type CineState } from './director';
 import { Guide } from './guide';
@@ -63,7 +63,7 @@ export interface StageEnv {
   reducedMotion: boolean;
 }
 
-export interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number; /** A cinematic sends the NPC somewhere / turns it toward something. */ goal?: { x: number; z: number }; faceTarget?: { x: number; z: number }; activity?: 'work' | 'think'; greeted?: boolean; idleIn?: number }
+export interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number; /** A cinematic sends the NPC somewhere / turns it toward something. */ goal?: { x: number; z: number }; faceTarget?: { x: number; z: number }; activity?: OneShot; greeted?: boolean; idleIn?: number }
 
 /** Props that are flat or fixed to walls: they never block the view, so they are never hidden. */
 /** Wall-mounted things: hidden when the camera is behind them AND outside the room (like the wall itself), so they never fill the screen. */
@@ -288,6 +288,8 @@ export class Stage {
       if (built.tick) this.ticks.push(built.tick);
       if (p.id) this.propPos.set(p.id, { x: p.x, y: (p.y ?? 0) + 1, z: p.z });
       if (p.kind === 'tree' || p.kind === 'glowtree') crowns.push(new Box3().setFromObject(built.object)); // the camera keeps out of a tree's whole crown, not just its trunk
+      // a gate's lintel and canopy: the camera keeps out of the span, so it never ends up inside the entrance structure
+      if (p.kind === 'gatehouse') { const b = new Box3().setFromObject(built.object); b.min.y = Math.max(0, Number(p.p?.h ?? 4.4) - 0.2); crowns.push(b); }
       if (MOUNTED.has(p.kind)) { const ry = p.ry ?? 0; this.mounted.push({ obj: built.object, nx: Math.sin(ry), nz: Math.cos(ry), px: p.x, pz: p.z }); }
       if (p.kind === 'wall') { const ry = p.ry ?? 0; const n = { x: Math.sin(ry), z: Math.cos(ry) }; const inside = Math.sign(n.x * (cx - p.x) + n.z * (cz - p.z)) || 1; this.walls.push({ obj: built.object, nx: n.x, nz: n.z, px: p.x, pz: p.z, inside }); }
     }
@@ -346,7 +348,7 @@ export class Stage {
   refresh(): void {
     const def = this.def; if (!def) return;
     const save = this.env.getSave();
-    const all: Interactable[] = [...def.interactables, ...def.exits.map((e): Interactable => ({ id: `exit:${e.id}`, verb: 'Enter', label: e.label, x: e.x, z: e.z, range: 1.9, action: { type: 'exit', to: e.to, spawn: e.spawn } }))];
+    const all: Interactable[] = [...def.interactables.map((i) => ({ ...i })), ...def.exits.map((e): Interactable => ({ id: `exit:${e.id}`, verb: 'Enter', label: e.label, x: e.x, z: e.z, range: 1.9, action: { type: 'exit', to: e.to, spawn: e.spawn } }))];
     this.active = all.filter((i) => holds(save, i.when));
     this.markers = markersAt(this.waypoint, this.active);
     const want = new Set(this.markers.map((m) => m.id));
@@ -626,6 +628,8 @@ export class Stage {
     // people do not walk through scenery or each other: they are pushed out of anything that blocks, like the player
     if (moving) for (const c of this.colliders) { if (this.npcColliders.has(c)) continue; [n.x, n.z] = pushOut(n.x, n.z, 0.35, c); }
     n.collider.x = n.x; n.collider.z = n.z;
+    // someone who walks about is talked to where they are, not where they started
+    if (n.patrol) for (const it of this.active) if (it.action.type === 'talk' && it.action.npc === n.npc.id) { it.x = n.x; it.z = n.z; }
     n.rig.group.position.set(n.x, 0, n.z); n.rig.setFacing(n.ry);
     n.rig.update(dt, moving ? 'walk' : 'idle', moving ? (n.goal ? 1.7 : 1.0) : 0);
     if (!this.controlLocked) { if (d < 6) n.rig.lookAt(this.body.x, this.body.z); else n.rig.lookAt(null); }

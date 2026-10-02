@@ -1,4 +1,4 @@
-import type { SceneDef } from '../../../play/logic/sceneTypes';
+import type { Prop, SceneDef } from '../../../play/logic/sceneTypes';
 import { C } from './kit';
 
 /** BYTEHAVEN PLAZA: the hub. Four gates lead to the four worlds; the Summit trail climbs from the north-east. Every foundation world is open from the first minute. */
@@ -6,29 +6,46 @@ export const plaza: SceneDef = {
   id: 'plaza', world: 'hub', title: 'Bytehaven Plaza', blurb: 'Four gates, four worlds. Begin anywhere; leave whenever you like.',
   bounds: { minX: -24, maxX: 24, minZ: -20, maxZ: 20 },
   spawns: { default: { x: 0, z: 10, ry: 0 }, 'from-robotics': { x: -16, z: 0, ry: -Math.PI / 2 }, 'from-academy': { x: 0, z: -12, ry: Math.PI }, 'from-ballpark': { x: 16, z: 0, ry: Math.PI / 2 }, 'from-racing': { x: 0, z: 14, ry: 0 }, 'from-summit': { x: 13, z: -11, ry: Math.PI } },
-  look: { sky: 0x7fb4ff, fog: 0xbcd6ff, fogNear: 40, fogFar: 100, ground: 0x5c8f4e, ambient: 0.5, sun: 1.25, sunDir: [0.5, 1, 0.3] },
+  // dusk: a deep blue sky and warm low sun, with one coloured light at each gate, so the four ways read as four places and the core glows
+  look: { sky: 0x1a2550, fog: 0x34447a, fogNear: 34, fogFar: 95, ground: 0x2c5a40, ambient: 0.5, sun: 0.85, sunDir: [0.35, 0.7, 0.5], lights: [{ x: -17, y: 3.4, z: 0, color: 0x7dffb3, intensity: 11, dist: 13 }, { x: 0, y: 3.4, z: -13, color: 0xbd93f9, intensity: 11, dist: 13 }, { x: 17, y: 3.4, z: 0, color: 0x4fd1ff, intensity: 11, dist: 13 }, { x: 0, y: 3.4, z: 13, color: 0xff5d73, intensity: 11, dist: 13 }] },
   ambience: 'wind',
   zones: [{ id: 'robotics', label: 'Robotics Academy', x: -18, z: 0, w: 6, d: 8 }, { id: 'academy', label: 'Lanternhollow Academy', x: 0, z: -15, w: 8, d: 6 }, { id: 'ballpark', label: 'Harborview Park', x: 18, z: 0, w: 6, d: 8 }, { id: 'racing', label: 'Redline Raceway', x: 0, z: 16, w: 8, d: 6 }],
   props: [
-    { kind: 'ground', x: 0, z: 0, p: { w: 40, d: 32, color: 0xb9b2a0, lift: 0.01 } },
-    { kind: 'ground', x: 0, z: 0, p: { w: 6, d: 40, color: 0xcbc3ae, lift: 0.015 } }, { kind: 'ground', x: 0, z: 0, p: { w: 48, d: 6, color: 0xcbc3ae, lift: 0.015 } },
-    { kind: 'fountain', x: 0, z: 0, solid: { w: 3.4, d: 3.4 } },
-    { kind: 'archway', x: -21.5, z: 0, ry: Math.PI / 2, p: { w: 4.4, h: 4.4, text: 'ROBOTICS ACADEMY', color: C.green } },
-    { kind: 'archway', x: 0, z: -17.5, p: { w: 4.4, h: 4.4, text: 'LANTERNHOLLOW ACADEMY', color: 0xbd93f9 } },
-    { kind: 'archway', x: 21.5, z: 0, ry: -Math.PI / 2, p: { w: 4.4, h: 4.4, text: 'HARBORVIEW PARK', color: 0x4fd1ff } },
-    { kind: 'archway', x: 0, z: 17.5, ry: Math.PI, p: { w: 4.4, h: 4.4, text: 'REDLINE RACEWAY', color: 0xff5d73 } },
+    // the floor shows the lanes; the core is the landmark; four gatehouses say what lies through each gate
+    { kind: 'hubskyline', x: 0, z: 0, p: { r: 46 } },
+    { kind: 'hubfloor', x: 0, z: 0, p: { w: 46, d: 38 } },
+    { kind: 'hubdais', x: 0, z: 0 }, { kind: 'hubcore', x: 0, z: 0, p: { text: 'BYTEHAVEN' } },
+    { kind: 'gatehouse', x: -21.5, z: 0, ry: Math.PI / 2, p: { w: 4.4, h: 4.4, text: 'ROBOTICS ACADEMY', sub: 'PYTHON · MANUFACTURING', color: 0x7dffb3, accent: 0xff9f1c, theme: 'robotics' } },
+    { kind: 'gatehouse', x: 0, z: -17.5, p: { w: 4.4, h: 4.4, text: 'LANTERNHOLLOW', sub: 'HTML · CSS · JAVASCRIPT', color: 0xbd93f9, accent: 0x4fd1ff, theme: 'web' } },
+    { kind: 'gatehouse', x: 21.5, z: 0, ry: -Math.PI / 2, p: { w: 4.4, h: 4.4, text: 'HARBORVIEW PARK', sub: 'SQL · DATA · ANALYTICS', color: 0x4fd1ff, accent: 0xffd166, theme: 'ballpark' } },
+    { kind: 'gatehouse', x: 0, z: 17.5, ry: Math.PI, p: { w: 4.4, h: 4.4, text: 'REDLINE RACEWAY', sub: 'SPREADSHEETS · MODELS', color: 0xff5d73, accent: 0xf5f5f5, theme: 'racing' } },
     { kind: 'archway', x: 16.5, z: -14.5, ry: Math.PI, p: { w: 3.4, h: 3.6, text: 'SUMMIT TRAIL', color: C.yellow } },
-    { kind: 'board', x: 5, z: 5, id: 'map-board', solid: { w: 2.6, d: 0.3 } },
+    // boards, the shop and information
+    { kind: 'hubboard', x: 5, z: 5, id: 'map-board', p: { text: 'WORLD MAP|WHERE YOU HAVE BEEN', color: 0x4fd1ff }, solid: { w: 2.6, d: 0.3 } },
+    { kind: 'hubboard', x: -5, z: 6.5, id: 'daily-board', p: { text: 'DISPATCH|ONE DAILY PROBLEM', color: 0xffd166 }, solid: { w: 2.6, d: 0.3 } },
     { kind: 'kiosk', x: -10, z: 7.5, ry: Math.PI / 2, id: 'shop-kiosk', p: { text: 'BOLT & BARREL|GEAR FOR COINS', color: 0xffd166 }, solid: { w: 1.0, d: 0.8 } },
-    { kind: 'board', x: -5, z: 6.5, id: 'daily-board', solid: { w: 2.6, d: 0.3 } },
-    { kind: 'lamppost', x: -5, z: -5 }, { kind: 'lamppost', x: 5, z: -5 }, { kind: 'lamppost', x: -5, z: 5 }, { kind: 'lamppost', x: 5, z: 8 },
-    { kind: 'bench', x: -8, z: 4, solid: { w: 1.6, d: 0.5 } }, { kind: 'bench', x: 8, z: -4, solid: { w: 1.6, d: 0.5 } },
-    ...[[-12, -10], [-14, 10], [12, 10], [14, 12], [-10, -14], [10, -14], [-18, 12], [18, -10], [-18, -12], [18, 12], [-20, 4], [20, -4]].map(([x, z]) => ({ kind: 'tree', x: x!, z: z!, p: { scale: 1 + ((x! + z!) % 3) * 0.12 }, solid: { w: 0.6, d: 0.6 } })),
+    { kind: 'datapanel', x: -8.5, z: -5.5, ry: 0.6, p: { text: 'ROBOTICS|WEST GATE|PYTHON', color: 0x7dffb3 }, solid: { w: 0.9, d: 0.5 } },
+    { kind: 'datapanel', x: 8.5, z: -5.5, ry: -0.6, p: { text: 'HARBORVIEW|EAST GATE|SQL', color: 0x4fd1ff }, solid: { w: 0.9, d: 0.5 } },
+    // lamps along the lanes, in each district's colour
+    ...([[-10, 3.4, 0x7dffb3], [-16, -3.4, 0x7dffb3], [10, -3.4, 0x4fd1ff], [16, 3.4, 0x4fd1ff], [3.4, 10, 0xff5d73], [-3.4, 15, 0xff5d73], [-3.4, -10, 0xbd93f9], [3.4, -14, 0xbd93f9]] as [number, number, number][]).map(([x, z, color]): Prop => ({ kind: 'hublamp', x, z, p: { color }, solid: { w: 0.35, d: 0.35 } })),
+    // seating round the core and by the lanes, planters and trees
+    { kind: 'bench', x: -6.5, z: -6.5, ry: Math.PI / 4, solid: { w: 1.6, d: 0.5 } }, { kind: 'bench', x: 6.5, z: 6.5, ry: Math.PI + Math.PI / 4, solid: { w: 1.6, d: 0.5 } },
+    { kind: 'bench', x: -6.5, z: 6.5, ry: -Math.PI / 4 + Math.PI, solid: { w: 1.6, d: 0.5 } }, { kind: 'bench', x: 6.5, z: -6.5, ry: -Math.PI / 4, solid: { w: 1.6, d: 0.5 } },
+    { kind: 'planter', x: -12, z: -5.4, solid: { w: 1.4, d: 0.7 } }, { kind: 'planter', x: 12, z: 5.4, solid: { w: 1.4, d: 0.7 } },
+    ...[[-12, -10], [-14, 10], [12, 10], [14, 12], [-10, -14], [10, -14], [-18, 12], [18, -10]].map(([x, z]) => ({ kind: 'tree', x: x!, z: z!, p: { scale: 1 + ((x! + z!) % 3) * 0.12 }, solid: { w: 0.6, d: 0.6 } })),
     ...[[-9, 14], [9, -17], [-19, -6], [19, 6]].map(([x, z]) => ({ kind: 'bush', x: x!, z: z!, p: { w: 1.4, h: 0.9 } })),
   ],
-  npcs: [{ npc: 'pip', x: 3, z: 3.5, ry: 0.4, patrol: [{ x: 3, z: 3.5 }, { x: 3, z: 8 }, { x: 8, z: 8 }, { x: 8, z: 3.5 }] }],
+  npcs: [
+    { npc: 'pip', x: 3, z: 6.5, ry: 0.4, patrol: [{ x: 3, z: 6.5 }, { x: 7, z: 4 }, { x: 7, z: -3 }, { x: 3, z: -6.5 }, { x: -3, z: -7 }, { x: -7, z: 0 }, { x: -3, z: 6.5 }] },
+    { npc: 'tamsin', x: -12, z: 2, ry: -Math.PI / 2, patrol: [{ x: -12, z: 2 }, { x: -6.5, z: 0.5 }, { x: 0, z: 8.5 }, { x: 8, z: 1.5 }, { x: 14, z: -1.5 }, { x: 8, z: -2 }, { x: 0, z: -9 }, { x: -8, z: -1.5 }] },
+    { npc: 'vera', x: 5, z: 3.4, ry: Math.PI, activity: 'point' },
+    { npc: 'otto', x: -5.9, z: -2.6, ry: -1.99, activity: 'work' },
+  ],
   interactables: [
-    { id: 'talk-pip', verb: 'Talk', label: 'Pip the guide', x: 3, z: 3.5, action: { type: 'talk', npc: 'pip' } },
+    { id: 'talk-pip', verb: 'Talk', label: 'Pip the guide', x: 3, z: 6.5, action: { type: 'talk', npc: 'pip' } },
+    { id: 'talk-tamsin', verb: 'Talk', label: 'Courier Tam', x: -12, z: 2, action: { type: 'talk', npc: 'tamsin' } },
+    { id: 'talk-vera', verb: 'Talk', label: 'Cartographer Vera', x: 5, z: 3.4, action: { type: 'talk', npc: 'vera' } },
+    { id: 'talk-otto', verb: 'Talk', label: 'Technician Otto', x: -5.9, z: -2.6, action: { type: 'talk', npc: 'otto' } },
     { id: 'daily-board', verb: 'Read', label: 'the dispatch board', x: -5, z: 6.9, action: { type: 'panel', panel: 'daily' } },
     { id: 'map-board', verb: 'Read', label: 'the world map', x: 5, z: 3.9, action: { type: 'panel', panel: 'map' } },
     { id: 'shop-kiosk', verb: 'Browse', label: 'the Bolt & Barrel kiosk', x: -8.7, z: 7.5, action: { type: 'panel', panel: 'shop' } },

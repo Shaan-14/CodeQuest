@@ -62,7 +62,7 @@ export interface NpcPlacement {
   /** Walk a short loop between these points (idle life). Omitted NPCs stand and face the player when near. */
   patrol?: Vec2[];
   /** What they are busy doing while nobody talks to them (held until the player comes close). */
-  activity?: 'work' | 'think';
+  activity?: import('../engine/rig').OneShot;
 }
 
 export interface Exit {
