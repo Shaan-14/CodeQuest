@@ -152,7 +152,9 @@ export class Stage {
     this.scene.add(this.playerRig.group);
     this.playerRig.group.position.copy(pos); this.playerRig.group.visible = vis; this.playerRig.setFacing(face, true);
   }
-  setChase(heading: number | null): void { this.chase = heading; }
+  /** Follow a heading with the chase camera. `back` (0..1) is how much the car is reversing: the camera pulls back and rises a little so the way behind stays readable. */
+  setChase(heading: number | null, back = 0): void { this.chase = heading; this.chaseBack = back; }
+  private chaseBack = 0;
   /** Put the player on foot at a place (leaving a car). */
   placePlayer(x: number, z: number, ry: number): void { this.body.x = x; this.body.z = z; this.body.vx = 0; this.body.vz = 0; this.body.ry = ry; this.playerRig.group.position.set(x, 0, z); this.playerRig.setFacing(ry, true); }
   get buildCtx(): BuildCtx { return this.ctx; }
@@ -546,7 +548,7 @@ export class Stage {
     this.posClock += dt;
     if (this.posClock > 3 && this.def) { this.posClock = 0; this.env.onPosition(this.def.id, this.body.x, this.body.z, this.body.ry); }
 
-    if (this.chase !== null) { let d = this.chase - this.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; this.yaw += d * Math.min(1, dt * 2.6); this.pitch += (0.32 - this.pitch) * Math.min(1, dt * 2); this.dist += (9.5 - this.dist) * Math.min(1, dt * 2); }
+    if (this.chase !== null) { let d = this.chase - this.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; this.yaw += d * Math.min(1, dt * 2.6); this.pitch += (0.32 + 0.1 * this.chaseBack - this.pitch) * Math.min(1, dt * 2); this.dist += (9.5 + 3 * this.chaseBack - this.dist) * Math.min(1, dt * 2); }
     this.updateCamera(dt);
     this.renderer.render(this.scene, this.camera);
     inp.endFrame();

@@ -426,11 +426,13 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         t.apply(recordSeen(t.save, 'lap-done'));
         if (ms / 1000 <= par.current) t.apply(recordSeen(t.save, 'lap-par'));
         say(`Lap ${lap}: ${(ms / 1000).toFixed(1)} s${ms / 1000 <= par.current ? ' — under par!' : ` (par ${par.current.toFixed(1)} s)`}`);
+        const fmtT = (x: number) => `${Math.floor(x / 60000)}:${((x % 60000) / 1000).toFixed(1).padStart(4, '0')}`;
+        stageRef.current?.dyn('timing-board')?.play?.(`text:LAP TIMING|LAP ${lap}  ${fmtT(ms)}|PAR ${fmtT(par.current * 1000)}`);
       },
       onExit: () => { setDriving(false); setHud(null); stopDrive.current = null; say('You get out of the car. Walk to the garage door to go back inside.'); },
     }, p ? { x: p.x, z: p.z, heading: p.ry } : undefined);
     setDriving(true);
-    say('You climb in. W to accelerate, S to brake, A and D to steer. Drive through every gate to complete a lap.');
+    say('You climb in. W accelerates, S brakes and reverses, A and D steer. The timer starts when you cross the start line.');
   }
 
   function closeTalk(accepted: boolean): void {

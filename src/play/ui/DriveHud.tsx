@@ -10,9 +10,9 @@ export function DriveHud({ hud, par, onExit }: { hud: Hud | null; par: number; o
   return (
     <div class="play-drive" data-testid="drive-hud" aria-label="Driving display">
       <div class="play-race pill">
-        <span data-testid="drive-lap">Lap {(h?.lap ?? 0) + 1}</span><span data-testid="drive-time">{fmt(h?.lapTime ?? 0)}</span><span>Best {ms(h?.best ?? null)}</span><span>Par {fmt(par)}</span><span>Gate {h?.checkpoint ?? 1}/{h?.checkpoints ?? 6}</span>
+        <span data-testid="drive-lap">Lap {(h?.lap ?? 0) + 1}</span><span data-testid="drive-time" data-phase={h?.phase ?? 'waiting'}>{h?.phase === 'running' ? fmt(h.lapTime) : 'Cross the line'}</span><span>Best {ms(h?.best ?? null)}</span><span>Par {fmt(par)}</span><span>Gate {h?.checkpoint ?? 1}/{h?.checkpoints ?? 6}</span>
       </div>
-      <div class="play-hud-speed pill" aria-live="off"><span data-testid="drive-speed">{h?.kmh ?? 0}</span> km/h{h?.surface === 'grass' ? <div style={{ color: '#ffb347', fontSize: '.8rem' }}>off the track!</div> : null}{h?.sliding ? <div style={{ color: '#ff8c8c', fontSize: '.8rem' }}>sliding</div> : null}</div>
+      <div class="play-hud-speed pill" aria-live="off"><span data-testid="drive-speed">{h?.kmh ?? 0}</span> km/h{h?.reversing ? <span style={{ color: '#9fe8ff', fontSize: '.8rem' }} data-testid="drive-reverse"> · reverse</span> : null}{h?.surface === 'grass' ? <div style={{ color: '#ffb347', fontSize: '.8rem' }}>off the track!</div> : null}{h?.sliding ? <div style={{ color: '#ff8c8c', fontSize: '.8rem' }}>sliding</div> : null}</div>
       {s && (
         <div class="play-tracker pill" style={{ top: '60px', width: 'min(260px, 34%)' }}>
           <h3>Your setup</h3>

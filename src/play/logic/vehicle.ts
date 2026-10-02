@@ -33,10 +33,13 @@ export interface Car {
   /** True while the wheels are locked or sliding hard (for tyre smoke and sound). */
   sliding: boolean;
 }
-export interface Driving { throttle: number; brake: number; steer: number }
+/** `reverse` is the driver asking to go backwards (the S key): it brakes while the car is still rolling forward, and only once nearly stopped does it drive the car backwards. */
+export interface Driving { throttle: number; brake: number; steer: number; reverse?: number }
 
 const MAX_SPEED = 62; // m/s at top = 1
 const ACC = 15, BRAKE = 34, DRAG = 0.05, YAW = 1.9;
+/** Reverse is a slow, heavy gear: it takes a moment to get going and tops out well below a walking-pace corner. */
+const REV_ACC = 7.5, REV_TOP = 13, ROLL = 1.2;
 
 export const newCar = (x: number, z: number, heading: number): Car => ({ x, z, heading, vx: 0, vz: 0, steer: 0, sliding: false });
 export const speedOf = (c: Car): number => Math.hypot(c.vx, c.vz);
@@ -50,16 +53,21 @@ export function stepCar(c: Car, d: Driving, setup: Setup, cl: CentreLine, dt: nu
   const grass = pos.surface === 'grass';
   const top = MAX_SPEED * setup.top * (grass ? 0.55 : 1);
   // engine and brakes
-  if (d.throttle > 0) vf += ACC * setup.accel * d.throttle * Math.max(0, 1 - vf / top) * dt * 2.2;
+  if (d.throttle > 0) {
+    // rolling backwards: the engine brakes the car to a stop first, it does not snap into drive
+    if (vf < -ROLL) vf = Math.min(0, vf + BRAKE * (0.45 + 0.55 * setup.brake) * d.throttle * dt);
+    else vf += ACC * setup.accel * d.throttle * Math.max(0, 1 - vf / top) * dt * 2.2;
+  }
   let gripK = (4 + 9 * setup.grip) * (1 + setup.aero * Math.min(1, Math.abs(vf) / 40) * 0.6) * (grass ? 0.45 : 1);
   c.sliding = false;
   if (d.brake > 0) {
     const f = BRAKE * (0.45 + 0.55 * setup.brake) * d.brake;
     // weak brakes LOCK under hard braking: the wheels stop gripping sideways and the stopping distance grows
     if (d.brake > 0.75 && setup.brake < 0.8 && Math.abs(vf) > 12) { gripK *= 0.35; c.sliding = true; }
-    vf -= Math.sign(vf) * Math.min(Math.abs(vf), f * dt);
-    if (vf < 0 && d.throttle === 0 && d.brake > 0.9) vf = Math.max(vf - ACC * 0.4 * dt, -8); // reverse when stopped
+    if (vf > 0) vf -= Math.min(vf, f * dt); else if (!(d.reverse && d.throttle === 0)) vf += Math.min(-vf, f * dt);
   }
+  // reverse gear: only from (nearly) a standstill, with the existing acceleration feel, a low top speed, slower still on grass
+  if (d.reverse && d.reverse > 0 && d.throttle === 0 && vf <= ROLL) vf -= REV_ACC * Math.min(1, setup.accel) * d.reverse * Math.max(0, 1 - -vf / (REV_TOP * (grass ? 0.6 : 1))) * dt;
   vf -= vf * DRAG * dt * (grass ? 4 : 1) + (d.throttle === 0 && d.brake === 0 ? Math.sign(vf) * Math.min(Math.abs(vf), 2.5 * dt) : 0);
   // the engine and brakes act along the OLD heading; the world velocity is rebuilt from them
   c.vx = fx * vf + rx * vl; c.vz = fz * vf + rz * vl;

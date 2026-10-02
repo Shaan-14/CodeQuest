@@ -4,14 +4,15 @@
  */
 import type { Group } from 'three';
 import { pushOut } from '../logic/movement';
+import { newLapTimer, startLine, stepLapTimer } from '../logic/lapTimer';
 import { centreLine, checkpoints, locate, REDLINE, startGrid } from '../logic/track';
 import { newCar, speedOf, stepCar, type Car, type Setup } from '../logic/vehicle';
 import { builders } from './builders';
 import type { Input } from './input';
 import type { Stage } from './stage';
 
-export interface DriveHud { kmh: number; lap: number; lapTime: number; best: number | null; checkpoint: number; checkpoints: number; surface: 'asphalt' | 'kerb' | 'grass'; sliding: boolean; setup: Setup }
-export interface DriveHooks { onHud(h: DriveHud): void; onLap(ms: number, lap: number): void; onExit(): void; states: string[] }
+export interface DriveHud { kmh: number; /** True while the car is going backwards. */ reversing: boolean; /** `waiting`: the timer has not started, it starts when the start/finish line is crossed. */ phase: 'waiting' | 'running'; lap: number; lapTime: number; best: number | null; checkpoint: number; checkpoints: number; surface: 'asphalt' | 'kerb' | 'grass'; sliding: boolean; setup: Setup }
+export interface DriveHooks { onHud(h: DriveHud): void; onStart?(): void; onLap(ms: number, lap: number): void; onExit(): void; states: string[] }
 
 const CAR_RADIUS = 1.5;
 /** The car left standing where the player got out (one per stage; a new drive replaces it). */
@@ -30,7 +31,8 @@ export function startDrive(stage: Stage, setup: Setup, hooks: DriveHooks, at?: {
   for (const s of hooks.states) built.dyn?.setState(s, true);
   stage.setPlayerVisible(false);
   const car: Car = newCar(grid.x, grid.z, grid.heading);
-  let hint = locate(cl, car.x, car.z).i, next = 1, started = false, lapStart = 0, clock = 0, best: number | null = null, lap = 0, hudClock = 0, smoke = 0;
+  const timer = newLapTimer(), line = startLine(cl);
+  let hint = locate(cl, car.x, car.z).i, clock = 0, hudClock = 0, smoke = 0, backK = 0;
   const stop = () => {
     stage.audio.engine(null);
     stage.driver = null; stage.setChase(null); stage.setPlayerVisible(true);
@@ -42,11 +44,12 @@ export function startDrive(stage: Stage, setup: Setup, hooks: DriveHooks, at?: {
 
   stage.driver = (dt: number, input: Input) => {
     clock += dt;
-    const throttle = input.isDown('w', 'ArrowUp') ? 1 : 0, brake = input.isDown('s', 'ArrowDown') ? 1 : 0;
+    const throttle = input.isDown('w', 'ArrowUp') ? 1 : 0, brake = input.isDown('s', 'ArrowDown') ? 1 : 0, reverse = brake; // S brakes a moving car and, once it has nearly stopped, reverses it
+    const prev = { x: car.x, z: car.z };
     const steer = (input.isDown('d', 'ArrowRight') ? 1 : 0) - (input.isDown('a', 'ArrowLeft') ? 1 : 0);
     // fixed small steps: stable at any frame rate (a slow machine slows the picture, never the physics)
     const sub = Math.max(1, Math.ceil(dt / (1 / 60)));
-    for (let k = 0; k < sub; k++) stepCar(car, { throttle, brake, steer }, setup, cl, dt / sub, hint);
+    for (let k = 0; k < sub; k++) stepCar(car, { throttle, brake, steer, reverse }, setup, cl, dt / sub, hint);
     // barriers and walls: bounce, lose speed, sparks
     const bd = stage.sceneBounds;
     for (const c of stage.colliderList) {
@@ -60,28 +63,28 @@ export function startDrive(stage: Stage, setup: Setup, hooks: DriveHooks, at?: {
         if (hit > 8) { stage.audio.sfx('hit'); stage.fx.burst('sparks', car.x, 0.6, car.z, 12); }
       }
     }
-    if (bd) { car.x = Math.max(bd.minX + 2, Math.min(bd.maxX - 2, car.x)); car.z = Math.max(bd.minZ + 2, Math.min(bd.maxZ - 2, car.z)); }
+    if (bd) { // the edge of the world is a wall: the car stops against it instead of sliding along it at speed
+      const cx = Math.max(bd.minX + 2, Math.min(bd.maxX - 2, car.x)), cz = Math.max(bd.minZ + 2, Math.min(bd.maxZ - 2, car.z));
+      if (cx !== car.x) { car.vx = 0; car.x = cx; } if (cz !== car.z) { car.vz = 0; car.z = cz; }
+    }
     const here = locate(cl, car.x, car.z, hint); hint = here.i;
-    // checkpoints and laps
-    const n = cl.pts.length;
-    const near = (idx: number) => { const d = Math.abs(((here.i - idx + n * 1.5) % n) - n / 2); return d > n / 2 - 4; };
-    if (!started && near(0) && speedOf(car) > 1) { started = true; lapStart = clock; next = 1; }
-    else if (started && next < gate.length && near(gate[next]!) && here.off < cl.width) next++;
-    else if (started && next >= gate.length && near(0)) {
-      const ms = Math.round((clock - lapStart) * 1000); lap++; lapStart = clock; next = 1;
-      if (best === null || ms < best) best = ms;
-      stage.audio.sfx('success'); hooks.onLap(ms, lap);
+    // the lap timer: it waits until the car CROSSES the start/finish line, then runs until it crosses it again after every checkpoint
+    for (const e of stepLapTimer(timer, { line, gates: gate, n: cl.pts.length, prev, cur: { x: car.x, z: car.z }, here, width: cl.width, clock })) {
+      if (e.type === 'start') { stage.audio.sfx('chime'); hooks.onStart?.(); }
+      else if (e.type === 'lap') { stage.audio.sfx('success'); hooks.onLap(e.ms, e.lap); }
     }
     // look of the car
     obj.position.set(car.x, 0, car.z); obj.rotation.y = car.heading; obj.userData.spin = speedOf(car) / 0.46; built.tick?.(dt, clock);
     obj.rotation.z = -car.steer * Math.min(0.06, speedOf(car) * 0.002);
     // the player's body follows the car so the camera, prompts and the saved position are right
     stage.body.x = car.x; stage.body.z = car.z; stage.body.ry = car.heading;
-    stage.setChase(car.heading);
+    const along = car.vx * -Math.sin(car.heading) + car.vz * -Math.cos(car.heading), backing = along < -1.5;
+    backK += ((backing ? 1 : 0) - backK) * Math.min(1, dt * 3);
+    stage.setChase(car.heading, backK);
     if (car.sliding && speedOf(car) > 8) { smoke += dt; if (smoke > 0.05) { smoke = 0; stage.fx.burst('smoke', car.x - Math.sin(car.heading) * -1.4, 0.3, car.z - Math.cos(car.heading) * -1.4, 2, 0.4); } }
     stage.audio.engine(Math.min(1, speedOf(car) / 62));
     hudClock += dt;
-    if (hudClock > 0.1) { hudClock = 0; hooks.onHud({ kmh: Math.round(speedOf(car) * 3.6), lap, lapTime: started ? clock - lapStart : 0, best, checkpoint: Math.min(next, gate.length), checkpoints: gate.length, surface: here.surface, sliding: car.sliding, setup }); }
+    if (hudClock > 0.1) { hudClock = 0; hooks.onHud({ kmh: Math.round(speedOf(car) * 3.6), reversing: backing, phase: timer.phase, lap: timer.lap, lapTime: timer.phase === 'running' ? clock - timer.startedAt : 0, best: timer.best, checkpoint: Math.min(timer.next, gate.length), checkpoints: gate.length, surface: here.surface, sliding: car.sliding, setup }); }
     if (input.wasPressed('e', 'f') && speedOf(car) < 4) { parked.set(stage, obj); stop(); }
   };
   return () => { parked.set(stage, obj); stop(); };

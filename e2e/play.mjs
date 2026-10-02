@@ -573,12 +573,24 @@ async function main() {
       await interact(p, 'drive-car');
       await tid(p, 'drive-hud').waitFor();
       await p.waitForFunction(() => document.querySelector('[data-testid=drive-hud]')?.textContent?.includes('Grip 62%'), null, { timeout: 8000 }); // baseline grip is shown
+      // the timer waits at the grid: it starts when the start/finish line is crossed, not when the car moves or the scene opens
+      eq(await tid(p, 'drive-time').getAttribute('data-phase'), 'waiting', 'the timer is waiting on the grid');
+      await p.waitForTimeout(1500);
+      eq(await tid(p, 'drive-time').getAttribute('data-phase'), 'waiting', 'time passing does not start it');
       await p.keyboard.down('w'); await p.waitForTimeout(2500);
       const v1 = parseInt(await tid(p, 'drive-speed').innerText(), 10);
       assert(v1 > 40, `W accelerates the car: ${v1} km/h`);
+      eq(await tid(p, 'drive-time').getAttribute('data-phase'), 'running', 'crossing the line started the timer');
       await p.keyboard.down('d'); await p.waitForTimeout(600); await p.keyboard.up('d'); await p.keyboard.up('w');
-      await p.keyboard.down('s'); await p.waitForTimeout(3500); await p.keyboard.up('s');
-      eq(parseInt(await tid(p, 'drive-speed').innerText(), 10), 0, 'S brakes the car to a stop');
+      // S brakes first; only once the car has nearly stopped does it go backwards
+      await p.keyboard.down('s'); await p.waitForTimeout(700);
+      assert(parseInt(await tid(p, 'drive-speed').innerText(), 10) > 5 && (await tid(p, 'drive-reverse').count()) === 0, 'S slows the car before it reverses');
+      await p.waitForSelector('[data-testid=drive-reverse]', { timeout: 20000 });
+      await p.waitForTimeout(1200);
+      const vr = parseInt(await tid(p, 'drive-speed').innerText(), 10);
+      assert(vr > 3 && vr < 60, `the car reverses at a modest speed: ${vr} km/h`);
+      await p.keyboard.down('a'); await p.waitForTimeout(500); await p.keyboard.up('a'); // steering while reversing
+      await p.keyboard.up('s');
       await p.screenshot({ path: SHOTS + 'play-11-driving.png' });
       await p.keyboard.press('e');
       await tid(p, 'drive-hud').waitFor({ state: 'detached' });

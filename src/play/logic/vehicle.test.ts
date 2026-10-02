@@ -58,3 +58,33 @@ describe('the car feels like its setup', () => {
     expect(aiLap(TUNED, cl).ok).toBe(true);
   });
 });
+
+describe('reverse', () => {
+  const cl2 = centreLine(REDLINE), g = startGrid(cl2, 14);
+  const run = (car: ReturnType<typeof newCar>, d: { throttle: number; brake: number; steer: number; reverse?: number }, secs: number, setup = TUNED) => { for (let i = 0; i < secs * 60; i++) stepCar(car, d, setup, cl2, 1 / 60); return car; };
+  const along = (c: ReturnType<typeof newCar>) => c.vx * -Math.sin(c.heading) + c.vz * -Math.cos(c.heading);
+  it('from a standstill the car goes backwards, gradually, to a modest top speed', () => {
+    const c = newCar(g.x, g.z, g.heading);
+    run(c, { throttle: 0, brake: 1, steer: 0, reverse: 1 }, 0.3); expect(along(c)).toBeLessThan(-0.5); expect(along(c)).toBeGreaterThan(-6); // weighted, not instant
+    run(c, { throttle: 0, brake: 1, steer: 0, reverse: 1 }, 6); expect(along(c)).toBeLessThan(-8); expect(along(c)).toBeGreaterThan(-14);
+  });
+  it('at speed the reverse key BRAKES first, and only reverses once nearly stopped', () => {
+    const c = newCar(g.x, g.z, g.heading); run(c, { throttle: 1, brake: 0, steer: 0 }, 4);
+    const v0 = along(c); expect(v0).toBeGreaterThan(25);
+    run(c, { throttle: 0, brake: 1, steer: 0, reverse: 1 }, 0.4); expect(along(c)).toBeGreaterThan(0); expect(along(c)).toBeLessThan(v0);
+    run(c, { throttle: 0, brake: 1, steer: 0, reverse: 1 }, 6); expect(along(c)).toBeLessThan(0); // the stop then the reverse
+  });
+  it('the throttle while rolling backwards brakes before it drives forwards (no snap)', () => {
+    const c = newCar(g.x, g.z, g.heading); run(c, { throttle: 0, brake: 1, steer: 0, reverse: 1 }, 3);
+    const back = along(c); expect(back).toBeLessThan(-5);
+    run(c, { throttle: 1, brake: 0, steer: 0 }, 0.1); expect(along(c)).toBeLessThan(0); expect(along(c)).toBeGreaterThan(back);
+  });
+  it('steering while reversing turns the car the way a vehicle turns: the rear follows the wheel', () => {
+    const fwd = newCar(g.x, g.z, g.heading), rev = newCar(g.x, g.z, g.heading);
+    run(fwd, { throttle: 1, brake: 0, steer: 1 }, 2); run(rev, { throttle: 0, brake: 1, steer: 1, reverse: 1 }, 4);
+    expect(Math.sign(rev.heading - g.heading)).toBe(-Math.sign(fwd.heading - g.heading)); // the nose swings the other way when backing up
+  });
+  it('the lap-time AI never reverses (holding the brake at a standstill does not move the car)', () => {
+    const c = newCar(g.x, g.z, g.heading); run(c, { throttle: 0, brake: 1, steer: 0 }, 2); expect(speedOf(c)).toBeLessThan(0.01);
+  });
+});
