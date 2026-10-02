@@ -296,13 +296,14 @@ async function main() {
       const offline = await p.evaluate(() => ({ r: window.__cq3d.glow('robotics'), core: window.__cq3d.glow(''), people: window.__cq3d.state().npcs.map((n) => n.id) }));
       eq(offline.r, 0, 'a new game\'s Robotics is offline'); eq(offline.core, 0, 'and so is the core');
       assert(!offline.people.includes('halden') && offline.people.includes('juno-hub'), `the plaza starts with its guide only: ${offline.people}`);
+      await p.context().close(); // one rendering page at a time: software WebGL is slow enough
       // the finished game: a completed campaign restores every world, and the plaza shows everyone
       const done = JSON.parse(JSON.stringify(saves.baseball)); done.campaign = { completedAt: new Date().toISOString() }; done.play.seen.opening = 'x'; done.play.scene = 'plaza'; done.play.pos = { x: 0, z: 10, ry: 0 };
       const q = await newGame({ save: JSON.stringify(done) });
       const alive = await q.evaluate(() => ({ r: window.__cq3d.glow('robotics'), a: window.__cq3d.glow('academy'), core: window.__cq3d.glow(''), people: window.__cq3d.state().npcs.map((n) => n.id) }));
       eq(alive.r, 1, 'every world is restored when the campaign is complete'); eq(alive.core, 1, 'the core is alive');
       for (const id of ['halden', 'fenn', 'quill', 'jory']) assert(alive.people.includes(id), `${id} is back in the plaza`);
-      await p.context().close(); await q.context().close();
+      await q.context().close();
     });
 
     await test('Ending: the summit, each world waking, the plaza, the credits and the last scene play over the real world; the end card and the summary follow; nothing in the save changes', async () => {
