@@ -656,6 +656,7 @@ async function main() {
       eq((await save(p)).play.gear.head, null, 'taken off');
       await p.keyboard.press('i');
       await tid(p, 'pack').waitFor({ state: 'detached' });
+      await p.waitForTimeout(700); // input is re-enabled one render after a panel closes
       await p.keyboard.press('j');
       await tid(p, 'quest-log').waitFor();
       assert((await p.locator('[data-testid^=journal-toggle-]').count()) >= 6, 'the journal lists every world');
