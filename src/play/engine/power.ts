@@ -24,9 +24,9 @@ export class PowerGrid {
 
   constructor(private hemi: HemisphereLight, private amb: AmbientLight, private sun: DirectionalLight, private lamps: PointLight[]) {}
 
-  /** A new scene: its authored light levels are what 1 means. */
-  begin(hemi: number, amb: number, sun: number, lampGroups: string[]): void {
-    this.groups.clear(); this.cache.clear(); this.seenBasic.clear(); this.shown.clear();
+  /** The place this grid belongs to goes on stage: its authored light levels are what 1 means. (Materials were registered when it was built, possibly frames ago.) */
+  activate(hemi: number, amb: number, sun: number, lampGroups: string[]): void {
+    this.shown.clear();
     this.base = { hemi, amb, sun, lamps: this.lamps.map((l) => l.intensity) };
     this.lampGroup = lampGroups;
   }

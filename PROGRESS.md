@@ -198,6 +198,12 @@ Playtesting showed the first version of adaptive training was optional, duplicat
 **Phase 3 (preserved)**
 - 3,347 tests at the end of Phase 3 (every lesson challenge and daily validated by behaviour; Field Manual web examples executed; sandbox isolation; the Daily Challenge; retention) and 32 e2e scenarios.
 
+## Opening Cinematic Polish pass
+- **Cause of the stutter / abrupt black**: scene building (70-680 ms, plaza 5.2 s first time) and uploads happened at the cut itself behind a ~0.4 s black dip; camera cues were mostly hard cuts with no FOV or easing.
+- **Changed**: off-stage prepare + warm draw + swap (`Stage.prepare/activate`), overlapped fades (dissolve out/in), eased camera moves with FOV and shot hold, smooth handoff to the player camera, new final beat (`opening:final`, fifth line), NPC reactions in the plaza failure, subtitle/curtain/HUD fades, fresh game's first shot built before the reveal. Opening length ~88 s (test cap 90).
+- **Measured (production build, software WebGL, `scripts/openperf.mjs`)**: scene change cost before: plaza 621 ms, 5244 ms (first), manufacturing 219/156, ballpark 677/578, classroom 76/68, track 331, garage 174, plaza 570/432 ms. After: first plaza 648 ms (behind the black title), every later swap 2-7 ms. Main-thread non-draw frames over 50 ms: 3 before, 3 after (startup/first prepare slice); software-GL draws still show 1-2 s first draws, which cannot be sliced and are not representative of a GPU.
+- **Limitation**: the warm-up draw of a prepared place is one GL submit and cannot be time-sliced; on software GL it still stalls ~1-2 s mid-shot (the same cost previously paid at the cut). On real GPUs it is milliseconds, but this was not measurable here.
+
 ## Known limitations / issues
 - **Not tamper-proof** (unchanged): the Python worker, webR worker and web sandbox are not a server-trusted boundary; a determined player can forge results or edit their save. Fine for single-player.
 - **Bundle and first load**: the curriculum is still one chunk (now larger: 126 lessons). webR (~30 MB with its VFS) loads only when an R lesson opens, but the content chunk should load per track on demand (needs an async content registry).

@@ -111,8 +111,10 @@
 .cine-bar { position: absolute; left: 0; right: 0; height: 0; background: #05060f; transition: height .5s cubic-bezier(.2,.8,.2,1); }
 .cine-bar.top { top: 0; } .cine-bar.bottom { bottom: 0; }
 .cine.on .cine-bar { height: 9vh; }
-.cine-sub { padding: .5rem 1.1rem; border-radius: 12px; background: rgba(5,6,15,.78); position: absolute; left: 50%; bottom: calc(9vh + 18px); transform: translateX(-50%); width: min(780px, 92%); text-align: center; font-size: 1.25rem; line-height: 1.4; color: #fff; text-shadow: 0 2px 4px #000, 0 0 12px rgba(0,0,0,.8); animation: subIn .25s ease both; }
+.cine-sub { padding: .5rem 1.1rem; border-radius: 12px; background: rgba(5,6,15,.78); position: absolute; left: 50%; bottom: calc(9vh + 18px); transform: translateX(-50%); width: min(780px, 92%); text-align: center; font-size: 1.25rem; line-height: 1.4; color: #fff; text-shadow: 0 2px 4px #000, 0 0 12px rgba(0,0,0,.8); animation: subIn .35s ease both; }
+.cine-sub.out { animation: subOut .4s ease both; }
 .cine-sub b { display: block; color: var(--gold, #f2c14e); font-size: .9rem; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .1rem; }
+@keyframes subOut { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, 6px); } }
 @keyframes subIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .cine-skip { position: absolute; right: 18px; bottom: calc(9vh + 10px); font-size: .8rem; color: #aab0d8; }
 .cine-skip kbd { background: #242a55; border: 1px solid #4a52a8; border-radius: 5px; padding: 0 .35rem; color: #fff; }
@@ -124,7 +126,7 @@
 @keyframes bannerIn { from { opacity: 0; transform: translate(-50%, -30%) scale(.7); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 .ghud-card, .ghud-menu, .play-where, .play-tracker, .play-controls, .play-prompt, .play-caption-wrap, .play-lockhint { transition: opacity .35s ease; }
 .play.cine-on .ghud-card, .play.cine-on .ghud-menu, .play.cine-on .objective, .play.cine-on .play-where, .play.cine-on .play-tracker, .play.cine-on .play-controls, .play.cine-on .play-prompt, .play.cine-on .play-lockhint { opacity: 0; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .cine-bar { transition: none; } .cine-banner, .cine-sub { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .cine-bar { transition: none; } .cine-banner, .cine-sub, .cine-sub.out { animation: none; } }
 
 /* ---------- objective widget ---------- */
 .play-tracker { display: none; }
@@ -192,11 +194,12 @@
 .play-terminal[hidden] { display: none !important; }
 
 /* the fade used when a cutaway takes the player to another place and back */
-.play-curtain { position: absolute; inset: 0; background: #05060f; opacity: 0; pointer-events: none; transition: opacity .3s ease; z-index: 40; }
-.play-curtain.on { opacity: 1; }
+.play-curtain { position: absolute; inset: 0; background: #05060f; opacity: 0; pointer-events: none; transition: opacity .3s cubic-bezier(.25,.1,.25,1); z-index: 40; }
+.play-curtain.on { opacity: 1; transition-timing-function: cubic-bezier(.5,0,.75,.5); } /* going dark starts gently and finishes decisively; coming up is a slow ease-out: no hard edge either way */
 @media (prefers-reduced-motion: reduce) { .play-curtain { transition: none; } }
 
 /* ---------- the story sequences (opening, ending): the HUD steps aside; a plain Skip button stays reachable ---------- */
+.ghud-card, .ghud-menu, .objective, .play-where, .play-caption { transition: opacity .9s ease; }
 .play.seq-on .ghud-card, .play.seq-on .ghud-menu, .play.seq-on .objective, .play.seq-on .play-where, .play.seq-on .play-prompt, .play.seq-on .play-lockhint, .play.seq-on .play-pushhint, .play.seq-on .play-caption { opacity: 0; pointer-events: none; }
 .cine-skipbtn { position: absolute; right: 18px; bottom: calc(9vh + 12px); z-index: 45; background: rgba(10,12,30,.78); color: #dfe3ff; border: 1px solid #4a52a8; border-radius: 999px; padding: .35rem .9rem; font-size: .85rem; cursor: pointer; pointer-events: auto !important; opacity: .7; transition: opacity .2s; }
 .cine-skipbtn:hover, .cine-skipbtn:focus-visible { opacity: 1; outline: 2px solid var(--gold, #f2c14e); outline-offset: 2px; }

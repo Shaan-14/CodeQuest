@@ -57,7 +57,7 @@ const labelCache = new Map<string, CanvasTexture>();
 export function labelTexture(lines: string[], o: { bg?: string; fg?: string; w?: number; h?: number; font?: number } = {}): CanvasTexture {
   const key = JSON.stringify([lines, o]);
   const hit = labelCache.get(key);
-  if (hit) return hit;
+  if (hit) { labelUsed.set(hit, labelGen); return hit; }
   const w = o.w ?? 256, h = o.h ?? 128;
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d')!;
@@ -70,7 +70,7 @@ export function labelTexture(lines: string[], o: { bg?: string; fg?: string; w?:
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;
   tex.userData.shared = true;
-  labelCache.set(key, tex);
+  labelCache.set(key, tex); labelUsed.set(tex, labelGen);
   return tex;
 }
 /** A flat plane showing a label. */
@@ -82,8 +82,13 @@ export function sign(lines: string[], w: number, h: number, o: { bg?: string; fg
   return m;
 }
 
-/** Free the label textures (sign text); they are rebuilt when the next place loads. Keeps memory flat while travelling. */
-export function clearLabels(): void { for (const t of labelCache.values()) t.dispose(); labelCache.clear(); }
+/**
+ * Label textures belong to the place that last used them (a generation number): a place being built ahead keeps its own while the one on stage is
+ * swept away, and memory stays flat while travelling.
+ */
+let labelGen = 0; const labelUsed = new Map<CanvasTexture, number>();
+export function setLabelGeneration(g: number): number { const was = labelGen; labelGen = g; return was; }
+export function sweepLabels(keep: ReadonlySet<number>): void { for (const [k, t] of labelCache) if (!keep.has(labelUsed.get(t) ?? -2)) { t.dispose(); labelCache.delete(k); labelUsed.delete(t); } }
 
 /** Release every shared GPU resource (call when leaving the 3D layer for good). */
 export function disposeKit(): void {

@@ -7,11 +7,12 @@ import { OPENING_LINES } from './openingText';
  *   1. Bytehaven at its best: the plaza, then each world doing what it is for (machines, a ballgame, a hall of living pages, a car on its lap).
  *   2. The failure, world by world: machines wind down, a scoreboard dies, a connection drops, an engine cuts, and the plaza goes dark gate by gate.
  *   3. A newcomer walks into a beautiful but offline Bytehaven; Juno says what happened and what is needed.
- *   4. The four worlds and the chain that joins them (a machine makes data, a database keeps it, an interface shows it, analysis explains it,
- *      optimisation acts on it, and all of it feeds the core), then the camera becomes the player's own.
+ *   4. The four worlds and the chain that joins them (a machine makes data, a database keeps it, an interface shows it, all of it feeds the core),
+ *      and the core stutters.
+ *   5. The last beat: the camera comes to the newcomer, Juno steps close, a held silence, one line, and the camera becomes the player's own.
  * It only presents: a skipped opening ends in the same world (the screen loads the real plaza at its start).
  */
-const [L1, L2, L3, L4] = OPENING_LINES.map((l) => l.text) as [string, string, string, string];
+const [L1, L2, L3, L4, L5] = OPENING_LINES.map((l) => l.text) as [string, string, string, string, string];
 const cl = centreLine(REDLINE), mid = cl.pts[Math.round(cl.pts.length * 0.035)]!; // the middle of the section the car runs, and the side to watch it from
 const JUNO = 'Mentor Juno';
 
@@ -144,6 +145,7 @@ export const OPENING_SHEETS: Record<string, Cinematic> = {
       { t: 0.4, do: 'power', k: 0, over: 0.8, world: 'robotics' }, { t: 0.8, do: 'power', k: 0, over: 0.8, world: 'academy' }, { t: 1.2, do: 'power', k: 0, over: 0.8, world: 'ballpark' }, { t: 1.6, do: 'power', k: 0, over: 0.8, world: 'racing' },
       { t: 2.2, do: 'power', k: 0, over: 1.5, motion: 0, world: '' }, { t: 2.2, do: 'power', k: 0, over: 1.5, motion: 0 },
       { t: 2.5, do: 'flash', at: { at: [0, 0] }, color: 0xff5d73, power: 10, dur: 0.5, y: 3.2 },
+      { t: 1.0, do: 'npc', id: 'pip', anim: 'shrug' }, { t: 1.7, do: 'npc', id: 'tamsin', anim: 'think' }, { t: 2.3, do: 'npc', id: 'otto', anim: 'shrug' },
       { t: 2.8, do: 'music', name: null, fade: 1.6 },
       { t: 3.3, do: 'cam', at: { at: [0, 0] }, dist: 24, yaw: -0.2, pitch: 0.5, height: 5, blend: 2.4 },
     ],
@@ -163,40 +165,58 @@ export const OPENING_SHEETS: Record<string, Cinematic> = {
   },
   // Juno: what happened, and what is needed (the four lines, with room to breathe)
   'opening:juno': {
-    id: 'opening:juno', len: 14.2,
+    id: 'opening:juno', len: 12.6,
     cues: [
-      { t: 0, do: 'cam', at: { npc: 'juno-hub' }, dist: 3.6, yaw: 1.2, pitch: 0.14, height: 1.5, blend: 1.4 },
+      { t: 0, do: 'cam', at: { npc: 'juno-hub' }, dist: 3.6, yaw: 1.2, pitch: 0.14, height: 1.5, blend: 1.6, fov: 44 },
       { t: 0.1, do: 'npc', id: 'juno-hub', face: { player: true }, look: { player: true }, talk: true, mood: 'worried' },
-      { t: 0.4, do: 'say', who: JUNO, text: L1, for: 3.2 },
-      { t: 3.6, do: 'cam', at: { at: [0, -2] }, dist: 22, yaw: 0, pitch: 0.34, height: 3, blend: 2.0 },
-      { t: 3.8, do: 'say', who: JUNO, text: L2, for: 3.4 },
-      { t: 7.2, do: 'cam', at: { at: [0, 0] }, dist: 6, yaw: 0.4, pitch: 0.5, height: 3.6, blend: 2.2, spin: 0.08 },
-      { t: 7.4, do: 'say', who: JUNO, text: L3, for: 2.5 },
-      { t: 9.9, do: 'cam', at: { npc: 'juno-hub' }, dist: 3.4, yaw: 0.9, pitch: 0.12, height: 1.55, blend: 1.8 },
+      { t: 0.4, do: 'say', who: JUNO, text: L1, for: 3.0 },
+      { t: 3.3, do: 'cam', at: { at: [0, -2] }, dist: 22, yaw: 0, pitch: 0.34, height: 3, blend: 2.0, fov: 50 },
+      { t: 3.5, do: 'say', who: JUNO, text: L2, for: 3.3 },
+      { t: 6.6, do: 'cam', at: { at: [0, 0] }, dist: 6, yaw: 0.4, pitch: 0.5, height: 3.6, blend: 2.2, spin: 0.08 },
+      { t: 6.8, do: 'say', who: JUNO, text: L3, for: 2.4 },
+      { t: 9.1, do: 'cam', at: { npc: 'juno-hub' }, dist: 3.4, yaw: 0.9, pitch: 0.12, height: 1.55, blend: 1.6, fov: 42 },
       // a held silence, then the ask
-      { t: 11.0, do: 'say', who: JUNO, text: L4, for: 3.2 },
-      { t: 11.1, do: 'npc', id: 'juno-hub', mood: 'neutral', anim: 'point', point: { player: true } },
+      { t: 9.9, do: 'say', who: JUNO, text: L4, for: 2.7 },
+      { t: 10.0, do: 'npc', id: 'juno-hub', mood: 'neutral', anim: 'point', point: { player: true } },
     ],
   },
   // ---------------------------------------------------------------- 4. The four worlds and what joins them
   'opening:worlds': {
-    id: 'opening:worlds', len: 16.2,
+    id: 'opening:worlds', len: 11.8,
     cues: [
       { t: 0, do: 'npc', id: 'juno-hub', talk: false, release: true, look: null },
-      { t: 0, do: 'cam', at: { at: [-21.5, 0] }, dist: 14, yaw: Math.PI / 2, pitch: 0.15, height: 3, blend: 1.1 },
-      ...gateFlash(0.4, [-21.5, 0], 0x7dffb3), { t: 0.5, do: 'say', who: JUNO, text: 'Robotics: machines that run on Python.', for: 2.2 },
-      { t: 2.4, do: 'cam', at: { at: [21.5, 0] }, dist: 14, yaw: -Math.PI / 2, pitch: 0.15, height: 3, blend: 1.1 },
-      ...gateFlash(2.8, [21.5, 0], 0x4fd1ff), { t: 2.9, do: 'say', who: JUNO, text: 'Harborview: SQL, statistics and R.', for: 2.1 },
-      { t: 4.8, do: 'cam', at: { at: [0, -17.5] }, dist: 14, yaw: 0, pitch: 0.15, height: 3, blend: 1.1 },
-      ...gateFlash(5.2, [0, -17.5], 0xbd93f9), { t: 5.3, do: 'say', who: JUNO, text: 'Lanternhollow: HTML, CSS, JavaScript and APIs.', for: 2.3 },
-      { t: 7.2, do: 'cam', at: { at: [0, 17.5] }, dist: 14, yaw: Math.PI, pitch: 0.15, height: 3, blend: 1.1 },
-      ...gateFlash(7.6, [0, 17.5], 0xff5d73), { t: 7.7, do: 'say', who: JUNO, text: 'Redline: spreadsheets and models.', for: 2.1 },
-      // the chain: a machine makes data, a database keeps it, an interface shows it, analysis explains it, optimisation acts, and it all feeds the core
-      { t: 9.7, do: 'cam', at: { at: [0, 0] }, dist: 24, yaw: -0.2, pitch: 0.6, height: 3, blend: 1.5, spin: 0.06 },
-      { t: 9.9, do: 'say', who: JUNO, text: 'A machine makes data. A database keeps it. An interface shows it. All of it feeds the core.', for: 4.8 },
-      ...gateFlash(10.2, [-18, 0], 0x7dffb3), ...gateFlash(10.9, [18, 0], 0x4fd1ff), ...gateFlash(11.6, [0, -14], 0xbd93f9), ...gateFlash(12.3, [0, 14], 0xff5d73),
-      { t: 13.1, do: 'flash', at: { at: [0, 0] }, color: 0x9fe8ff, power: 12, dur: 1.2, y: 3.2 }, { t: 13.1, do: 'fx', kind: 'magic', at: { at: [0, 0] }, n: 18, y: 3.2 },
-      { t: 14.8, do: 'cam', at: 'player', blend: 1.6 },
+      { t: 0, do: 'cam', at: { at: [-21.5, 0] }, dist: 14, yaw: Math.PI / 2, pitch: 0.15, height: 3, blend: 1.1, fov: 50 },
+      ...gateFlash(0.4, [-21.5, 0], 0x7dffb3), { t: 0.5, do: 'say', who: JUNO, text: 'Robotics: machines that run on Python.', for: 1.9 },
+      { t: 2.0, do: 'cam', at: { at: [21.5, 0] }, dist: 14, yaw: -Math.PI / 2, pitch: 0.15, height: 3, blend: 1.0 },
+      ...gateFlash(2.4, [21.5, 0], 0x4fd1ff), { t: 2.5, do: 'say', who: JUNO, text: 'Harborview: SQL, statistics and R.', for: 1.9 },
+      { t: 4.0, do: 'cam', at: { at: [0, -17.5] }, dist: 14, yaw: 0, pitch: 0.15, height: 3, blend: 1.0 },
+      ...gateFlash(4.4, [0, -17.5], 0xbd93f9), { t: 4.5, do: 'say', who: JUNO, text: 'Lanternhollow: HTML, CSS, JavaScript and APIs.', for: 2.1 },
+      { t: 6.0, do: 'cam', at: { at: [0, 17.5] }, dist: 14, yaw: Math.PI, pitch: 0.15, height: 3, blend: 1.0 },
+      ...gateFlash(6.4, [0, 17.5], 0xff5d73), { t: 6.5, do: 'say', who: JUNO, text: 'Redline: spreadsheets and models.', for: 1.9 },
+      // the chain: a machine makes data, a database keeps it, an interface shows it, and it all feeds the core
+      { t: 8.2, do: 'cam', at: { at: [0, 0] }, dist: 24, yaw: -0.2, pitch: 0.6, height: 3, blend: 1.4, spin: 0.06 },
+      { t: 8.4, do: 'say', who: JUNO, text: 'A machine makes data. A database keeps it. An interface shows it. All of it feeds the core.', for: 3.6 },
+      ...gateFlash(8.6, [-18, 0], 0x7dffb3), ...gateFlash(9.1, [18, 0], 0x4fd1ff), ...gateFlash(9.6, [0, -14], 0xbd93f9), ...gateFlash(10.1, [0, 14], 0xff5d73),
+      // ...and the core stutters: the one thing everything depends on is failing too
+      { t: 10.9, do: 'power', k: 0.3, over: 0.1, world: '' }, { t: 11.1, do: 'power', k: 0.8, over: 0.1, world: '' }, { t: 11.3, do: 'power', k: 0.15, over: 0.12, world: '' },
+      { t: 11.3, do: 'sfx', name: 'blackout' }, { t: 11.4, do: 'shake', amount: 0.2 },
+    ],
+  },
+  // 5. The last beat: the camera comes to the newcomer, Juno steps close, a held silence, then the line that hands the game over
+  'opening:final': {
+    id: 'opening:final', len: 9.0,
+    cues: [
+      { t: 0, do: 'cam', at: { player: true }, dist: 7.5, yaw: 0.35, pitch: 0.2, height: 1.7, blend: 2.2, fov: 52 },
+      { t: 0.4, do: 'npc', id: 'juno-hub', face: { player: true }, look: { player: true }, mood: 'worried' },
+      { t: 1.0, do: 'npc', id: 'pip', anim: 'shrug' }, { t: 1.8, do: 'npc', id: 'otto', anim: 'think' },
+      // closer and quieter: nothing moves, nobody speaks
+      { t: 2.6, do: 'cam', at: { npc: 'juno-hub' }, dist: 2.6, yaw: 0.2, pitch: 0.08, height: 1.58, blend: 2.4, fov: 36, safe: true },
+      { t: 3.0, do: 'npc', id: 'juno-hub', talk: true },
+      { t: 4.7, do: 'say', who: JUNO, text: L5, for: 3.2 },
+      { t: 4.8, do: 'sfx', name: 'swell' },
+      // the line lands; then the camera drifts back to where the player will stand
+      { t: 8.0, do: 'npc', id: 'juno-hub', talk: false, release: true, look: null },
+      { t: 7.6, do: 'cam', at: 'player', blend: 1.4 },
     ],
   },
 };

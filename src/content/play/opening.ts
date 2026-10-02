@@ -14,6 +14,8 @@ export interface Segment {
   player?: boolean;
   /** The cue sheet (a key of CINEMATICS). */
   sheet: string;
+  /** How long the picture takes to come up on this segment's first shot (default a little under a second). */
+  fadeIn?: number;
   /** Carry on in the place already on the stage (no cut). */
   keep?: boolean;
   /** Load the place stopped and unpowered, for a sheet that brings it back. */
@@ -27,7 +29,7 @@ export const START = { scene: 'plaza', spawn: 'start' } as const;
 
 /** About 85 seconds: the city at its best, the failure world by world, a newcomer's arrival, Juno, the four worlds, and the controls handed over. */
 export const OPENING: Segment[] = [
-  { id: 'plaza-bright', scene: 'plaza', spawn: 'start', power: 1, pristine: true, sheet: 'opening:plaza-bright' },
+  { id: 'plaza-bright', scene: 'plaza', spawn: 'start', power: 1, pristine: true, fadeIn: 1400, sheet: 'opening:plaza-bright' },
   { id: 'robotics-bright', scene: 'manufacturing-floor', power: 1, pristine: true, sheet: 'opening:robotics-bright' },
   { id: 'ballpark-bright', scene: 'ballpark', power: 1, pristine: true, sheet: 'opening:ballpark-bright' },
   { id: 'web-bright', scene: 'spell-classroom', power: 1, pristine: true, sheet: 'opening:web-bright' },
@@ -41,6 +43,7 @@ export const OPENING: Segment[] = [
   { id: 'arrive', scene: 'plaza', spawn: 'start', player: true, sheet: 'opening:arrive' },
   { id: 'juno', scene: 'plaza', keep: true, player: true, sheet: 'opening:juno' },
   { id: 'worlds', scene: 'plaza', keep: true, player: true, sheet: 'opening:worlds' },
+  { id: 'final', scene: 'plaza', keep: true, player: true, sheet: 'opening:final' },
 ];
 
 /**

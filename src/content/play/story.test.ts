@@ -47,13 +47,22 @@ describe('the opening and the ending as data', () => {
     for (const seg of OPENING.slice(0, ids.indexOf('arrive'))) expect(seg.pristine, `${seg.id} shows the place as it was`).toBe(true);
     for (const seg of OPENING.slice(ids.indexOf('arrive'))) expect(seg.pristine, `${seg.id} is the real world`).toBeFalsy();
   });
-  it('Juno says exactly what the story says, in order, and the sheet puts the same words on screen', () => {
-    const say = sortedCues(CINEMATICS['opening:juno']!).filter((q) => q.do === 'say').map((q) => (q as { text: string }).text);
+  it('Juno says exactly what the story says, in order, and the sheets put the same words on screen', () => {
+    const say = ['opening:juno', 'opening:final'].flatMap((id) => sortedCues(CINEMATICS[id]!).filter((q) => q.do === 'say').map((q) => (q as { text: string }).text));
     expect(say).toEqual(OPENING_LINES.map((l) => l.text));
-    expect(OPENING_LINES.map((l) => l.text)).toEqual(['Bytehaven wasn’t always like this.', 'Every system here was designed to work with the others.', 'Then everything went offline.', 'We need someone who can learn how to bring it back.']);
+    expect(OPENING_LINES.map((l) => l.text)).toEqual(['Bytehaven wasn’t always like this.', 'Every system here was designed to work with the others.', 'Then everything went offline.', 'We need someone who can learn how to bring it back.', 'You’re the only one who can save us.']);
+  });
+  it('the opening ends on its last line: the line is the final thing said, a pause follows it, and the camera is handed back to the player', () => {
+    const ids = OPENING.map((s) => s.id);
+    expect(ids[ids.length - 1]).toBe('final');
+    const cues = sortedCues(CINEMATICS['opening:final']!), say = cues.filter((q) => q.do === 'say');
+    const last = say[say.length - 1] as { text: string; t: number; for?: number };
+    expect(last.text).toBe(OPENING_LINES[OPENING_LINES.length - 1]!.text);
+    expect(CINEMATICS['opening:final']!.len! - (last.t + (last.for ?? 0))).toBeGreaterThan(1); // the line is allowed to land before anything else happens
+    expect(cues.some((q) => q.do === 'cam' && q.at === 'player')).toBe(true);
   });
   it('every spoken line names its speaker (subtitles have a speaker and good contrast)', () => {
-    for (const id of ['opening:juno', 'opening:worlds', 'ending:summit', 'ending:plaza', 'ending:after']) for (const q of CINEMATICS[id]!.cues) if (q.do === 'say' && id !== 'ending:after') expect(q.who, `${id}: ${q.text}`).toBeDefined();
+    for (const id of ['opening:juno', 'opening:worlds', 'opening:final', 'ending:summit', 'ending:plaza', 'ending:after']) for (const q of CINEMATICS[id]!.cues) if (q.do === 'say' && id !== 'ending:after') expect(q.who, `${id}: ${q.text}`).toBeDefined();
   });
   it('the ending ends with the line the story promises, after the credits, in the real plaza', () => {
     const ids = ENDING.map((s) => s.id);

@@ -47,7 +47,7 @@ import { DailyOverlay } from './DailyOverlay';
 import { ManualOverlay } from './ManualOverlay';
 import { Welcome } from './Welcome';
 import { OpeningCard } from './OpeningCard';
-import { playSegments } from './sequencer';
+import { playSegments, type SeqHost } from './sequencer';
 import { ENDING as ENDING_SEGMENTS, OPENING, START } from '../../content/play/opening';
 import { Credits } from './Credits';
 import { EndCard } from './EndCard';
@@ -88,7 +88,7 @@ export const DEFAULT_SCENE = 'plaza';
 
 type Talk = { conv: Conversation; lines: string[] } | { inspect: { name: string; lines: string[] } } | null;
 
-declare global { interface Window { __cq3dHud?: DriveHudState | null; __cq3d?: { autopilot?: (on: boolean, scale?: number) => void; stage: Stage; state: () => unknown; drive?: () => Promise<void>; dynStates: (id: string) => string[]; teleport?: (x: number, z: number, ry?: number) => void; integrity?: () => Promise<unknown>; colliders?: (on?: boolean) => Promise<number>; visibility?: () => Promise<{ hidden: string[]; badBounds: string[]; culled: string[] }>; travel: (scene: string, spawn?: string) => void; open: (what: string) => void; reset?: () => void; ending?: (kind: 'ending' | 'replay') => void; glow?: (group: string) => number; look?: (scene: string, o: { spawn?: string; power?: number | null; pristine?: boolean; cam?: { x: number; z: number; yaw: number; pitch: number; dist: number; y?: number } }) => void; play?: (ref: string) => boolean; skipSeq?: () => void } } }
+declare global { interface Window { __cq3dHud?: DriveHudState | null; __cq3d?: { autopilot?: (on: boolean, scale?: number) => void; stage: Stage; state: () => unknown; drive?: () => Promise<void>; dynStates: (id: string) => string[]; teleport?: (x: number, z: number, ry?: number) => void; integrity?: () => Promise<unknown>; colliders?: (on?: boolean) => Promise<number>; visibility?: () => Promise<{ hidden: string[]; badBounds: string[]; culled: string[] }>; travel: (scene: string, spawn?: string) => void; open: (what: string) => void; perf?: () => unknown; reset?: () => void; ending?: (kind: 'ending' | 'replay') => void; glow?: (group: string) => number; look?: (scene: string, o: { spawn?: string; power?: number | null; pristine?: boolean; cam?: { x: number; z: number; yaw: number; pitch: number; dist: number; y?: number } }) => void; play?: (ref: string) => boolean; skipSeq?: () => void } } }
 
 /**
  * The playable world screen: the 3D view plus everything drawn over it. All game rules stay where they were: quests, evidence, Focus and
@@ -150,6 +150,8 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const thenRef = useRef<string | null>(null);
   const cutRef = useRef<{ scene: string; x: number; z: number; ry: number } | null>(null);
   const [curtain, setCurtain] = useState(() => !getStore().save.play.seen.opening);
+  /** How long the next change of the curtain takes (a story dissolve is slow and deliberate; a cutaway's is quick). */
+  const [curtainMs, setCurtainMs] = useState(300);
   const [cutting, setCutting] = useState(false);
   const reactingRef = useRef(false);
   const batch = useRef<import('../../game/events').GameEvent[]>([]);
@@ -195,11 +197,13 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     const stage = stageRef.current, def = getScene(scene); if (!stage || !def) return;
     stage.load(def, spawn ?? 'default', opts); setSceneId(def.id); setPrompt(null);
   }, []);
+  const fade = useCallback((to: 'black' | 'clear', ms: number) => { setCurtainMs(ms); setCurtain(to === 'black'); }, []);
+  const storyHost = useCallback((credits?: () => Promise<void>): SeqHost => ({ stage: () => stageRef.current, scene: (id) => getScene(id), load: loadStory, fade, skipped: () => seqRef.current.skipped, credits }), [loadStory, fade]);
   const runStory = useCallback(async (kind: 'opening' | 'replay') => {
     const stage = stageRef.current; if (!stage || seqRef.current.active) return;
     const back = kind === 'replay' && stage.def ? { scene: stage.def.id, x: stage.body.x, z: stage.body.z, ry: stage.body.ry } : null;
     seqRef.current = { active: true, skipped: false }; setSeq(kind); setPaused(false); setTalk(null); setTerminal(null);
-    skipRef.current = () => { seqRef.current.skipped = true; stage.director.skip(); cardDone.current?.(); };
+    skipRef.current = () => { seqRef.current.skipped = true; stage.cancelPrepare(); stage.director.skip(); cardDone.current?.(); };
     const sleep = (ms: number) => new Promise<void>((res) => window.setTimeout(res, ms));
     let result: 'done' | 'skipped';
     // Automated browser runs (the e2e switch) skip the opening unless a test asks for it, so the many tests that start a new game are not each 85 s long.
@@ -209,12 +213,14 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       await new Promise<void>((res) => { cardDone.current = res; });
       cardDone.current = null; setCard(false); result = 'skipped';
     } else {
-      setCurtain(true); await sleep(60);
       stage.audio.resume(); stage.audio.music('hope');
-      result = await playSegments({ stage: () => stageRef.current, load: loadStory, curtain: async (on) => { setCurtain(on); await sleep(on ? 260 : 140); }, skipped: () => seqRef.current.skipped }, OPENING);
+      // a new game has its first place built behind the black title; a replay dissolves out of whatever the player was doing
+      result = await playSegments(storyHost(), OPENING, { startLoaded: kind === 'opening' });
     }
     const st = getStore(), cur = stageRef.current; if (!cur) return;
-    cur.audio.music(null, 1.5);
+    cur.cancelPrepare(); cur.audio.music(null, 2);
+    // a skip, or a replay going back, dissolves out and in under the player's eyes: a deliberate beat, with the swap hidden inside it; a story that ran to its end has already handed the camera to the player
+    if (result === 'skipped' || kind === 'replay') { fade('black', 380); await sleep(400); }
     if (kind === 'replay' && back) { loadStory(back.scene, { x: back.x, z: back.z, ry: back.ry }, { power: null, pristine: false }); cur.setPlayerVisible(true); }
     else {
       // the story ended where gameplay begins (or was skipped): the world is the real one, the player stands at the defined start of the plaza
@@ -225,9 +231,10 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       st.apply(enterScene(st.save, START.scene, result === 'skipped' ? sp : { x: cur.body.x, z: cur.body.z, ry: cur.body.ry }), { silent: true });
     }
     cur.setControlLocked(false); cur.releaseNpcs();
-    setCurtain(false); setSeq(null); seqRef.current = { active: false, skipped: false };
+    if (result === 'skipped' || kind === 'replay') fade('clear', 600); else setCurtain(false);
+    setSeq(null); seqRef.current = { active: false, skipped: false };
     if (kind === 'opening' && !e2eSkipsStory() && !getStore().save.play.seen['play-welcome']) setWelcome(true);
-  }, [loadStory]);
+  }, [loadStory, fade, storyHost]);
   /**
    * THE ENDING: the summit holds its breath, each world wakes from the dark, the plaza lights its core and four lanes, the credits roll over it, a last
    * scene among the people of Bytehaven, then the name. It plays after the campaign is complete (the restoration it shows is already earned), can be
@@ -246,11 +253,12 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       loadStory('plaza', 'from-summit', { power: null, pristine: false }); stage.setPlayerVisible(true);
       setCredits(true); await new Promise<void>((res) => { creditsDone.current = () => { setCredits(false); res(); }; });
     } else {
-      await playSegments({ stage: () => stageRef.current, load: loadStory, curtain: async (on) => { setCurtain(on); await sleep(on ? 260 : 140); }, skipped: () => seqRef.current.skipped, credits: () => new Promise<void>((res) => { setCredits(true); creditsDone.current = () => { creditsDone.current = null; setCredits(false); res(); }; }) }, ENDING_SEGMENTS);
-      if (!seqRef.current.skipped) { setCurtain(true); await sleep(900); setEndCard(true); await new Promise<void>((res) => { endCardDone.current = res; }); endCardDone.current = null; setEndCard(false); }
+      await playSegments(storyHost(() => new Promise<void>((res) => { setCredits(true); creditsDone.current = () => { creditsDone.current = null; setCredits(false); res(); }; })), ENDING_SEGMENTS);
+      if (!seqRef.current.skipped) { fade('black', 1400); await sleep(1500); setEndCard(true); await new Promise<void>((res) => { endCardDone.current = res; }); endCardDone.current = null; setEndCard(false); }
     }
     const cur = stageRef.current; if (!cur) return;
-    cur.audio.music(null, 1.5);
+    cur.cancelPrepare(); cur.audio.music(null, 1.5);
+    if (seqRef.current.skipped) { fade('black', 380); await sleep(400); }
     if (kind === 'replay' && back) { loadStory(back.scene, { x: back.x, z: back.z, ry: back.ry }, { power: null, pristine: false }); }
     else { // the real, restored plaza, where the player's story goes on
       loadStory(START.scene, 'from-summit', { power: null, pristine: false });
@@ -258,9 +266,9 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       st.apply(enterScene(st.save, START.scene, sp), { silent: true });
     }
     cur.setPlayerVisible(true); cur.setControlLocked(false); cur.releaseNpcs();
-    setCurtain(false); setSeq(null); seqRef.current = { active: false, skipped: false };
+    fade('clear', 700); setSeq(null); seqRef.current = { active: false, skipped: false };
     if (kind === 'ending') setFinale(true);
-  }, [loadStory]);
+  }, [loadStory, fade, storyHost]);
   endingRef.current = runEnding;
   const openingSeen = !!save.play.seen.opening;
   useEffect(() => { if (ready && !openingSeen && !seqRef.current.active) void runStory('opening'); }, [ready, openingSeen, runStory]);
@@ -320,7 +328,10 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         // Anyone else resumes where they were (same scene, same spot), else the plaza.
         const fresh = !s.play.seen.opening;
         const scene = fresh ? getScene(START.scene)! : getScene(s.play.scene ?? '') ?? getScene(DEFAULT_SCENE)!;
-        stage.load(scene, fresh ? START.spawn : s.play.scene === scene.id && s.play.pos ? s.play.pos : 'default');
+        // the opening's first shot is Bytehaven as it was: build exactly that now, behind the black title, so the first picture is already the real one
+        const story = fresh && !stage.reduced && !e2eSkipsStory();
+        stage.load(scene, fresh ? START.spawn : s.play.scene === scene.id && s.play.pos ? s.play.pos : 'default', story ? { power: 1, pristine: true } : undefined);
+        if (story) { stage.setPlayerVisible(false); stage.setControlLocked(true); }
         setSceneId(scene.id);
         stage.start();
         setReady(true);
@@ -333,6 +344,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           autopilot: localStorage.getItem('codequest.e2e') === '1' ? (on, scale) => { stage.timeScale = on ? (scale ?? 4) : 1; autopilot(stage, on); } : undefined,
           look: localStorage.getItem('codequest.e2e') === '1' ? (sc, o) => { const d = getScene(sc); if (!d) return; stage.load(d, o.spawn ?? 'default', { power: o.power ?? null, pristine: o.pristine }); setSceneId(d.id); if (o.cam) stage.setCinema({ ...o.cam }); } : undefined,
           play: localStorage.getItem('codequest.e2e') === '1' ? (ref) => stage.playCinematic(ref) : undefined,
+          perf: localStorage.getItem('codequest.e2e') === '1' ? () => stage.perf : undefined,
           reset: localStorage.getItem('codequest.e2e') === '1' ? () => getStore().apply(resetAll()) : undefined,
           ending: localStorage.getItem('codequest.e2e') === '1' ? (k) => void endingRef.current(k) : undefined,
           glow: localStorage.getItem('codequest.e2e') === '1' ? (g) => stage.glow(g) : undefined,
@@ -615,7 +627,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           {card && <OpeningCard onContinue={() => skipRef.current()} />}
           {credits && <Credits reduced={!!stageRef.current?.reduced} onDone={() => creditsDone.current?.()} />}
           {endCard && <EndCard reduced={!!stageRef.current?.reduced} onDone={() => endCardDone.current?.()} />}
-          <div class={`play-curtain ${curtain ? 'on' : ''}`} aria-hidden="true" />
+          <div class={`play-curtain ${curtain ? 'on' : ''}`} style={{ transitionDuration: `${curtainMs}ms` }} aria-hidden="true" />
           <GameHud onPanel={onPanel} onMap={() => setMapOpen(true)} onManual={() => setManual(true)} onMenu={() => setPaused(true)} />
           {locked && !touch && <div class="play-pushhint" aria-hidden="true">▲ push the mouse up for the menu</div>}
           {!locked && !revealed && !overlayOpen.current && !touch && <div class="play-lockhint pill" data-testid="play-lockhint">Click or press a key to look around with the mouse · Esc to release it</div>}

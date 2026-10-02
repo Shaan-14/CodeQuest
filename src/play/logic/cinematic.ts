@@ -15,7 +15,7 @@ export type Target = { prop: string } | { npc: string } | { player: true } | { a
 
 export type CueAction =
   /** Move the camera to look at `at` from a distance/angle (yaw 0 = looking north from the south). `blend` = seconds to get there; `spin` = slow orbit in rad/s. 'player' hands the camera back. */
-  | { do: 'cam'; at: Target | 'player'; dist?: number; yaw?: number; pitch?: number; height?: number; blend?: number; spin?: number; /** Keep the shot on the target as it moves (a ball in flight). */ follow?: boolean; /** Keep the shot out of walls and tall things (the same spring arm as play): for shots framed on the player in places the author has not seen. */ safe?: boolean }
+  | { do: 'cam'; at: Target | 'player'; dist?: number; yaw?: number; pitch?: number; height?: number; blend?: number; spin?: number; /** Keep the shot on the target as it moves (a ball in flight). */ follow?: boolean; /** Keep the shot out of walls and tall things (the same spring arm as play): for shots framed on the player in places the author has not seen. */ safe?: boolean; /** Field of view in degrees (a slow push-in narrows it); default 48. */ fov?: number }
   /** A line of dialogue / narration shown as a subtitle (and announced to screen readers). */
   | { do: 'say'; text: string; who?: string; for?: number }
   /** Put a prop into a state (the world change itself) and/or run one of its animations (`play`, optionally with an argument). */
