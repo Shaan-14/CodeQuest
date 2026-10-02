@@ -1,10 +1,26 @@
 # PROGRESS.md
 
-_Last updated: Phase 6 (playable 3D worlds). Phase 6 is the final planned phase._
+_Last updated: Phase 6 polish pass 3 (RPG systems, visibility, avatar, cinematic gameplay). Phase 6 is the final planned phase._
 
 ## Current phase
 **Phase 6 (a playable 3D world on top of the finished learning engine): COMPLETE.** There is no Phase 7; the post-game ideas in `docs/FUTURE_WORLDS.md` are suggestions only.
-Save format v1 → … → v8 → **v9** (`play`: scene, position, who you talked to, things seen, sound/motion/quality settings); migration tested.
+Save format v1 → … → v8 → v9 (`play`: scene, position, who you talked to, things seen, sound/motion/quality settings) → **v10** (`play.gear`: worn cosmetics); migrations tested.
+
+## Phase 6 polish pass 3 (RPG systems, visibility, avatar, cinematic gameplay)
+Done:
+- **Objects no longer vanish up close.** Root cause: whole-prop AABB occluder hiding. Replaced by a camera spring arm; nothing is hidden during play. `scripts/visaudit.mjs` walks the player to every collider edge in every scene and reports hidden/culled props (clean).
+- **Avatar and animation**: a techwear field-engineer look, a rig that blends idle/walk/run/air/lean/turn and has gestures for hitting, pitching, catching, lifting, stretching, typing, working; the player looks at what they can use.
+- **Quest Journal** (J): every world (Python, SQL, Data Engineering, Web, Git, Statistics, R, Spreadsheets), collapsible, from the existing quests/lessons/skills/evidence; accepted vs available vs locked (with reasons), next recommended step, skills by evidence.
+- **Training scenes**: arriving for owed training plays a per-skill scene (Python/Git, data, web, stats/R, spreadsheets) and opens the console by itself.
+- **Baseball**: a real play engine (`engine/ballplay.ts`); a passed SQL lesson cuts to the ballpark for a hit, a forecast, a fielding play, a strikeout, a steal or a home run, then returns the player to the same console with the lesson open. The simulated game uses the same engine. Failures never play one.
+- **Racing**: a passed spreadsheet lesson shows the driver getting in, the engine starting, a camera cut to the circuit and a real section of the lap with the player's setup, then the timing board.
+- **Source-data viewer**: every lesson, demo and Daily step shows its own data (tables, links, sample rows, CSV, JSON, the practice API); hidden twins are never offered.
+- **Pack is real**: cosmetics are worn on the 3D avatar (cape, scarf, cap, visor), bought at an in-world Bolt & Barrel kiosk in the plaza, changed in the Pack (I). Keepsakes moved to Trophies. Save v10 + migration.
+- **NPCs**: per-person idle gestures; a once-only remark that reads real progress (strong in Python and untouched in SQL points at the Data Center; a wobble points at the Training Grounds; two strong worlds point at the Summit).
+Decisions:
+- **Focus energy bars were NOT built.** A bar either skips part of a required training plan (forbidden by the Focus rules) or does nothing (a fake item). The Pack sells and holds looks only; documented in CLAUDE.md.
+- The J key was unbound in the 3D view before this pass (the HUD advertised it); it now opens the Journal, and I opens the Pack.
+Not done / limits: story connections between worlds are the progress remarks and the Summit hint, not new quests; visual polish was targeted (readable baseball and racing sequences, UI) rather than a full relighting of every scene; Fantasy and Summit scenes got no new cinematics; verified only in headless software-WebGL Chromium (no real GPU timings, no hands-on playtest).
 
 ## What Phase 6 built
 - **The quest bug, properly.** "Accept Quest did nothing" was a lost `this`: `GameStore` methods were destructured by components. They are now arrow properties. Quests have five real states (unavailable, available, accepted, in progress, completed), persisted, derived in `game/quests.ts` and shown by one `QuestCard` everywhere, with a reason when unavailable. Tests in `game/quests.test.ts`.

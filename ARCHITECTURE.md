@@ -302,6 +302,17 @@ src/game/play.ts, quests.ts   pure actions for play state and quest state
 - **Reactions have grammar and variety** (`content/play/cinematics.ts beat()`): establish, change, reaction, return, in one of four camera styles (`reveal`, `push`, `orbit`, `impact`); status screens fill in from the top; a level is a banner, not a cutscene.
 - **Baseball**: `play/logic/ballparkGeom.ts` is the single source of the wall's shape; the field is one painted plane (`paintField`), the stands carry a crowd of alpha-cut busts, the player arrives on the concourse and walks the tunnel onto the field.
 
+## Phase 6 polish pass 3: visibility, avatar, journal, cutaways, gear, data viewer
+- **Camera spring arm** (`engine/stage.ts`): `camBlockers` (walls, tall props, tree crowns) shorten the camera arm; nothing is hidden during play (props and walls hide only while a cinematic camera is outside a room). Audit: `scripts/visaudit.mjs` + `window.__cq3d.visibility()` (e2e-gated).
+- **Avatar**: `tech` outfit and `techpack` accessory (`engine/rig.parts.ts`); the rig blends idle, walk, run, air, acceleration lean and turn lean, with one-shot gestures (`ready swing pitch catch stretch lift throw salute work type ...`). Worn gear changes the look (`content/play/looks.ts playerLook(avatar, gear)`; `Stage.setPlayerLook` rebuilds the rig in place).
+- **Quest Journal** (`game/journal.ts`, `app/components/QuestJournal.tsx`): every world, collapsible; current/available/locked/completed missions (with the reason when locked), the next step from `nextLesson`/`lessonGaps`/`requiredTraining`, and the world's skills by evidence. J opens it.
+- **Cutaways** (`content/play/cutaways.ts`, `Reaction.then`, `PlayScreen`): after a reaction cinematic the player may be faded to another scene for a sheet (ballpark plays, a racing run) and returned to the exact spot. New cue kinds: `cam.follow` (ride a moving target), `lap` (run a real section of the replay lap, the sheet waits), `player.show`. `statusScreen.play('text:...')` rewrites a display (scoreboards, timing board).
+- **Ballplay** (`engine/ballplay.ts`): one plate appearance beat by beat (windup, pitch, swing, contact, flight, fielders, throw, runner, crowd) for every `PlayType` plus `steal` and `predict`. `team.run('sim')` and the cutaway sequences share it. Sheets: `content/play/cinematics.baseball.ts`, `cinematics.racing.ts`.
+- **Training scenes** (`play/logic/trainingKind.ts`, `training:<kind>` sheets): chosen from the owed weakness's world; `PlayScreen.goTraining` plays one and opens the console as it ends.
+- **Source-data viewer** (`learning/sourceData.ts`, `DataViewer.tsx`): in every lesson step that has data; used by the lesson, demo and Daily screens (so also in the 3D terminal).
+- **Gear** (`save.play.gear`, save v10; items carry `slot`/`wear`): `game/play.ts equipGear`, `buyItem` wears what it buys; the Pack tab and the in-world Bolt & Barrel kiosk (`ui/ShopOverlay.tsx`). **I** opens the Pack, **J** the Journal (the same key closes it).
+- **Remarks and idles** (`content/play/hints.ts`, `play/logic/hints.ts`, `Npc3D.idles`).
+
 ## Security model (what is and isn't guaranteed)
 Player code is untrusted and runs only inside a Web Worker running WebAssembly CPython:
 - No DOM, no `localStorage`/`document.cookie` (workers don't have them), no host filesystem or OS access (Emscripten virtual FS only), no subprocess/socket access from Python itself.

@@ -67,8 +67,8 @@ describe('the world is what the player’s code did (derived, never stored)', ()
     expect(s.stats.xp).toBeGreaterThan(0);
     const reloaded = JSON.parse(JSON.stringify(s)) as SaveData;
     expect(deriveWorldState(reloaded)['bay.bolt']?.actions).toContain('eyes');
-    // walking to Bolt and back changes nothing: there is no save field that can fake a repaired robot
-    expect(Object.keys(reloaded.play)).toEqual(['scene', 'pos', 'talked', 'seen', 'settings']);
+    // walking to Bolt and back changes nothing: there is no save field that can fake a repaired robot (the only 3D data is where you are, who you met, settings and worn cosmetics)
+    expect(Object.keys(reloaded.play)).toEqual(['scene', 'pos', 'talked', 'seen', 'settings', 'gear']);
   });
   it('a failed attempt repairs nothing and is reported as a failure event', () => {
     let s = fresh();
