@@ -67,6 +67,7 @@ export function createRig(look: NpcLook, o: { shadow?: boolean; /** The characte
   let blink = 2 + Math.random() * 3, blinkT = 0, fidget = 3 + Math.random() * 4, fidgetYaw = 0, fidgetPitch = 0;
   let browMood = 0, mouthMood = 0, moodTarget: Mood = 'neutral', moodBrow = 0, moodMouth = 0;
   let glowK = 0, glowColor = look.accent;
+  let handT = 4 + Math.random() * 5, handSide = 0, handK = 0;
   let prevSpeed = 0, accel = 0, takeoff = 0, shuffle = 0, turnLean = 0;
 
   const apply = (dt: number, pose: Pose, speed: number) => {
@@ -93,12 +94,19 @@ export function createRig(look: NpcLook, o: { shadow?: boolean; /** The characte
     const lw = Math.max(w, shuffle * 0.6); // how much the legs are stepping
 
     // --- locomotion targets: arms swing against the legs with the elbow folding as the hand comes forward, the shoulders counter-rotate the hips
-    const A = lerp(0.52, 0.95, r), K = lerp(0.62, 1.45, r), AA = lerp(0.62, 1.05, r), E = lerp(0.28, 1.4, r);
+    // ARMS hang from the shoulder and swing against the same-side leg. The upper arm swings a modest amount (more in a run), a little further forward than
+    // back; the elbow is a hinge that only ever FLEXES (more in a run, and a touch more as the hand comes forward), and the arm is held slightly out so the
+    // forearm passes beside the torso rather than through it. Nothing here moves the hands above chest height.
+    const A = lerp(0.52, 0.95, r), K = lerp(0.62, 1.45, r);
+    const AA = lerp(0.36, 0.7, r), E0 = lerp(0.22, 0.95, r), carry = lerp(0.02, 0.1, r);
+    const swingOf = (x: number) => (x > 0 ? x : 0.75 * x);
     let thL = A * s, thR = -A * s;
     let shL = -K * Math.max(0, c) - 0.04, shR = -K * Math.max(0, -c) - 0.04;
-    let uL = -AA * s, uR = AA * s;
-    let fL = -(E + (0.38 - 0.25 * r) * Math.max(0, s)), fR = -(E + (0.38 - 0.25 * r) * Math.max(0, -s)); // elbows bend on the forward swing
-    let uLz = 0.14, uRz = -0.14;
+    let uL = -AA * swingOf(s) - carry, uR = -AA * swingOf(-s) - carry;
+    const flex = (u: number) => -Math.min(1.35, E0 + lerp(0.08, 0.3, r) * clamp(-(u + carry) / AA, 0, 1));
+    let fL = flex(uL), fR = flex(uR);
+    // (upperL hangs at -x: a NEGATIVE z rotation swings it away from the body, positive tucks it in)
+    let uLz = -lerp(0.1, 0.2, r), uRz = -uLz;
     // idle: weight shift, breathing, arms hang relaxed with a soft bend and sway
     const breath = Math.sin(t * 1.9), shift = Math.sin(t * 0.55);
     const iL = 0.045 * shift, iR = -0.045 * shift;
@@ -106,14 +114,14 @@ export function createRig(look: NpcLook, o: { shadow?: boolean; /** The characte
     shL = lerp(-0.04 + 0.04 * shift, shL, lw); shR = lerp(-0.04 - 0.04 * shift, shR, lw);
     uL = lerp(0.05 + 0.03 * Math.sin(t * 1.1), uL, w); uR = lerp(0.05 + 0.03 * Math.sin(t * 1.1 + 1.3), uR, w);
     fL = lerp(-0.28 - 0.04 * breath, fL, w); fR = lerp(-0.28 - 0.04 * breath, fR, w);
-    uLz = lerp(0.15 + 0.012 * breath, uLz + 0.06 * r, w); uRz = -uLz;
+    uLz = lerp(-0.08 - 0.012 * breath, uLz, w); uRz = -uLz;
     // arms keep a little of their swing as the body slows (momentum), they do not drop to the sides at once
-    // airborne: legs tuck, arms rise
+    // airborne: the legs tuck a little and the arms come up and OUT to the sides to balance, elbows soft (they never raise into the face)
     thL = lerp(thL, 0.5, air); thR = lerp(thR, -0.25, air); shL = lerp(shL, -0.95, air); shR = lerp(shR, -0.5, air);
-    uL = lerp(uL, -1.25, air); uR = lerp(uR, -1.25, air); fL = lerp(fL, -0.35, air); fR = lerp(fR, -0.35, air); uLz = lerp(uLz, 0.55, air); uRz = -uLz;
-    // the push off: a brief stretch before the tuck
+    uL = lerp(uL, -0.55, air); uR = lerp(uR, -0.7, air); fL = lerp(fL, -0.3, air); fR = lerp(fR, -0.3, air); uLz = lerp(uLz, -0.5, air); uRz = -uLz;
+    // the push off: the arms swing up and forward as the legs drive, then settle into the airborne pose
     const push = Math.sin((takeoff / 0.16) * Math.PI) * (takeoff > 0 ? 1 : 0);
-    uL -= 0.5 * push; uR -= 0.5 * push; thL -= 0.2 * push; thR -= 0.2 * push;
+    uL -= 0.45 * push; uR -= 0.45 * push; thL -= 0.2 * push; thR -= 0.2 * push;
 
     const landK = Math.sin((landT / 0.26) * Math.PI);
     const lean = clamp(accel * 0.012, -0.22, 0.28); // forward on a start, back on a stop
@@ -125,6 +133,13 @@ export function createRig(look: NpcLook, o: { shadow?: boolean; /** The characte
     let torsoRx = -(0.03 + 0.24 * r) * w - 0.08 * air + 0.012 * breath * (1 - w) + 0.06 * landK - lean * w * 0.9 - lean * 0.5 * (1 - w);
     let torsoRz = -0.025 * s * w - turnLean * 0.22 * (0.4 + 0.6 * w);
     let hy = headYaw, hp = headPitch, hrz = 0;
+    // landing: the arms drop and spread a little to take the weight
+    uL += 0.25 * landK; uR += 0.25 * landK; uLz -= 0.18 * landK; uRz += 0.18 * landK; fL -= 0.25 * landK; fR -= 0.25 * landK;
+    // idle life: now and then a hand adjusts (a small lift and elbow bend on one arm), never while moving or gesturing
+    handT -= dt; if (handT <= 0) { handT = 7 + Math.random() * 9; handSide = Math.random() < 0.5 ? 0 : 1; handK = 1e-3; }
+    if (handK > 0) { handK += dt; if (handK > 1.6) handK = 0; }
+    const hand = handK > 0 ? Math.sin((handK / 1.6) * Math.PI) * (1 - w) * (one ? 0 : 1) * (1 - air) : 0;
+    if (hand > 0) { if (handSide === 0) { uL -= 0.32 * hand; fL -= 0.55 * hand; } else { uR -= 0.32 * hand; fR -= 0.55 * hand; } }
     let upRx = [uL, uR], upRz = [uLz, uRz], fo = [fL, fR], foRz = [0, 0];
 
     // --- talking: small gestures with the hands and a nodding head, a moving mouth
