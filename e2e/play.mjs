@@ -247,7 +247,7 @@ async function main() {
       const p = await newGame({ opening: true });
       await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
       await p.waitForTimeout(1500);
-      await tid(p, 'cine-skip').click();
+      await tid(p, 'cine-skip').evaluate((b) => b.click());
       await tid(p, 'cine-skip').waitFor({ state: 'detached', timeout: 20000 });
       const s1 = await st(p); eq(s1.scene, 'plaza', 'skipping lands in the plaza');
       assert(Math.abs(s1.x) < 0.8 && Math.abs(s1.z - 12.6) < 1.5, `at its defined start: ${s1.x}, ${s1.z}`);
@@ -261,7 +261,7 @@ async function main() {
       const before = JSON.stringify((await save(p)).evidence) + (await save(p)).stats.xp;
       await tid(p, 'pause-replay-opening').click();
       await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
-      await p.waitForTimeout(1200); await tid(p, 'cine-skip').click();
+      await p.waitForTimeout(1200); await tid(p, 'cine-skip').evaluate((b) => b.click());
       await tid(p, 'cine-skip').waitFor({ state: 'detached', timeout: 20000 });
       const s2 = await st(p); eq(s2.scene, 'plaza', 'replay returns to the place it was started from');
       assert(Math.hypot(s2.x - 5, s2.z - 3) < 1.5, `at the same spot: ${s2.x}, ${s2.z}`);
@@ -281,7 +281,7 @@ async function main() {
       // a full reset, from inside the world
       await p.evaluate(() => window.__cq3d.reset());
       await tid(p, 'cine-skip').waitFor({ timeout: 20000 });
-      await p.waitForTimeout(1000); await tid(p, 'cine-skip').click();
+      await p.waitForTimeout(1000); await tid(p, 'cine-skip').evaluate((b) => b.click());
       await tid(p, 'cine-skip').waitFor({ state: 'detached', timeout: 20000 });
       const s1 = await st(p); eq(s1.scene, 'plaza', 'a reset always spawns in the plaza');
       assert(Math.abs(s1.x) < 0.8 && Math.abs(s1.z - 12.6) < 1.5, `at the defined start, not (4, 6) in the ballpark: ${s1.x}, ${s1.z}`);

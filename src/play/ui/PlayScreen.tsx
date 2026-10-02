@@ -125,7 +125,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const [showControls, setShowControls] = useState(true);
   useEffect(() => { if (!ready) return; const t = window.setTimeout(() => setShowControls(false), 30000); return () => clearTimeout(t); }, [ready]);
   const lastObj = useRef('');
-  const [welcome, setWelcome] = useState(() => !!getStore().save.play.seen.opening && !getStore().save.play.seen['play-welcome']);
+  const [welcome, setWelcome] = useState(() => { const seen = getStore().save.play.seen; return !seen['play-welcome'] && (!!seen.opening || e2eSkipsStory()); }); // after the opening (a test run skips it, so the card is there from the start)
   /** The story sequence on screen (the opening, its replay, the ending): the HUD steps aside and a Skip button shows. */
   const [seq, setSeq] = useState<null | 'opening' | 'replay' | 'ending'>(() => (getStore().save.play.seen.opening ? null : 'opening')); // a new game shows no HUD for even a frame
   const [credits, setCredits] = useState(false);
@@ -226,7 +226,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     }
     cur.setControlLocked(false); cur.releaseNpcs();
     setCurtain(false); setSeq(null); seqRef.current = { active: false, skipped: false };
-    if (kind === 'opening' && !getStore().save.play.seen['play-welcome']) setWelcome(true);
+    if (kind === 'opening' && !e2eSkipsStory() && !getStore().save.play.seen['play-welcome']) setWelcome(true);
   }, [loadStory]);
   /**
    * THE ENDING: the summit holds its breath, each world wakes from the dark, the plaza lights its core and four lanes, the credits roll over it, a last
