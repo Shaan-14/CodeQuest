@@ -136,6 +136,7 @@ export function buildPerson(look: NpcLook, mode: 'skin' | 'bake' = 'skin'): Skel
     thigh.add(part(capsuleG(0.072, THIGH - 0.14), legC, { y: -THIGH / 2, outline: true }));
     shin.add(part(capsuleG(0.06, SHIN - 0.12), legC, { y: -SHIN / 2, outline: true }));
     shin.add(part(boxG(0.115, 0.085, 0.26, 0.035), bootC, { y: -SHIN - 0.005, z: -0.045, outline: true }), part(boxG(0.1, 0.035, 0.22, 0.015), darken(bootC, 0.6), { y: -SHIN - 0.045, z: -0.045 }));
+    if (outfit === 'tech') { thigh.add(part(boxG(0.1, 0.17, 0.02, 0.01), darken(legC, 0.7), { y: -0.17, z: -0.075 })); shin.add(part(boxG(0.1, 0.1, 0.03, 0.015), darken(legC, 0.7), { y: -0.0, z: -0.06 }), part(boxG(0.1, 0.014, 0.25, 0.006), trim, { y: -SHIN - 0.075, z: -0.045, glow: 0.8 })); }
     void side;
   }
   // pelvis, belly and chest
@@ -164,9 +165,17 @@ export function buildPerson(look: NpcLook, mode: 'skin' | 'bake' = 'skin'): Skel
   // arms: sleeves in the clothing colour, cuff in trim, hand in skin
   for (const [up, fore] of [[sk.upperL, sk.foreL], [sk.upperR, sk.foreR]] as const) {
     up.add(part(sphereG(0.07), cloth, { outline: true }), part(capsuleG(0.052, 0.17), cloth, { y: -0.14, outline: true }));
-    fore.add(part(capsuleG(0.045, 0.14), outfit === 'vest' ? skin : cloth, { y: -0.12, outline: true }), part(cylG(0.05, 0.05, 0.03), trim, { y: -0.2 }), part(sphereG(0.05), skin, { y: -0.25, outline: true }));
+    fore.add(part(capsuleG(0.045, 0.14), outfit === 'vest' ? skin : cloth, { y: -0.12, outline: true }), part(cylG(0.05, 0.05, 0.03), trim, { y: -0.2 }), part(sphereG(0.05), outfit === 'tech' ? darken(legC, 0.6) : skin, { y: -0.25, outline: true }));
+    if (outfit === 'tech') { fore.add(part(boxG(0.1, 0.15, 0.1, 0.03), darken(legC, 0.75), { y: -0.14, outline: true }), part(boxG(0.018, 0.1, 0.012, 0.005), trim, { y: -0.14, z: -0.052, glow: 0.9 })); up.add(part(boxG(0.15, 0.07, 0.14, 0.04), darken(legC, 0.8), { y: 0.03, outline: true })); }
   }
   // outfit
+  if (outfit === 'tech') {
+    sk.torso.add(part(cylG(0.075, 0.09, 0.07), darken(cloth, 0.7), { y: 0.58 }));                                           // high collar
+    sk.torso.add(part(boxG(0.05, 0.43, 0.012, 0.005), trim, { x: 0.07, y: 0.32, z: -0.121, rz: -0.18, glow: 0.7 }));         // an accent line down the chest
+    sk.torso.add(part(boxG(0.07, 0.07, 0.012, 0.005), trim, { x: -0.09, y: 0.42, z: -0.122, glow: 1 }));                      // chest emblem
+    sk.torso.add(part(boxG(0.4 * broad, 0.07, 0.245, 0.03), darken(legC, 0.8), { y: 0.1 }));                                // belt
+    sk.hips.add(part(boxG(0.09, 0.1, 0.07, 0.025), darken(legC, 0.6), { x: 0.17, y: 0.0, z: -0.04, outline: true }));       // pouch
+  }
   if (outfit === 'jacket' || outfit === 'overalls' || outfit === 'coat') {
     sk.torso.add(part(boxG(0.13, 0.05, 0.1, 0.02), trim, { y: 0.56, z: -0.07 }));               // collar
     sk.torso.add(part(boxG(0.025, 0.4, 0.012, 0.005), darken(cloth, 0.7), { y: 0.3, z: -0.118 })); // zip
@@ -190,6 +199,7 @@ export function buildPerson(look: NpcLook, mode: 'skin' | 'bake' = 'skin'): Skel
     for (const s of [-1, 1]) sk.hips.add(part(boxG(0.08, 0.1, 0.06, 0.02), 0x8a5a33, { x: s * 0.16, y: 0.04, z: -0.06 }));
     sk.hips.add(part(boxG(0.02, 0.15, 0.02, 0.005), 0xcfd6ea, { x: 0.17, y: 0.1, z: -0.09, rx: 0.3 }));
   }
+  if (acc === 'techpack') { sk.torso.add(part(boxG(0.3, 0.38, 0.15, 0.05), darken(cloth, 0.55), { y: 0.3, z: 0.18, outline: true }), part(boxG(0.22, 0.05, 0.02, 0.01), trim, { y: 0.4, z: 0.262, glow: 0.9 }), part(cylG(0.008, 0.008, 0.28), 0xcfd6ea, { x: 0.1, y: 0.62, z: 0.2 }), part(sphereG(0.022), trim, { x: 0.1, y: 0.77, z: 0.2, glow: 1.2 })); sk.head.add(part(torusG(0.14, 0.012), darken(legC, 0.6), { y: 0.03, rx: Math.PI / 2 }), part(boxG(0.045, 0.07, 0.05, 0.015), darken(legC, 0.6), { x: 0.14, y: 0.0 }), part(cylG(0.005, 0.005, 0.1), darken(legC, 0.6), { x: 0.13, y: -0.04, z: -0.07, rx: Math.PI / 2 }), part(sphereG(0.014), trim, { x: 0.13, y: -0.04, z: -0.13, glow: 1 })); }
   if (acc === 'backpack') sk.torso.add(part(boxG(0.28, 0.34, 0.14, 0.05), trim, { y: 0.3, z: 0.18, outline: true }));
   if (acc === 'scarf') sk.torso.add(part(torusG(0.075, 0.032), trim, { y: 0.58, rx: Math.PI / 2 }), part(boxG(0.06, 0.22, 0.02, 0.01), trim, { x: 0.05, y: 0.45, z: -0.12 }));
   if (acc === 'goggles') sk.head.add(part(torusG(0.128, 0.012), 0x2a2f45, { y: 0.07, rx: Math.PI / 2 }), part(boxG(0.1, 0.045, 0.02, 0.01), 0x8be9fd, { x: -0.05, y: 0.095, z: -0.12, glow: 0.7 }), part(boxG(0.1, 0.045, 0.02, 0.01), 0x8be9fd, { x: 0.05, y: 0.095, z: -0.12, glow: 0.7 }));

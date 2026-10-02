@@ -12,8 +12,8 @@ export type Vec2 = { x: number; z: number };
 
 /** A thing the player cannot walk through. Boxes are axis-aligned footprints; `h` lets a jump clear low ones. */
 export type Collider =
-  | { kind: 'box'; x: number; z: number; w: number; d: number; h?: number }
-  | { kind: 'circle'; x: number; z: number; r: number; h?: number };
+  | { kind: 'box'; x: number; z: number; w: number; d: number; h?: number; /** Height of the thing itself (the camera keeps out of anything taller than a person). */ top?: number }
+  | { kind: 'circle'; x: number; z: number; r: number; h?: number; top?: number };
 
 /** A visible thing. `kind` names a builder in engine/builders.ts (box, cylinder, terminal, robot, ...); `p` are its parameters. */
 export interface Prop {

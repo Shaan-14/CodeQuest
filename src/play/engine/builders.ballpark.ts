@@ -204,34 +204,45 @@ const lightTower: Builder = (p) => {
 const team: Builder = (p, ctx) => {
   const g = new Group();
   const rigs = new Map<string, Rig>();
-  const uniform = { body: 0x2b6cb0, head: 0xd9a877, accent: 0xffd166, hair: 0x2a1a12, hat: 'cap' as const };
+  const uniform = { body: 0x2b6cb0, head: 0xd9a877, accent: 0xffd166, hair: 0x2a1a12, hat: 'cap' as const, legs: 0xe8ecf7, scale: 1.18 };
   const order = ['P', 'C', '1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF'];
-  const nums: string[] = [];
+  // before the analysis sets a lineup the players are loosely warming up in front of the first-base dugout: the ballpark is never empty
+  const warm: [number, number][] = [[7.5, -3.6], [9.3, -4.4], [11.1, -3.6], [12.9, -4.4], [8.4, -5.6], [10.2, -6.0], [12.0, -5.6], [13.8, -6.4], [9.0, -7.4]];
+  const mover = new Map<string, { x: number; z: number } | null>();
   order.forEach((pos, i) => {
     const rig = createRig({ ...uniform, head: [0xd9a877, 0xc99267, 0xf0c9a0, 0x8d5a3b][i % 4]!, hair: [0x2a1a12, 0x1f1a1a, 0x5a3a22, 0xc94f6d][i % 4]! });
-    rig.group.visible = false; g.add(rig.group); rigs.set(pos, rig); nums.push(pos);
-    const [x, z] = POS[pos]!; rig.group.position.set(x, 0, z);
+    g.add(rig.group); rigs.set(pos, rig); mover.set(pos, null);
+    rig.group.position.set(warm[i]![0], 0, warm[i]![1]); rig.setFacing(((i * 2.1) % 6.28) - 3.14, true);
+    if (i % 3 === 0) rig.hold('stretch'); else if (i % 3 === 1) rig.hold('lift');
   });
-  const batter = createRig({ ...uniform, body: 0x1d4d8f, hat: 'helmet' as const }); batter.group.visible = false; batter.group.position.set(-1.2, 0, 0.2); batter.group.rotation.y = Math.PI / 2; g.add(batter.group);
+  const batter = createRig({ ...uniform, body: 0x1d4d8f, hat: 'helmet' as const }); batter.group.position.set(-1.3, 0, 0.3); batter.setFacing(-Math.PI / 2, true); batter.hold('ready'); g.add(batter.group);
   const runner = createRig({ ...uniform, body: 0x1d4d8f, hat: 'helmet' as const }); runner.group.visible = false; g.add(runner.group);
   const ball = new Mesh(new SphereGeometry(0.16, 10, 8), new MeshBasicMaterial({ color: 0xffffff })); ball.visible = false; g.add(ball);
   const marks: Mesh[] = [BASE.first, BASE.second, BASE.third].map(([x, z]) => { const m = shape('cyl', 0.6, 0.5, 0.6, 0xffd166, { x, z, y: 0.3, glow: 1 }); m.visible = false; g.add(m); return m; });
   let isSet = false, t = 0, busy = false;
+  /** Send every fielder to their position at a jog; `instant` places them (a loaded save). */
   const place = (instant: boolean) => {
     for (const [pos, rig] of rigs) {
-      rig.group.visible = true;
+      rig.release();
       const [x, z] = POS[pos]!;
-      if (instant || ctx.reduced) { rig.group.position.set(x, 0, z); continue; }
-      const from = { x: x + (pos === 'P' ? 0 : (x > 0 ? 14 : -14)), z: z + 18 };
-      rig.group.position.set(from.x, 0, from.z);
-      ctx.tweens.add(1.8, (k) => rig.group.position.set(from.x + (x - from.x) * k, 0, from.z + (z - from.z) * k), { ease: ease.out });
+      if (instant || ctx.reduced) { rig.group.position.set(x, 0, z); rig.setFacing(0, true); rig.hold('ready'); continue; }
+      mover.set(pos, { x, z });
     }
-    batter.group.visible = true;
+  };
+  const step = (dt: number) => {
+    for (const [pos, rig] of rigs) {
+      const goal = mover.get(pos);
+      if (!goal) { rig.update(dt, 'idle', 0); continue; }
+      const dx = goal.x - rig.group.position.x, dz = goal.z - rig.group.position.z, d = Math.hypot(dx, dz);
+      if (d < 0.2) { mover.set(pos, null); rig.setFacing(0); rig.hold('ready'); rig.update(dt, 'idle', 0); continue; }
+      const sp = Math.min(4.8, 1.5 + d * 0.6) * dt; rig.group.position.x += (dx / d) * Math.min(sp, d); rig.group.position.z += (dz / d) * Math.min(sp, d);
+      rig.setFacing(Math.atan2(-dx, -dz)); rig.update(dt, 'run', sp / Math.max(dt, 1e-4));
+    }
   };
   const dyn: Dyn = {
     id: p.id ?? 'team', object: g, at: () => ({ x: p.x, y: 1.5, z: p.z - 9 }), states: () => (isSet ? ['set'] : []),
     setState(s, instant) { if (s === 'set' && !isSet) { isSet = true; place(instant); if (!instant) { ctx.audio.sfx('cheer'); ctx.say('Nine players jog onto the field in your lineup. Batting order: by the numbers you found.'); } } },
-    update(dt) { t += dt; for (const r of rigs.values()) r.update(dt, 'idle', 0); batter.update(dt, 'idle', 0); runner.update(dt, 'idle', 0); },
+    update(dt) { t += dt; step(dt); batter.update(dt, 'idle', 0); runner.update(dt, 'idle', 0); },
     /** Play a simulated game. `plays` come from logic/baseballSim. Resolves when the last play is done. */
     run(name, arg) {
       if (name !== 'sim' || busy) return Promise.resolve();

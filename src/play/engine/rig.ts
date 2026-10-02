@@ -9,10 +9,10 @@ import type { NpcLook } from '../logic/dialogue';
 import type { Pose } from '../logic/movement';
 import { buildPerson, buildRobot, toon, type Skeleton } from './rig.parts';
 
-export type OneShot = 'interact' | 'damage' | 'success' | 'wave' | 'cast' | 'think' | 'cheer' | 'nod' | 'shrug' | 'point' | 'work' | 'bow';
+export type OneShot = 'interact' | 'damage' | 'success' | 'wave' | 'cast' | 'think' | 'cheer' | 'nod' | 'shrug' | 'point' | 'work' | 'bow' | 'type' | 'ready' | 'swing' | 'pitch' | 'catch' | 'stretch' | 'lift' | 'throw' | 'salute';
 export type Mood = 'neutral' | 'happy' | 'worried' | 'focused';
 
-const LEN: Record<OneShot, number> = { interact: 0.75, damage: 0.75, success: 1.5, wave: 1.6, cast: 1.0, think: 2.0, cheer: 1.6, nod: 0.9, shrug: 1.5, point: 1.8, work: 2, bow: 1.2 };
+const LEN: Record<OneShot, number> = { interact: 0.75, damage: 0.75, success: 1.5, wave: 1.6, cast: 1.0, think: 2.0, cheer: 1.6, nod: 0.9, shrug: 1.5, point: 1.8, work: 2, bow: 1.2, type: 2, ready: 2, swing: 1.0, pitch: 1.3, catch: 0.7, stretch: 2.4, lift: 2.4, throw: 0.8, salute: 1.1 };
 const blobGeo = new CircleGeometry(0.42, 16); blobGeo.userData.shared = true;
 const blobMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }); blobMat.userData.shared = true;
 
@@ -67,47 +67,63 @@ export function createRig(look: NpcLook, o: { shadow?: boolean; /** The characte
   let blink = 2 + Math.random() * 3, blinkT = 0, fidget = 3 + Math.random() * 4, fidgetYaw = 0, fidgetPitch = 0;
   let browMood = 0, mouthMood = 0, moodTarget: Mood = 'neutral', moodBrow = 0, moodMouth = 0;
   let glowK = 0, glowColor = look.accent;
+  let prevSpeed = 0, accel = 0, takeoff = 0, shuffle = 0, turnLean = 0;
 
   const apply = (dt: number, pose: Pose, speed: number) => {
     t += dt;
     // --- smoothed weights
     const moving = pose === 'walk' || pose === 'run';
-    w = damp(w, moving ? 1 : 0, 10, dt);
-    r = damp(r, pose === 'run' ? 1 : 0, 6, dt);
+    w = damp(w, moving ? 1 : 0, moving ? 7 : 6, dt);              // starting and stopping take a few frames: no snap between idle and walk
+    r = damp(r, pose === 'run' ? 1 : 0, 5, dt);
     const inAir = pose === 'jump';
     air = damp(air, inAir ? 1 : 0, 16, dt);
-    if (wasAir && !inAir) landT = 0.24; wasAir = inAir;
+    if (wasAir && !inAir) landT = 0.26; if (!wasAir && inAir) takeoff = 0.16; wasAir = inAir;
     if (landT > 0) landT = Math.max(0, landT - dt);
-    // the stride follows the ground covered, so the feet do not slide
+    if (takeoff > 0) takeoff = Math.max(0, takeoff - dt);
+    // how the speed is changing: leaning into a start, rocking back on a stop
+    accel = damp(accel, dt > 0 ? (speed - prevSpeed) / dt : 0, 8, dt); prevSpeed = speed;
+    // turning: the body lags the heading, so the difference is the turn; the torso leans into it and the feet shuffle when standing
+    const yawErr = wrap(facingTarget - yaw);
+    turnLean = damp(turnLean, clamp(yawErr * 0.5, -0.5, 0.5), 8, dt);
+    shuffle = damp(shuffle, Math.min(1, Math.abs(yawErr) * 1.6) * (1 - w) * (one ? 0 : 1), 9, dt);
+    // the stride follows the ground covered, so the feet do not slide; it keeps going while the body slows to a stop
     const stride = lerp(2.1, 3.4, r);
-    phase += (Math.max(speed, moving ? 1.2 : 0) / stride) * Math.PI * 2 * dt * (moving ? 1 : 0.0);
+    phase += (Math.max(speed, moving ? 1.2 : 0) / stride) * Math.PI * 2 * dt * (0.25 + 0.75 * w) + Math.abs(yawErr) * 5 * dt * shuffle;
     const s = Math.sin(phase), c = Math.cos(phase);
+    const lw = Math.max(w, shuffle * 0.6); // how much the legs are stepping
 
-    // --- locomotion targets
-    const A = lerp(0.55, 0.92, r), K = lerp(0.6, 1.4, r), AA = lerp(0.5, 1.0, r), E = lerp(0.3, 1.25, r);
+    // --- locomotion targets: arms swing against the legs with the elbow folding as the hand comes forward, the shoulders counter-rotate the hips
+    const A = lerp(0.52, 0.95, r), K = lerp(0.62, 1.45, r), AA = lerp(0.62, 1.05, r), E = lerp(0.28, 1.4, r);
     let thL = A * s, thR = -A * s;
     let shL = -K * Math.max(0, c) - 0.04, shR = -K * Math.max(0, -c) - 0.04;
     let uL = -AA * s, uR = AA * s;
-    let fL = -(E + 0.3 * Math.max(0, -s) * r), fR = -(E + 0.3 * Math.max(0, s) * r);
-    let uLz = 0.06, uRz = -0.06;
-    // idle: weight shift, breathing, arms hang a little forward and sway
+    let fL = -(E + (0.38 - 0.25 * r) * Math.max(0, s)), fR = -(E + (0.38 - 0.25 * r) * Math.max(0, -s)); // elbows bend on the forward swing
+    let uLz = 0.14, uRz = -0.14;
+    // idle: weight shift, breathing, arms hang relaxed with a soft bend and sway
     const breath = Math.sin(t * 1.9), shift = Math.sin(t * 0.55);
-    const iL = 0.04 * shift, iR = -0.04 * shift;
-    thL = lerp(iL, thL, w); thR = lerp(iR, thR, w);
-    shL = lerp(-0.03 + 0.03 * shift, shL, w); shR = lerp(-0.03 - 0.03 * shift, shR, w);
-    uL = lerp(0.06 + 0.03 * Math.sin(t * 1.1), uL, w); uR = lerp(0.06 + 0.03 * Math.sin(t * 1.1 + 1.3), uR, w);
-    fL = lerp(-0.2 - 0.03 * breath, fL, w); fR = lerp(-0.2 - 0.03 * breath, fR, w);
-    uLz = lerp(0.07 + 0.01 * breath, uLz + 0.03 * r, w); uRz = -uLz;
+    const iL = 0.045 * shift, iR = -0.045 * shift;
+    thL = lerp(iL, thL, lw); thR = lerp(iR, thR, lw);
+    shL = lerp(-0.04 + 0.04 * shift, shL, lw); shR = lerp(-0.04 - 0.04 * shift, shR, lw);
+    uL = lerp(0.05 + 0.03 * Math.sin(t * 1.1), uL, w); uR = lerp(0.05 + 0.03 * Math.sin(t * 1.1 + 1.3), uR, w);
+    fL = lerp(-0.28 - 0.04 * breath, fL, w); fR = lerp(-0.28 - 0.04 * breath, fR, w);
+    uLz = lerp(0.15 + 0.012 * breath, uLz + 0.06 * r, w); uRz = -uLz;
+    // arms keep a little of their swing as the body slows (momentum), they do not drop to the sides at once
     // airborne: legs tuck, arms rise
     thL = lerp(thL, 0.5, air); thR = lerp(thR, -0.25, air); shL = lerp(shL, -0.95, air); shR = lerp(shR, -0.5, air);
     uL = lerp(uL, -1.25, air); uR = lerp(uR, -1.25, air); fL = lerp(fL, -0.35, air); fR = lerp(fR, -0.35, air); uLz = lerp(uLz, 0.55, air); uRz = -uLz;
+    // the push off: a brief stretch before the tuck
+    const push = Math.sin((takeoff / 0.16) * Math.PI) * (takeoff > 0 ? 1 : 0);
+    uL -= 0.5 * push; uR -= 0.5 * push; thL -= 0.2 * push; thR -= 0.2 * push;
 
-    let hipsY = HIPS_Y - (0.014 + 0.03 * r) * w * Math.cos(2 * phase) * 1 - 0.004 * breath * (1 - w) - 0.1 * Math.sin((landT / 0.24) * Math.PI);
-    let hipsRz = 0.035 * s * w * (1 - 0.5 * r) + 0.006 * shift * (1 - w);
-    let hipsRy = -0.14 * s * w;
-    let torsoRy = 0.2 * s * w;
-    let torsoRx = -(0.03 + 0.26 * r) * w - 0.08 * air + 0.012 * breath * (1 - w) + 0.05 * Math.sin((landT / 0.24) * Math.PI);
-    let torsoRz = -0.02 * s * w;
+    const landK = Math.sin((landT / 0.26) * Math.PI);
+    const lean = clamp(accel * 0.012, -0.22, 0.28); // forward on a start, back on a stop
+    let hipsY = HIPS_Y - (0.016 + 0.03 * r) * w * Math.cos(2 * phase) - 0.004 * breath * (1 - w) - 0.12 * landK + 0.03 * push;
+    let hipsX = 0.022 * s * w * (1 - 0.4 * r) + 0.01 * shift * (1 - w); // the weight moves from foot to foot
+    let hipsRz = 0.04 * s * w * (1 - 0.5 * r) + 0.006 * shift * (1 - w) - turnLean * 0.1;
+    let hipsRy = -0.16 * s * w - turnLean * 0.2;
+    let torsoRy = 0.26 * s * w + turnLean * 0.35;
+    let torsoRx = -(0.03 + 0.24 * r) * w - 0.08 * air + 0.012 * breath * (1 - w) + 0.06 * landK - lean * w * 0.9 - lean * 0.5 * (1 - w);
+    let torsoRz = -0.025 * s * w - turnLean * 0.22 * (0.4 + 0.6 * w);
     let hy = headYaw, hp = headPitch, hrz = 0;
     let upRx = [uL, uR], upRz = [uLz, uRz], fo = [fL, fR], foRz = [0, 0];
 
@@ -141,6 +157,15 @@ export function createRig(look: NpcLook, o: { shadow?: boolean; /** The characte
         case 'point': upRx[1] = mix(upRx[1]!, -1.5); upRz[1] = mix(upRz[1]!, -0.12); fo[1] = mix(fo[1]!, -0.1); torsoRx = mix(torsoRx, -0.05); break;
         case 'work': upRx[0] = mix(upRx[0]!, -0.95); upRx[1] = mix(upRx[1]!, -0.95); fo[0] = mix(fo[0]!, -1.0 + 0.3 * Math.sin(t * 8)); fo[1] = mix(fo[1]!, -1.0 + 0.3 * Math.sin(t * 8 + 2.4)); torsoRx = mix(torsoRx, -0.15); hp = mix(hp, 0.22); break;
         case 'bow': torsoRx = mix(torsoRx, -0.7 * Math.sin(Math.min(1, oneT / LEN.bow) * Math.PI)); break;
+        case 'type': { const f = Math.sin(t * 17), g = Math.sin(t * 13 + 1.7); upRx[0] = mix(upRx[0]!, -0.85); upRx[1] = mix(upRx[1]!, -0.85); fo[0] = mix(fo[0]!, -1.35 + 0.1 * f); fo[1] = mix(fo[1]!, -1.35 + 0.1 * g); upRz[0] = mix(upRz[0]!, 0.18); upRz[1] = mix(upRz[1]!, -0.18); torsoRx = mix(torsoRx, -0.14); hp = mix(hp, 0.2 + 0.03 * g); break; }
+        case 'ready': { hipsY = lerp(hipsY, HIPS_Y - 0.16, m); thL = mix(thL, 0.62); thR = mix(thR, 0.62); shL = mix(shL, -1.05); shR = mix(shR, -1.05); torsoRx = mix(torsoRx, -0.5); upRx[0] = mix(upRx[0]!, -0.7); upRx[1] = mix(upRx[1]!, -0.7); fo[0] = mix(fo[0]!, -0.75); fo[1] = mix(fo[1]!, -0.75); upRz[0] = mix(upRz[0]!, 0.3); upRz[1] = mix(upRz[1]!, -0.3); hp = mix(hp, 0.35 + 0.04 * Math.sin(t * 1.3)); break; }
+        case 'swing': { const k2 = clamp(oneT / 0.9, 0, 1), wind = k2 < 0.38 ? k2 / 0.38 : 1, hit = k2 < 0.38 ? 0 : Math.min(1, (k2 - 0.38) / 0.22), fin = k2 < 0.6 ? 0 : (k2 - 0.6) / 0.4; const turn = -1.0 * wind * (1 - hit) + 1.35 * hit - 0.3 * fin; upRx[0] = mix(upRx[0]!, -1.25); upRx[1] = mix(upRx[1]!, -1.25); fo[0] = mix(fo[0]!, -0.55); fo[1] = mix(fo[1]!, -0.55); upRz[0] = mix(upRz[0]!, 0.15); upRz[1] = mix(upRz[1]!, -0.15); torsoRy += turn * m; hipsRy += turn * 0.6 * m; torsoRx = mix(torsoRx, -0.12); hipsY = lerp(hipsY, HIPS_Y - 0.08, m); thL = mix(thL, 0.3); thR = mix(thR, 0.3); shL = mix(shL, -0.55); shR = mix(shR, -0.55); break; }
+        case 'pitch': { const k2 = clamp(oneT / 1.3, 0, 1), up = k2 < 0.45 ? Math.sin((k2 / 0.45) * Math.PI * 0.5) : 1 - Math.min(1, (k2 - 0.45) / 0.1), fwd = k2 < 0.45 ? 0 : Math.min(1, (k2 - 0.45) / 0.18); upRx[0] = mix(upRx[0]!, -2.4 * up - 0.6 * (1 - up)); upRx[1] = mix(upRx[1]!, lerp(-2.6 * up, 0.9, fwd)); fo[0] = mix(fo[0]!, -0.5); fo[1] = mix(fo[1]!, lerp(-0.4, -0.2, fwd)); thL = mix(thL, lerp(-1.25 * up, 0.5, fwd)); shL = mix(shL, lerp(-1.3 * up, -0.2, fwd)); torsoRx = mix(torsoRx, 0.2 * up * -1 + 0.55 * fwd); torsoRy += 0.5 * (fwd - 0.3 * up) * m; break; }
+        case 'throw': { const k2 = clamp(oneT / 0.8, 0, 1), back = k2 < 0.4 ? k2 / 0.4 : 1, fwd = k2 < 0.4 ? 0 : Math.min(1, (k2 - 0.4) / 0.2); upRx[1] = mix(upRx[1]!, lerp(-2.3 * back, 0.8, fwd)); upRx[0] = mix(upRx[0]!, -1.0); fo[1] = mix(fo[1]!, -0.5); torsoRy += (-0.7 * back + 1.3 * fwd) * m * 0.7; torsoRx = mix(torsoRx, 0.1 * back + 0.35 * fwd); break; }
+        case 'catch': upRx[0] = mix(upRx[0]!, -1.4); upRx[1] = mix(upRx[1]!, -1.4); fo[0] = mix(fo[0]!, -0.55); fo[1] = mix(fo[1]!, -0.55); upRz[0] = mix(upRz[0]!, 0.1); upRz[1] = mix(upRz[1]!, -0.1); torsoRx = mix(torsoRx, -0.2); break;
+        case 'stretch': { const side = Math.sin(t * 1.4); upRx[0] = mix(upRx[0]!, -3.0); upRx[1] = mix(upRx[1]!, -3.0); upRz[0] = mix(upRz[0]!, 0.25 + 0.2 * side); upRz[1] = mix(upRz[1]!, -0.25 + 0.2 * side); fo[0] = mix(fo[0]!, -0.1); fo[1] = mix(fo[1]!, -0.1); torsoRz = mix(torsoRz, 0.32 * side); break; }
+        case 'lift': { const q2 = 0.5 + 0.5 * Math.sin(t * 3.2); upRx[0] = mix(upRx[0]!, -0.25); upRx[1] = mix(upRx[1]!, -0.25); fo[0] = mix(fo[0]!, -0.3 - 1.9 * q2); fo[1] = mix(fo[1]!, -0.3 - 1.9 * (1 - q2)); hipsY = lerp(hipsY, HIPS_Y - 0.1 * q2, m); thL = mix(thL, 0.4 * q2); thR = mix(thR, 0.4 * q2); shL = mix(shL, -0.8 * q2); shR = mix(shR, -0.8 * q2); torsoRx = mix(torsoRx, -0.1 * q2); break; }
+        case 'salute': upRx[1] = mix(upRx[1]!, -1.9); fo[1] = mix(fo[1]!, -2.3); upRz[1] = mix(upRz[1]!, -0.5); hp = mix(hp, -0.08); torsoRx = mix(torsoRx, -0.04); break;
       }
     }
     // pointing toward something (held or one-shot) turns the torso and head to it
@@ -156,7 +181,7 @@ export function createRig(look: NpcLook, o: { shadow?: boolean; /** The characte
     hp = headPitch + (hp - headPitch) + 0.03 * Math.sin(2 * phase) * w - torsoRx * 0.5;
 
     // --- write the pose
-    sk.hips.position.y = hipsY; sk.hips.rotation.set(0, hipsRy, hipsRz);
+    sk.hips.position.y = hipsY; sk.hips.position.x = hipsX; sk.hips.rotation.set(0, hipsRy, hipsRz);
     sk.torso.rotation.set(torsoRx, torsoRy, torsoRz);
     sk.head.rotation.set(hp, hy, hrz);
     sk.thighL.rotation.x = thL; sk.thighR.rotation.x = thR; sk.shinL.rotation.x = shL; sk.shinR.rotation.x = shR;

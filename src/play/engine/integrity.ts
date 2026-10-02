@@ -78,3 +78,30 @@ export async function showColliders(stage: Stage, on = true): Promise<number> {
   stage.scene.add(g);
   return n;
 }
+
+/** What is hidden or culled right now: props whose `visible` flag is off, and meshes whose bounding sphere is wrong or that the frustum rejects although their box is in view. */
+export async function visibilityNow(stage: Stage): Promise<{ hidden: string[]; badBounds: string[]; culled: string[] }> {
+  const { Frustum, Matrix4, Box3, Sphere, Mesh } = await import('three');
+  const cam = (stage as unknown as { camera: import('three').PerspectiveCamera }).camera;
+  cam.updateMatrixWorld(true);
+  const fr = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+  const hidden: string[] = [], badBounds: string[] = [], culled: string[] = [];
+  for (const { p, obj } of stage.built) {
+    const name = `${p.kind}${p.id ? `#${p.id}` : ''}@(${p.x},${p.z})`;
+    if (!obj.visible) hidden.push(name);
+    obj.traverse((o) => {
+      const m = o as import('three').Mesh;
+      if (!(m instanceof Mesh) || !m.geometry) return;
+      m.geometry.computeBoundingBox(); const gb = m.geometry.boundingBox!;
+      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+      const gs = m.geometry.boundingSphere!;
+      // the sphere must contain the box corners (a stale sphere makes a big mesh vanish when the camera is close)
+      const c = gb.getCenter(new (gs.center.constructor as new () => import('three').Vector3)()); const r = gb.getSize(new (gs.center.constructor as new () => import('three').Vector3)()).length() / 2;
+      if (gs.radius + 1e-3 < r - 1e-3 || gs.center.distanceTo(c) > gs.radius * 0.6 + 1) badBounds.push(`${name}: sphere r=${gs.radius.toFixed(1)} vs box r=${r.toFixed(1)}`);
+      m.updateWorldMatrix(true, false);
+      const wb = new Box3().copy(gb).applyMatrix4(m.matrixWorld);
+      if (m.frustumCulled && o.visible && obj.visible) { const sp = new Sphere().copy(gs).applyMatrix4(m.matrixWorld); if (!fr.intersectsSphere(sp) && fr.intersectsBox(wb)) culled.push(`${name}: sphere rejected but box in view`); }
+    });
+  }
+  return { hidden, badBounds: [...new Set(badBounds)], culled: [...new Set(culled)] };
+}

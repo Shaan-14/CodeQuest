@@ -76,7 +76,7 @@ export const DEFAULT_SCENE = 'robotics-atrium';
 
 type Talk = { conv: Conversation; lines: string[] } | { inspect: { name: string; lines: string[] } } | null;
 
-declare global { interface Window { __cq3dHud?: DriveHudState | null; __cq3d?: { autopilot?: (on: boolean, scale?: number) => void; stage: Stage; state: () => unknown; drive?: () => Promise<void>; dynStates: (id: string) => string[]; teleport?: (x: number, z: number, ry?: number) => void; integrity?: () => Promise<unknown>; colliders?: (on?: boolean) => Promise<number>; travel: (scene: string, spawn?: string) => void; open: (what: string) => void } } }
+declare global { interface Window { __cq3dHud?: DriveHudState | null; __cq3d?: { autopilot?: (on: boolean, scale?: number) => void; stage: Stage; state: () => unknown; drive?: () => Promise<void>; dynStates: (id: string) => string[]; teleport?: (x: number, z: number, ry?: number) => void; integrity?: () => Promise<unknown>; colliders?: (on?: boolean) => Promise<number>; visibility?: () => Promise<{ hidden: string[]; badBounds: string[]; culled: string[] }>; travel: (scene: string, spawn?: string) => void; open: (what: string) => void } } }
 
 /**
  * The playable world screen: the 3D view plus everything drawn over it. All game rules stay where they were: quests, evidence, Focus and
@@ -198,6 +198,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         setReady(true);
         window.__cq3d = {
           stage, state: () => stage.snapshot(), travel, drive: () => startDriving(), dynStates: (id) => stage.dyn(id)?.states?.() ?? [],
+          visibility: localStorage.getItem('codequest.e2e') === '1' ? async () => (await import('../engine/integrity')).visibilityNow(stage) : undefined,
           colliders: localStorage.getItem('codequest.e2e') === '1' ? async (on) => (await import('../engine/integrity')).showColliders(stage, on) : undefined,
           integrity: localStorage.getItem('codequest.e2e') === '1' ? async () => (await import('../engine/integrity')).meshIssues(stage) : undefined,
           teleport: localStorage.getItem('codequest.e2e') === '1' ? (x, z, ry) => stage.teleport(x, z, ry) : undefined,
@@ -322,7 +323,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         st.apply(recordSeen(st.save, a.id));
         break;
       }
-      case 'terminal': setTermStart(null); setTerminal(a.station); break;
+      case 'terminal': setTermStart(null); stageRef.current?.useStation(true); setTerminal(a.station); break;
       case 'exit': {
         const exit = stageRef.current?.def?.exits.find((e) => `exit:${e.id}` === it.id);
         const check = exit ? canUseExit(st.save, exit) : { ok: true, reason: '' };
@@ -391,7 +392,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   }
 
   /** A failure owes training: walk the player to the Simulation Room, and open its console. Nothing is lost by going. */
-  const goTraining = () => { endReaction(); setTerminal(null); setPaused(false); setMapOpen(false); setBoss(null); travel('sim-room', 'training'); setTraining(true); };
+  const goTraining = () => { endReaction(); stageRef.current?.useStation(false); setTerminal(null); setPaused(false); setMapOpen(false); setBoss(null); travel('sim-room', 'training'); setTraining(true); };
   /** Training is done: back to the exact place (and lesson) the player left. */
   const returnFromTraining = (r: ReturnPoint) => {
     setTraining(false);
@@ -442,7 +443,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           {sim && stageRef.current && <SimOverlay stage={stageRef.current} onClose={() => setSim(false)} />}
           {training && <TrainingOverlay onClose={() => setTraining(false)} onReturn={returnFromTraining} />}
           {mapOpen && <MapOverlay sceneId={sceneId} onClose={() => setMapOpen(false)} onTravel={(to, spawn) => { setMapOpen(false); travel(to, spawn); }} />}
-          {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} hidden={reacting} start={termStart} onClose={() => { endReaction(); setTerminal(null); }} onGoTraining={goTraining} />}
+          {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} hidden={reacting} start={termStart} onClose={() => { endReaction(); stageRef.current?.useStation(false); setTerminal(null); }} onGoTraining={goTraining} />}
           {paused && <PauseMenu onResume={() => setPaused(false)} stage={stageRef.current} />}
         </div>
       )}

@@ -64,7 +64,6 @@ export interface StageEnv {
 export interface NpcRuntime { npc: Npc3D; rig: Rig; x: number; z: number; ry: number; home: { x: number; z: number }; patrol?: { x: number; z: number }[]; leg: number; collider: Collider & { kind: 'circle' }; speed: number; /** A cinematic sends the NPC somewhere / turns it toward something. */ goal?: { x: number; z: number }; faceTarget?: { x: number; z: number }; activity?: 'work' | 'think'; greeted?: boolean; idleIn?: number }
 
 /** Props that are flat or fixed to walls: they never block the view, so they are never hidden. */
-const NEVER_HIDE = new Set(['wall', 'floor', 'ground', 'pond', 'sign', 'screen', 'statusScreen', 'banner', 'void']);
 /** Wall-mounted things: hidden when the camera is behind them AND outside the room (like the wall itself), so they never fill the screen. */
 const MOUNTED = new Set(['sign', 'screen', 'statusScreen', 'banner']);
 const markerGeo = new OctahedronGeometry(0.22);
@@ -104,8 +103,14 @@ export class Stage {
   private npcColliders = new Set<Collider>();
   /** Room walls: hidden while the camera is on the outside of them, so the room is never seen from behind a wall. */
   /** Tall solid props: hidden while they stand between the camera and the player, so nothing ever hides the character. */
-  private occluders: { obj: Object3D; box: Box3 }[] = [];
-  private ray = new Ray(); private hit = new Vector3(); private headPos = new Vector3();
+  /** What the camera may not pass through: walls, tall furniture, buildings, the whole crown of a tree. */
+  private camBlockers: Box3[] = [];
+  private camK = 1;
+  private crownBoxes: Box3[] = [];
+  private rebuildBlockers(): void {
+    this.camBlockers = [...this.crownBoxes, ...this.colliders.filter((c) => (c.top ?? 0) > 2.2 && c.h === undefined).map((c) => (c.kind === 'circle' ? new Box3(new Vector3(c.x - c.r, 0, c.z - c.r), new Vector3(c.x + c.r, c.top!, c.z + c.r)) : new Box3(new Vector3(c.x - c.w / 2, 0, c.z - c.d / 2), new Vector3(c.x + c.w / 2, c.top!, c.z + c.d / 2))))];
+  }
+  private ray = new Ray(); private hit = new Vector3();
   private mounted: { obj: Object3D; nx: number; nz: number; px: number; pz: number }[] = [];
   private walls: { obj: Object3D; nx: number; nz: number; px: number; pz: number; inside: number }[] = [];
   private active: Interactable[] = [];
@@ -141,6 +146,12 @@ export class Stage {
   placePlayer(x: number, z: number, ry: number): void { this.body.x = x; this.body.z = z; this.body.vx = 0; this.body.vz = 0; this.body.ry = ry; this.playerRig.group.position.set(x, 0, z); this.playerRig.setFacing(ry, true); }
   get buildCtx(): BuildCtx { return this.ctx; }
   get playerRigRef(): Rig { return this.playerRig; }
+  /** Turn to a console and work at it (hands on the keys, head down), or step away. */
+  useStation(on: boolean): void {
+    if (!on) { this.playerRig.release(); return; }
+    const it = this.prompt; if (it) { this.body.ry = Math.atan2(-(it.x - this.body.x), -(it.z - this.body.z)); this.playerRig.setFacing(this.body.ry); this.playerRig.lookAt(it.x, it.z); }
+    this.playerRig.hold('type');
+  }
   /** Frame a conversation: over the player's shoulder toward the speaker, who turns to the player and talks. */
   conversationShot(npcId: string): void {
     const n = this.npcRuntime(npcId); if (!n) return;
@@ -250,7 +261,7 @@ export class Stage {
     this.world.add(ground);
     // props
     const save = this.env.getSave();
-    const fitted = new Map<Prop, Collider[]>();
+    const fitted = new Map<Prop, Collider[]>(); const crowns: Box3[] = [];
     for (const p of def.props) {
       const make = builders[p.kind];
       if (!make) { console.warn('unknown prop kind', p.kind); continue; }
@@ -265,7 +276,7 @@ export class Stage {
       if (built.dyn && p.id) this.dyns.set(p.id, built.dyn);
       if (built.tick) this.ticks.push(built.tick);
       if (p.id) this.propPos.set(p.id, { x: p.x, y: (p.y ?? 0) + 1, z: p.z });
-      if (!NEVER_HIDE.has(p.kind)) { const box = new Box3().setFromObject(built.object); if (box.max.y - box.min.y > 0.7) this.occluders.push({ obj: built.object, box }); }
+      if (p.kind === 'tree' || p.kind === 'glowtree') crowns.push(new Box3().setFromObject(built.object)); // the camera keeps out of a tree's whole crown, not just its trunk
       if (MOUNTED.has(p.kind)) { const ry = p.ry ?? 0; this.mounted.push({ obj: built.object, nx: Math.sin(ry), nz: Math.cos(ry), px: p.x, pz: p.z }); }
       if (p.kind === 'wall') { const ry = p.ry ?? 0; const n = { x: Math.sin(ry), z: Math.cos(ry) }; const inside = Math.sign(n.x * (cx - p.x) + n.z * (cz - p.z)) || 1; this.walls.push({ obj: built.object, nx: n.x, nz: n.z, px: p.x, pz: p.z, inside }); }
     }
@@ -273,11 +284,12 @@ export class Stage {
     this.colliders = [...(def.walls ?? [])];
     this.propColliders.clear();
     for (const p of def.props) {
-      const own = fitted.get(p) ?? (p.solid ? collidersOf({ ...def, props: [p], walls: [] }) : []); // the declared footprint only where nothing could be measured (a wall, a door)
+      const own = fitted.get(p) ?? (p.solid ? collidersOf({ ...def, props: [p], walls: [] }).map((c) => ({ ...c, top: Number(p.p?.h ?? 3) })) : []); // the declared footprint only where nothing could be measured (a wall, a door)
       this.colliders.push(...own);
       // a solid prop with an id remembers its colliders so they can be removed when the prop opens
       if (p.id && own.length) this.propColliders.set(p.id, own);
     }
+    this.crownBoxes = crowns; this.rebuildBlockers();
     // NPCs
     for (const pl of def.npcs) {
       const npc = this.env.getNpc(pl.npc); if (!npc) continue;
@@ -313,7 +325,7 @@ export class Stage {
     this.world.traverse((c) => { if ((c as Mesh).isMesh) dispose(c as Mesh); });
     clearLabels();
     for (const n of this.npcs) this.scene.remove(n.rig.group);
-    this.npcs = []; this.npcColliders.clear(); this.built.length = 0; this.dyns.clear(); this.ticks = []; this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.occluders = []; this.mounted = [];
+    this.npcs = []; this.npcColliders.clear(); this.built.length = 0; this.dyns.clear(); this.ticks = []; this.propPos.clear(); this.colliders = []; this.active = []; this.markers = []; this.walls = []; this.camBlockers = []; this.mounted = [];
     for (const m of this.markerMeshes.values()) this.scene.remove(m);
     this.markerMeshes.clear();
     this.director.reset(); this.controlLocked = false; this.playerGoal = null; this.playerFace = null; this.prompt = null; this.driver = null; this.hooks = []; this.chase = null; this.playerRig.group.visible = true; this.audio.engine(null); this.cinema = null;
@@ -369,7 +381,7 @@ export class Stage {
     return out;
   }
 
-  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.grid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => !c.includes(x)); this.propColliders.delete(prop); } }
+  private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.grid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => !c.includes(x)); this.propColliders.delete(prop); this.rebuildBlockers(); } }
 
   /** Paint the sky dome: `zenith` at the top blending to `horizon` at eye level. */
   private paintSky(zenith: Color, horizon: Color): void {
@@ -424,35 +436,43 @@ export class Stage {
     const b = this.cinema ? { x: this.cinema.x, z: this.cinema.z, y: 0 } : this.body;
     const yaw = this.cinema?.yaw ?? this.yaw, pitch = this.cinema?.pitch ?? this.pitch, dist = this.cinema?.dist ?? this.dist;
     const cy = this.cinema ? this.cinema.y : 1.5 + b.y * 0.6;
-    // The camera stays inside the room: if the orbit would leave it, the camera comes closer (and higher) instead of looking at a wall from outside.
     const bd = this.def?.bounds;
     let flat = Math.cos(pitch) * dist;
     const dirX = Math.sin(yaw), dirZ = Math.cos(yaw);
-    if (bd) {
-      const m = -9; // the camera may go well outside the room: the walls in the way disappear
-      const lim = (d: number, p: number, lo: number, hi: number) => (d > 1e-4 ? (hi - m - p) / d : d < -1e-4 ? (lo + m - p) / d : Infinity);
+    if (bd) { // outdoors there is no wall to stop the camera: keep it near the playable area
+      const m = 7;
+      const lim = (d: number, p: number, lo: number, hi: number) => (d > 1e-4 ? (hi + m - p) / d : d < -1e-4 ? (lo - m - p) / d : Infinity);
       flat = Math.max(1.2, Math.min(flat, lim(dirX, b.x, bd.minX, bd.maxX), lim(dirZ, b.z, bd.minZ, bd.maxZ)));
     }
-    const ex = b.x + dirX * flat;
-    const ey = cy + Math.max(Math.sin(pitch) * dist, (dist * Math.cos(pitch) - flat) * 0.9 + Math.sin(pitch) * flat);
-    const ez = b.z + dirZ * flat;
+    let ex = b.x + dirX * flat;
+    let ey = cy + Math.max(Math.sin(pitch) * dist, (dist * Math.cos(pitch) - flat) * 0.9 + Math.sin(pitch) * flat);
+    let ez = b.z + dirZ * flat;
+    // THE CAMERA IS A SPRING ARM: walls, tall furniture and tree crowns between the character and the wanted camera position shorten the arm, so the
+    // camera stays on the player's side of things instead of cutting objects away. (Nothing in the world ever hides because the player is near it.)
+    if (!this.cinema && this.camBlockers.length) {
+      const hx = b.x, hy = cy, hz = b.z, ax = ex - hx, ay = ey - hy, az = ez - hz, len = Math.hypot(ax, ay, az) || 1;
+      this.ray.origin.set(hx, hy, hz); this.ray.direction.set(ax / len, ay / len, az / len);
+      let near = len;
+      for (const bx of this.camBlockers) {
+        if (bx.containsPoint(this.ray.origin)) continue; // the player is inside it (under a crown, in a doorway): it cannot block
+        const h = this.ray.intersectBox(bx, this.hit); if (h) near = Math.min(near, h.distanceTo(this.ray.origin));
+      }
+      const want = Math.max(Math.min(1, Math.max(0, near - 0.5) / len), Math.min(1, 1.4 / len));
+      this.camK = want < this.camK ? this.camK + (want - this.camK) * Math.min(1, dt * 22 + (snap ? 1 : 0)) : this.camK + (want - this.camK) * Math.min(1, dt * 3 + (snap ? 1 : 0)); // in fast, out slowly
+      ex = hx + ax * this.camK; ey = hy + ay * this.camK + (1 - this.camK) * len * 0.16; ez = hz + az * this.camK; // a short arm rises, looking down over the shoulder
+    } else this.camK = 1;
     const k = snap ? 1 : 1 - Math.exp(-dt * this.camRate); // frame-rate independent follow: smooth, never laggy
     this.camPos.x += (ex - this.camPos.x) * k; this.camPos.y += (ey - this.camPos.y) * k; this.camPos.z += (ez - this.camPos.z) * k;
     this.camLook.x += (b.x - this.camLook.x) * k; this.camLook.y += (cy - this.camLook.y) * k; this.camLook.z += (b.z - this.camLook.z) * k;
     this.camPos.y = Math.max(this.camPos.y, 0.6); // never under the floor
     this.camera.position.copy(this.camPos);
     this.sky.position.copy(this.camPos);
-    for (const w of this.walls) w.obj.visible = (w.nx * (this.camPos.x - w.px) + w.nz * (this.camPos.z - w.pz)) * w.inside > -0.5;
+    // a CINEMATIC may put the camera outside a room: only then are the walls it looks through cut away (never during play)
+    const cut = !!this.cinema;
+    for (const w of this.walls) w.obj.visible = !cut || (w.nx * (this.camPos.x - w.px) + w.nz * (this.camPos.z - w.pz)) * w.inside > -0.5;
     const bd2 = this.def?.bounds;
-    const outside = !!bd2 && (this.camPos.x < bd2.minX || this.camPos.x > bd2.maxX || this.camPos.z < bd2.minZ || this.camPos.z > bd2.maxZ);
+    const outside = cut && !!bd2 && (this.camPos.x < bd2.minX || this.camPos.x > bd2.maxX || this.camPos.z < bd2.minZ || this.camPos.z > bd2.maxZ);
     for (const m of this.mounted) m.obj.visible = !(outside && (m.nx * (this.camPos.x - m.px) + m.nz * (this.camPos.z - m.pz)) < -0.5);
-    // things standing between the camera and the character vanish until they no longer do
-    if (this.occluders.length) {
-      this.headPos.set(b.x, cy - 0.2, b.z);
-      this.ray.origin.copy(this.camera.position); this.ray.direction.copy(this.headPos).sub(this.ray.origin);
-      const len = this.ray.direction.length(); this.ray.direction.divideScalar(len || 1);
-      for (const o of this.occluders) { const h = this.ray.intersectBox(o.box, this.hit); o.obj.visible = !((h && h.distanceTo(this.ray.origin) < len - 0.4) || o.box.containsPoint(this.camera.position)); } // and anything the camera itself is inside
-    }
     if (this.shake > 0) { this.shake = Math.max(0, this.shake - dt * 2); this.camera.position.x += (Math.random() - 0.5) * this.shake * 0.3; this.camera.position.y += (Math.random() - 0.5) * this.shake * 0.3; }
     this.camera.lookAt(this.camLook);
   }
@@ -491,6 +511,7 @@ export class Stage {
     if (!this.driver && !this.controlLocked) {
       const it = nearestInteractable(this.body.x, this.body.z, this.body.ry, this.active);
       if (it?.id !== this.prompt?.id) { this.prompt = it; this.env.onPrompt(it); }
+      if (!this.driver) this.playerRig.lookAt(it ? it.x : null, it?.z); // the character looks at what they could use
       if (it && inp.wasPressed('e', 'f')) { this.audio.resume(); this.audio.sfx('interact'); this.playerRig.play('interact'); this.env.onInteract(it); }
     }
     // remember where we stand (rate-limited; silent)

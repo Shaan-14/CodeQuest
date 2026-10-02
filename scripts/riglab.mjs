@@ -24,15 +24,16 @@ const close = CLOSE;
 await p.evaluate(async (close) => {
   const stage = window.__cq3d.stage; stage.updateCamera = () => {}; stage.snapCamera = () => {};
   const { createRig } = await import('/src/play/engine/rig.ts');
+  const T = { hat: 'none', outfit: 'tech', accessory: 'techpack', legs: 0x232a42 };
   const looks = [
-    { name: 'player', look: { body: 0x5b6bd6, head: 0xf2c9a0, accent: 0xf2c14e, hair: 0xe8d9b0, hat: 'none' }, pose: 'idle' },
-    { name: 'walk', look: { body: 0x5b6bd6, head: 0xf2c9a0, accent: 0xf2c14e, hair: 0xe8d9b0, hat: 'none' }, pose: 'walk', speed: 3.2 },
-    { name: 'run', look: { body: 0x3f8f5a, head: 0xd9a877, accent: 0xc9b37e, hair: 0x5a3a22, hat: 'none', hairStyle: 'long' }, pose: 'run', speed: 5.6 },
-    { name: 'jump', look: { body: 0xc2603a, head: 0x8d5a3b, accent: 0x4fd1c5, hair: 0x1f1a1a, hat: 'none', hairStyle: 'curly' }, pose: 'jump', speed: 2 },
-    { name: 'rowan', look: { body: 0xd98a2b, head: 0xd9a877, accent: 0xf2c14e, hair: 0x3a2a1a, hat: 'hardhat' }, pose: 'idle', one: 'wave' },
-    { name: 'wizard', look: { body: 0x4b3a7a, head: 0xd9b48f, accent: 0xffd98a, hair: 0xd8d8e8, hat: 'wizard' }, pose: 'idle', one: 'cheer' },
-    { name: 'juno', look: { body: 0xe8ecf7, head: 0xf2c9a0, accent: 0x2f9e8f, hair: 0xb8c0d8, hat: 'none', outfit: 'coat', accessory: 'lanyard' }, pose: 'idle', hold: 'point' },
-    { name: 'robot', look: { body: 0x7dffb3, head: 0xcfd6ea, accent: 0x2f9e8f, shape: 'robot' }, pose: 'idle', talk: true },
+    { name: 'idle', look: { body: 0x5b6bd6, head: 0xf2c9a0, accent: 0xf2c14e, hair: 0xe8d9b0, hairStyle: 'short', ...T }, pose: 'idle' },
+    { name: 'walk', look: { body: 0x5b6bd6, head: 0xf2c9a0, accent: 0xf2c14e, hair: 0xe8d9b0, hairStyle: 'short', ...T }, pose: 'walk', speed: 3.2 },
+    { name: 'run', look: { body: 0x3f8f5a, head: 0xd9a877, accent: 0xc9b37e, hair: 0x5a3a22, hairStyle: 'long', ...T }, pose: 'run', speed: 5.6 },
+    { name: 'jump', look: { body: 0xc2603a, head: 0x8d5a3b, accent: 0x4fd1c5, hair: 0x1f1a1a, hairStyle: 'curly', ...T }, pose: 'jump', speed: 2 },
+    { name: 'type', look: { body: 0x9a4fc2, head: 0xf6d6b8, accent: 0xf2f2f2, hair: 0xc94f6d, hairStyle: 'bun', ...T }, pose: 'idle', hold: 'type' },
+    { name: 'ready', look: { body: 0x2b6cb0, head: 0xd9a877, accent: 0xffd166, hair: 0x2a1a12, hat: 'cap' }, pose: 'idle', hold: 'ready' },
+    { name: 'swing', look: { body: 0x2b6cb0, head: 0xc99267, accent: 0xffd166, hair: 0x1f1a1a, hat: 'helmet' }, pose: 'idle', one: 'swing' },
+    { name: 'cheer', look: { body: 0x5b6bd6, head: 0xf2c9a0, accent: 0xf2c14e, hair: 0xe8d9b0, hairStyle: 'short', ...T }, pose: 'idle', one: 'cheer' },
   ];
   window.__lab = [];
   looks.forEach((l, i) => {

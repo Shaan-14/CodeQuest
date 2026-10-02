@@ -50,7 +50,7 @@ export function fitColliders(obj: Object3D, p: Prop): Collider[] {
   return merged.map((r): Collider => {
     const w = r.x1 - r.x0, d = r.z1 - r.z0, x = (r.x0 + r.x1) / 2, z = (r.z0 + r.z1) / 2;
     const h = r.top > 1.7 ? undefined : r.top; // anything a jump could clear keeps its height
-    if (round && merged.length === 1) return { kind: 'circle', x, z, r: Math.max(0.12, Math.max(w, d) / 2) };
-    return { kind: 'box', x, z, w, d, h };
+    if (round && merged.length === 1) return { kind: 'circle', x, z, r: Math.max(0.12, Math.max(w, d) / 2), top: r.top };
+    return { kind: 'box', x, z, w, d, h, top: r.top };
   });
 }
