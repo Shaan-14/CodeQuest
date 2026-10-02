@@ -123,6 +123,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const thenRef = useRef<string | null>(null);
   const cutRef = useRef<{ scene: string; x: number; z: number; ry: number } | null>(null);
   const [curtain, setCurtain] = useState(false);
+  const [cutting, setCutting] = useState(false);
   const reactingRef = useRef(false);
   const batch = useRef<import('../../game/events').GameEvent[]>([]);
   const batchTimer = useRef(0);
@@ -264,7 +265,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     const id = thenRef.current, stage = stageRef.current; thenRef.current = null;
     const c = id ? cutawayFor(id) : undefined;
     if (!c || !stage || !sceneId) { endReaction(); return; }
-    cutRef.current = { scene: sceneId, x: stage.body.x, z: stage.body.z, ry: stage.body.ry };
+    cutRef.current = { scene: sceneId, x: stage.body.x, z: stage.body.z, ry: stage.body.ry }; setCutting(true);
     setCurtain(true); await pause(320);
     travel(c.scene, c.spawn);
     stage.setPlayerVisible(!!c.player);
@@ -279,7 +280,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     setCurtain(true); await pause(320);
     travel(back.scene, { x: back.x, z: back.z, ry: back.ry });
     stage.setPlayerVisible(true);
-    await pause(120); setCurtain(false);
+    await pause(120); setCurtain(false); setCutting(false);
     endReaction();
   }
   // the terminal has stepped aside: play what happened, then give the lesson back
@@ -472,7 +473,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
       {!ready && <div class="play-loading" role="status">Loading the world…</div>}
       {ready && (
         <div class="play-overlay">
-          {scene && <LocationCard title={scene.title} blurb={scene.blurb} sceneKey={scene.id} />}
+          {scene && <LocationCard title={scene.title} blurb={scene.blurb} sceneKey={scene.id} quiet={curtain || cutting} />}
           <ObjectiveWidget objective={objective} guide={guide} fresh={freshObj} />
           <Caption text={caption} />
           {!talk && !terminal && !paused && !gate && !training && !mapOpen && !sim && !driving && !boss && !finale && !daily && !manual && !welcome && <Prompt it={prompt} />}

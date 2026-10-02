@@ -470,6 +470,37 @@ async function main() {
       await p.context().close();
     });
 
+    await test('Cutaway: a passed SQL lesson shows the play at the ballpark and brings the player back to the same console, lesson open', async () => {
+      const p = await newGame();
+      await go(p, 'analytics-office');
+      await tp(p, 0, -0.3, 0);
+      const before = await st(p);
+      await interact(p, 'analytics-console');
+      await tid(p, 'play-terminal').waitFor();
+      await tid(p, 'terminal-next').click();
+      await tid(p, 'lesson').waitFor();
+      // everything up to the last challenge: the pass is the trigger
+      const scenes = []; await p.exposeFunction('__seen', (sc) => scenes.push(sc));
+      await p.evaluate(() => { let last = ''; setInterval(() => { const sc = window.__cq3d.state().scene; if (sc !== last) { last = sc; window.__seen(sc); } }, 100); });
+      for (let step = 0; step < 30; step++) {
+        const kind = await stepKind(p, step);
+        if (kind === 'challenge') { const cid = await tid(p, 'briefing').getAttribute('data-challenge'); await solve(p, cid); await tid(p, 'submit').click(); await tid(p, 'result').waitFor({ timeout: 60000 }); if (await tid(p, 'finish').count() || await p.evaluate(() => !!document.querySelector('[data-testid=cine]')?.getAttribute('data-active') && document.querySelector('[data-testid=cine]').getAttribute('data-active') === '1')) break; }
+        else if (kind === 'demo') await runDemo(p);
+        if (await tid(p, 'finish').count()) break;
+        await tid(p, 'continue').click();
+      }
+      await p.waitForFunction(() => window.__cq3d.state().scene === 'ballpark', null, { timeout: 60000 });
+      await p.screenshot({ path: SHOTS + 'play-11-cutaway-ballpark.png' });
+      assert((await p.evaluate(() => window.__cq3d.dynStates('team'))).length >= 0, 'the team is on the field');
+      await p.waitForFunction(() => window.__cq3d.state().scene === 'analytics-office', null, { timeout: 90000 });
+      await waitTerminalBack(p);
+      assert(await tid(p, 'lesson').count() === 1, 'the lesson is open again, where it was');
+      const after = await st(p);
+      assert(Math.hypot(after.x - before.x, after.z - before.z) < 0.5, `the player is back where they stood (${before.x},${before.z}) vs (${after.x},${after.z})`);
+      assert(scenes.includes('ballpark') && scenes[scenes.length - 1] === 'analytics-office', 'office -> ballpark -> office: ' + scenes.join(', '));
+      await p.context().close();
+    });
+
     await test('Baseball: without analysis the lineup is not set, the field is empty of a lineup, and the game is played with the jersey-number order', async () => {
       const p = await newGame();
       await go(p, 'ballpark');
