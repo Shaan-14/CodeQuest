@@ -11,6 +11,7 @@ import { acceptWorkedQuests, enterScene, recordSeen, worldReward, recordTalk, se
 import { getStore, useGame } from '../../game/store';
 import { requiredTraining } from '../../game/training';
 import { trainingKind } from '../logic/trainingKind';
+import { remarkFor } from '../logic/hints';
 import { conversationWith, type Conversation } from '../logic/dialogue';
 import { holds } from '../logic/conditions';
 import type { Interactable } from '../logic/sceneTypes';
@@ -371,7 +372,10 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
         rig?.play(conv.entry.mood === 'cheer' ? 'cheer' : conv.entry.mood === 'think' ? 'think' : 'wave');
         rig?.mood(conv.entry.mood === 'cheer' ? 'happy' : conv.entry.mood === 'worry' ? 'worried' : conv.entry.mood === 'think' ? 'focused' : 'neutral');
         stageRef.current?.conversationShot(npc.id);
-        setTalk({ conv, lines: conv.entry.lines });
+        // after the usual line, one remark about the player's real progress (said once; never while a quest is on offer, which has the floor)
+        const remark = conv.canOffer ? undefined : remarkFor(st.save, npc.id);
+        if (remark) st.apply(recordSeen(st.save, `hint:${remark.id}`), { silent: true });
+        setTalk({ conv, lines: remark ? [...conv.entry.lines, remark.text] : conv.entry.lines });
         break;
       }
       case 'inspect': {

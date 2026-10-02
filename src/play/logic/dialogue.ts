@@ -5,6 +5,7 @@
 import type { SaveData } from '../../core/save';
 import { getQuest, questStatus } from '../../game/quests';
 import { holds } from './conditions';
+import type { OneShot } from '../engine/rig';
 import type { Condition } from './sceneTypes';
 
 export interface DialogueEntry {
@@ -45,6 +46,8 @@ export interface Npc3D {
   /** Who they are, for writers and for the journal. */
   personality: string;
   look: NpcLook;
+  /** What they do when idle, by their work and manner (a coach stretches and salutes, an analyst thinks and points). */
+  idles?: OneShot[];
   dialogue: DialogueEntry[];
 }
 

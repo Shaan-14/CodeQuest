@@ -622,7 +622,7 @@ export class Stage {
       if (n.activity) { if (d < 3.4) n.rig.release(); else if (d > 5) n.rig.hold(n.activity); }
     }
     // idle life: now and then a thought, a nod or a shrug (not while busy, walking or being talked to)
-    if (!moving && !n.activity && !this.controlLocked && !n.faceTarget) { n.idleIn = (n.idleIn ?? 4 + Math.random() * 8) - dt; if (n.idleIn <= 0) { n.idleIn = 7 + Math.random() * 9; n.rig.play((['think', 'shrug', 'nod'] as const)[Math.floor(Math.random() * 3)]!); } }
+    if (!moving && !n.activity && !this.controlLocked && !n.faceTarget) { n.idleIn = (n.idleIn ?? 4 + Math.random() * 8) - dt; if (n.idleIn <= 0) { n.idleIn = 7 + Math.random() * 9; const pool = n.npc.idles?.length ? n.npc.idles : (['think', 'shrug', 'nod'] as const); n.rig.play(pool[Math.floor(Math.random() * pool.length)]!); } }
     // people do not walk through scenery or each other: they are pushed out of anything that blocks, like the player
     if (moving) for (const c of this.colliders) { if (this.npcColliders.has(c)) continue; [n.x, n.z] = pushOut(n.x, n.z, 0.35, c); }
     n.collider.x = n.x; n.collider.z = n.z;

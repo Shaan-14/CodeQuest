@@ -193,4 +193,11 @@ const SUMMIT: Npc3D[] = [
   },
 ];
 cast.push(...SUMMIT);
+/** Idle manner by person: the same few gestures for everybody made the place feel staged. */
+const IDLES: Record<string, NonNullable<Npc3D['idles']>> = {
+  juno: ['think', 'nod', 'point'], rowan: ['stretch', 'shrug', 'nod'], 'ori-floor': ['stretch', 'lift', 'nod'], 'sana-sim': ['think', 'nod', 'point'], kip: ['wave', 'nod', 'shrug'],
+  pip: ['wave', 'point', 'cheer'], teselle: ['think', 'nod', 'bow'], bram: ['think', 'point', 'nod'], nim: ['shrug', 'stretch', 'wave'],
+  reyes: ['salute', 'stretch', 'nod'], dara: ['think', 'point', 'shrug'], marisol: ['stretch', 'point', 'nod'], aurel: ['nod', 'think', 'bow'],
+};
+for (const n of cast) n.idles = IDLES[n.id];
 byId.clear(); for (const n of cast) byId.set(n.id, n);
