@@ -51,3 +51,23 @@ describe('the cinematics of the world', () => {
     }
   });
 });
+
+describe('training scenes', () => {
+  const kinds = ['python', 'data', 'web', 'stats', 'sheet'];
+  it('every kind of training has a short scene that only uses what the Simulation Room has', () => {
+    const room = scenes.find((s) => s.id === 'sim-room')!;
+    for (const k of kinds) {
+      const c = CINEMATICS[`training:${k}`]!; expect(c, k).toBeDefined();
+      expect(c.len ?? 0).toBeLessThan(11.5);
+      const refs = referencedIds(c);
+      expect(refs.props, k).toEqual([]);
+      for (const n of refs.npcs) expect(room.npcs.some((x) => x.npc === n), `${k}: ${n}`).toBe(true);
+      expect(sortedCues(c).some((q) => q.do === 'player' && q.anim), `${k} has the player doing something`).toBe(true);
+      expect(sortedCues(c).some((q) => q.do === 'banner'), k).toBe(true);
+    }
+  });
+  it('the scenes differ by skill family', () => {
+    const acts = kinds.map((k) => JSON.stringify(CINEMATICS[`training:${k}`]!.cues.filter((q) => q.do === 'player' || q.do === 'say' || q.do === 'flash')));
+    expect(new Set(acts).size).toBe(kinds.length);
+  });
+});

@@ -381,6 +381,9 @@ export class Stage {
     return out;
   }
 
+  /** Play a named cinematic now (the training arrival). Returns false when there is none, so the caller carries on without it. */
+  playCinematic(ref: string): boolean { const c = this.env.cinematic?.(ref); if (!c) return false; this.director.enqueue(c); return true; }
+
   private openGate(prop: string): void { const c = this.propColliders.get(prop); if (c) { this.grid = null; this.pathClock = 99; this.colliders = this.colliders.filter((x) => !c.includes(x)); this.propColliders.delete(prop); this.rebuildBlockers(); } }
 
   /** Paint the sky dome: `zenith` at the top blending to `horizon` at eye level. */

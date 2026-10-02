@@ -281,6 +281,56 @@ export function questComplete(questId: string): Cinematic | undefined {
   return { id: `quest:${questId}`, cues, len: 4.2 };
 }
 
+/**
+ * TRAINING: plays by itself when a failure sends the player to the Simulation Room (no button between arriving and the console). Sana walks
+ * over, the camera frames the console, the player does the kind of work the plan is about, the machines answer, and a banner says what the
+ * plan will do. Short on purpose: it is a transition into work, not a reward, and nothing in it is a mastery claim.
+ */
+function training(kind: string, o: { act: Cue[]; light: number; line: string; cam?: number; fx?: Cue[] }): Cinematic {
+  const cues: Cue[] = [
+    { t: 0, do: 'cam', at: { npc: 'sana-sim' }, dist: 5.2, yaw: 0.6, pitch: 0.22, height: 1.5, blend: 0.9 },
+    { t: 0.2, do: 'npc', id: 'sana-sim', walk: [-1.9, -1.9], mood: 'focused' },
+    { t: 1.1, do: 'cam', at: { at: [-0.5, -2.2, 1.0] }, dist: o.cam ?? 5.0, yaw: 0.85, pitch: 0.2, height: 1.3, blend: 1.3 },
+    { t: 1.5, do: 'npc', id: 'sana-sim', face: { at: [0, -2.6] }, look: { at: [0, -2.6, 1.4] }, anim: 'point' },
+    { t: 1.8, do: 'say', who: 'Analyst Sana', text: o.line, for: 3 },
+    ...o.act,
+    { t: 3.6, do: 'sfx', name: 'power' },
+    { t: 3.7, do: 'flash', at: { at: [0, -1.6] }, color: o.light, power: 9, dur: 0.9, y: 1.4 },
+    ...(o.fx ?? []),
+    { t: 4.6, do: 'npc', id: 'sana-sim', anim: 'nod', mood: 'happy' },
+    { t: 4.8, do: 'banner', title: 'Training plan ready', sub: 'Each step you finish earns Focus back. You return to exactly where you stopped.', kind: 'info' },
+    { t: 5.8, do: 'cam', at: 'player', blend: 1.0 },
+    { t: 6.2, do: 'npc', id: 'sana-sim', mood: 'neutral', look: null },
+  ];
+  return { id: `training:${kind}`, cues, len: 7 };
+}
+
+CINEMATICS['training:python'] = training('python', {
+  line: 'Predict first, then run it. A program shows what it does, not what you meant.', light: 0x4fd1ff,
+  act: [{ t: 2.4, do: 'player', face: { at: [0, -1.6] }, anim: 'type' }, { t: 3.2, do: 'sfx', name: 'click' }],
+  fx: [{ t: 3.8, do: 'fx', kind: 'magic', at: { at: [0, -1.6] }, n: 14, y: 1.5 }],
+});
+CINEMATICS['training:data'] = training('data', {
+  line: 'Look at the rows before you trust the query. What should come back, and what did?', light: 0x7dffb3, cam: 4.6,
+  act: [{ t: 2.4, do: 'player', face: { at: [0, -1.6] }, anim: 'think' }, { t: 3.1, do: 'player', anim: 'point' }, { t: 3.2, do: 'sfx', name: 'chime' }],
+  fx: [{ t: 3.8, do: 'fx', kind: 'heal', at: { at: [-7, 3] }, n: 16, y: 1.4 }, { t: 3.9, do: 'flash', at: { at: [-7, 3] }, color: 0x7dffb3, power: 6, dur: 0.8, y: 1.6 }],
+});
+CINEMATICS['training:web'] = training('web', {
+  line: 'Open the page and click it like a visitor would. The browser is the judge.', light: 0xff79c6,
+  act: [{ t: 2.4, do: 'player', face: { at: [0, -1.6] }, anim: 'interact' }, { t: 3.1, do: 'player', anim: 'type' }, { t: 3.2, do: 'sfx', name: 'interact' }],
+  fx: [{ t: 3.8, do: 'fx', kind: 'sparks', at: { at: [6, -5] }, n: 14, y: 1.8 }, { t: 3.9, do: 'flash', at: { at: [6, -5] }, color: 0xff79c6, power: 6, dur: 0.8, y: 1.8 }],
+});
+CINEMATICS['training:stats'] = training('stats', {
+  line: 'Say the method and the denominator out loud before you compute anything.', light: 0xffd166,
+  act: [{ t: 2.4, do: 'player', face: { at: [0, -1.6] }, anim: 'stretch' }, { t: 3.2, do: 'sfx', name: 'chime' }],
+  fx: [{ t: 3.8, do: 'fx', kind: 'ember', at: { at: [2, -6] }, n: 14, y: 1.6 }, { t: 3.9, do: 'flash', at: { at: [2, -6] }, color: 0xffd166, power: 6, dur: 0.8, y: 1.6 }],
+});
+CINEMATICS['training:sheet'] = training('sheet', {
+  line: 'Change one input and watch what moves. If nothing moves, the formula is not connected.', light: 0x9fe8ff,
+  act: [{ t: 2.4, do: 'player', face: { at: [0, -1.6] }, anim: 'work' }, { t: 3.2, do: 'sfx', name: 'servo' }],
+  fx: [{ t: 3.8, do: 'fx', kind: 'shield', at: { at: [-2, -6] }, n: 14, y: 1.4 }],
+});
+
 /** The cinematic for a reaction id or `quest:<id>`. (A level-up is a banner, not a cutscene: the stage shows it without taking control.) */
 export function cinematicFor(ref: string): Cinematic | undefined {
   if (CINEMATICS[ref]) return CINEMATICS[ref];

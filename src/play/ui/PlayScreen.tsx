@@ -10,6 +10,7 @@ import { acceptQuest } from '../../game/actions';
 import { acceptWorkedQuests, enterScene, recordSeen, worldReward, recordTalk, setPlaySettings, setPosition } from '../../game/play';
 import { getStore, useGame } from '../../game/store';
 import { requiredTraining } from '../../game/training';
+import { trainingKind } from '../logic/trainingKind';
 import { conversationWith, type Conversation } from '../logic/dialogue';
 import { holds } from '../logic/conditions';
 import type { Interactable } from '../logic/sceneTypes';
@@ -116,6 +117,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const [welcome, setWelcome] = useState(() => !getStore().save.play.seen['play-welcome']);
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const [reacting, setReacting] = useState(false);
+  const trainPending = useRef(false);
   const reactingRef = useRef(false);
   const batch = useRef<import('../../game/events').GameEvent[]>([]);
   const batchTimer = useRef(0);
@@ -250,6 +252,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     return () => { clearTimeout(t); clearTimeout(idle); };
   }, [reacting, endReaction]);
   useEffect(() => {
+    if (!cine.active && trainPending.current) { const t = window.setTimeout(() => { if (trainPending.current) { trainPending.current = false; setTraining(true); } }, 350); return () => clearTimeout(t); }
     if (cine.active) sawCine.current = true;
     else if (reactingRef.current && sawCine.current) { const t = window.setTimeout(endReaction, 650); return () => clearTimeout(t); }
   }, [cine.active, endReaction]);
@@ -392,7 +395,11 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   }
 
   /** A failure owes training: walk the player to the Simulation Room, and open its console. Nothing is lost by going. */
-  const goTraining = () => { endReaction(); stageRef.current?.useStation(false); setTerminal(null); setPaused(false); setMapOpen(false); setBoss(null); travel('sim-room', 'training'); setTraining(true); };
+  const goTraining = () => { endReaction(); stageRef.current?.useStation(false); setTerminal(null); setPaused(false); setMapOpen(false); setBoss(null); travel('sim-room', 'training');
+    // arriving plays the scene for the kind of work owed by itself (no button); the console opens as it ends
+    const played = stageRef.current?.playCinematic(`training:${trainingKind(getStore().save)}`);
+    if (played) { trainPending.current = true; window.setTimeout(() => { if (trainPending.current) { trainPending.current = false; setTraining(true); } }, 15000); } else setTraining(true);
+  };
   /** Training is done: back to the exact place (and lesson) the player left. */
   const returnFromTraining = (r: ReturnPoint) => {
     setTraining(false);

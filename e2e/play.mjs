@@ -285,7 +285,10 @@ async function main() {
       await interact(p, 'bolt-console');
       await tid(p, 'terminal-blocked').waitFor();
       await tid(p, 'go-training').click();
-      await tid(p, 'play-training').waitFor();
+      // arriving plays the training scene by itself, with no click: the camera is taken, then the console opens
+      await tid(p, 'cine').waitFor({ state: 'attached' });
+      await p.waitForFunction(() => document.querySelector('[data-testid=cine]')?.getAttribute('data-active') === '1', null, { timeout: 8000 });
+      await tid(p, 'play-training').waitFor({ timeout: 30000 });
       eq((await st(p)).scene, 'sim-room', 'the player is in the Simulation Room');
       await tid(p, 'start-training').click();
       await tid(p, 'training-run').waitFor();
