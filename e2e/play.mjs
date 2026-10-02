@@ -501,6 +501,25 @@ async function main() {
       await p.context().close();
     });
 
+    await test('Source data: a SQL lesson shows its own database (tables, links, real sample rows) and never a hidden twin', async () => {
+      const p = await newGame();
+      await go(p, 'analytics-office');
+      await tp(p, 0, -0.3, 0);
+      await interact(p, 'analytics-console');
+      await tid(p, 'play-terminal').waitFor();
+      await tid(p, 'terminal-next').click();
+      await tid(p, 'lesson').waitFor();
+      for (let step = 0; step < 6 && !(await tid(p, 'data-viewer').count()); step++) { const kind = await stepKind(p, step); if (kind === 'demo') await runDemo(p); await tid(p, 'continue').click(); }
+      await tid(p, 'data-viewer').waitFor();
+      const ids = await p.locator('[data-testid^=dv-db-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
+      assert(ids.length >= 1 && ids.every((i) => !/-(b|boss|edge)$/.test(i)), 'only visible databases: ' + ids.join());
+      await p.locator('.dv-table tbody tr').first().waitFor({ timeout: 60000 });
+      assert((await p.locator('.dv-table tbody tr').count()) >= 3, 'sample rows are shown');
+      assert((await tid(p, 'data-viewer').innerText()).includes('rows'), 'row counts are shown');
+      await p.screenshot({ path: SHOTS + 'play-12-source-data.png' });
+      await p.context().close();
+    });
+
     await test('Baseball: without analysis the lineup is not set, the field is empty of a lineup, and the game is played with the jersey-number order', async () => {
       const p = await newGame();
       await go(p, 'ballpark');

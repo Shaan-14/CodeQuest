@@ -10,7 +10,7 @@ import { WebWorkbench } from './WebWorkbench';
 import type { WebFiles } from '../../content/schema';
 import { sourcesFor } from '../../content/databases';
 import { runCode, useRunnerStatus } from './useRunner';
-import { SchemaBrowser } from './SchemaBrowser';
+import { DataViewer } from './DataViewer';
 
 /** A runnable example. The player must actually run it before continuing. */
 export function DemoStepView({ step, onReady }: { step: Demo; onReady: () => void }) {
@@ -48,7 +48,7 @@ export function DemoStepView({ step, onReady }: { step: Demo; onReady: () => voi
         <div class="mode-badge demo">Demonstration</div>
         <h2>{step.title}</h2>
         <RichText text={step.body} />
-        {step.language === 'sql' && step.db && <SchemaBrowser dbId={step.db} />}
+        <DataViewer db={step.language === 'sql' ? step.db : undefined} fixtures={step.fixtures} api={step.api} />
         {needsRun && <p class="prompt-action">▶ Run the program to continue.</p>}
         {needsError && <p class="prompt-action">This example is meant to fail. Reset the code and run it again.</p>}
         {(isWeb ? webRan : isSheet ? sheetRan : cons.ran) && !needsError && (

@@ -21,7 +21,7 @@ import { parseWebFiles } from '../../learning/web/WebRunner';
 import { SheetWorkbench } from './SheetWorkbench';
 import { GitWorkbench } from './GitWorkbench';
 import { FieldManual, MethodCard } from './FieldManual';
-import { SchemaBrowser } from './SchemaBrowser';
+import { DataViewer } from './DataViewer';
 import { GRADE_TIMEOUT_MS, runCode, useRunnerStatus } from './useRunner';
 
 /** The text a challenge's editor starts with: the source, a workbook (JSON) or a command transcript, depending on the language. */
@@ -186,7 +186,7 @@ export function ChallengeStepView({ challenge: c, onReady, onSwitchVariant, vari
         <h2>{c.title}</h2>
         <p class="muted small">{MODE_BLURB[c.mode]}</p>
         <RichText text={c.prompt} />
-        {isSql && c.db && <SchemaBrowser dbId={c.db} />}
+        <DataViewer db={isSql ? c.db : undefined} fixtures={c.fixtures} api={c.web?.api} />
         {workspace.length > 0 && <p class="small muted" data-testid="workspace">📁 Available to your program: {workspace.map((f) => <code key={f}>{f} </code>)}</p>}
         {c.expectedBehavior && (
           <div class="expected"><strong>Expected behaviour</strong><RichText text={c.expectedBehavior} /></div>

@@ -12,7 +12,7 @@ import { getStore, useGame } from '../../game/store';
 import { emptyConsole, type ConsoleState } from '../components/Console';
 import { Modal } from '../components/Modal';
 import { RichText } from '../components/RichText';
-import { SchemaBrowser } from '../components/SchemaBrowser';
+import { DataViewer } from '../components/DataViewer';
 import { Workbench } from '../components/Workbench';
 import { WebWorkbench } from '../components/WebWorkbench';
 import { parseWebFiles } from '../../learning/web/WebRunner';
@@ -105,7 +105,7 @@ export function DailyRun({ onBack, onGoTraining }: { onBack: () => void; onGoTra
           <h2>{c.title}</h2>
           <p class="muted small">{cur.category} · {cur.focus === 'review' ? 'Review of an earlier skill' : cur.focus === 'mixed' ? 'Skills combined across worlds' : 'Reinforces what you are learning'} · resets in {formatRemaining(timeRemainingMs(game.save, now))}</p>
           <RichText text={c.prompt} />
-          {isSql && c.db && <SchemaBrowser dbId={c.db} />}
+          <DataViewer db={isSql ? c.db : undefined} fixtures={c.fixtures} api={c.web?.api} />
           {open && <p class="callout small">You can Run as often as you like. When you Submit, that is your one attempt: it cannot be repeated and no solution is shown.</p>}
           {outcome === 'passed' && (
             <div class="result pass" data-testid="daily-result">
