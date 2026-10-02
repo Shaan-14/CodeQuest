@@ -125,7 +125,7 @@ describe('save', () => {
     (v8.stats as Record<string, number>).xp = 910;
     const m = migrate(v8)!;
     expect(m.version).toBe(SAVE_VERSION);
-    expect(m.play).toEqual({ scene: null, pos: null, talked: {}, seen: {}, settings: { muted: false, reducedMotion: null, quality: 'medium' } });
+    expect(m.play).toEqual({ scene: null, pos: null, talked: {}, seen: {}, settings: { muted: false, reducedMotion: null, quality: 'medium' }, gear: { head: null, back: null } });
     expect(m.quests['wake-the-robot']!.status).toBe('active');
     expect(m.stats.xp).toBe(910);
   });

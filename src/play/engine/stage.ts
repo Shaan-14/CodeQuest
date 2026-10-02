@@ -7,7 +7,7 @@
  * terminal/dialogue covers the view or the tab is hidden, and every scene's GPU resources are released when the player leaves it.
  */
 import {
-  ACESFilmicToneMapping, PMREMGenerator, PointLight, BackSide, BufferAttribute, SphereGeometry, type Object3D, AmbientLight, Box3, Ray, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
+  ACESFilmicToneMapping, PMREMGenerator, PointLight, BackSide, BufferAttribute, SphereGeometry, type Material, type Object3D, AmbientLight, Box3, Ray, Color, DirectionalLight, Fog, Group, HemisphereLight, Mesh, MeshBasicMaterial, OctahedronGeometry, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
 } from 'three';
 import type { SaveData } from '../../core/save';
 import type { GameEvent } from '../../game/events';
@@ -143,6 +143,15 @@ export class Stage {
   get colliderList(): Collider[] { return this.colliders; }
   get worldGroup(): Group { return this.world; }
   setPlayerVisible(v: boolean): void { this.playerRig.group.visible = v; }
+  /** The player put something on or took it off: build the avatar again in the same place, facing the same way. */
+  setPlayerLook(look: NpcLook): void {
+    const old = this.playerRig, pos = old.group.position.clone(), vis = old.group.visible, face = old.facing();
+    this.scene.remove(old.group);
+    old.group.traverse((o) => { const m = o as Mesh; if (!m.isMesh) return; const mt = m.material as Material | undefined; if (mt && !mt.userData.shared) mt.dispose(); if (m.geometry && !m.geometry.userData.shared) m.geometry.dispose(); });
+    this.playerRig = createRig(look);
+    this.scene.add(this.playerRig.group);
+    this.playerRig.group.position.copy(pos); this.playerRig.group.visible = vis; this.playerRig.setFacing(face, true);
+  }
   setChase(heading: number | null): void { this.chase = heading; }
   /** Put the player on foot at a place (leaving a car). */
   placePlayer(x: number, z: number, ry: number): void { this.body.x = x; this.body.z = z; this.body.vx = 0; this.body.vz = 0; this.body.ry = ry; this.playerRig.group.position.set(x, 0, z); this.playerRig.setFacing(ry, true); }
@@ -498,7 +507,7 @@ export class Stage {
     this.t += dt;
     const inp = this.input;
     if (!this.controlLocked && inp.wasPressed('Escape')) this.env.onPause();
-    if (!this.controlLocked) { if (inp.wasPressed('m')) this.env.onAction?.('map'); if (inp.wasPressed('j')) this.env.onAction?.('journal'); if (inp.wasPressed('h')) this.env.onAction?.('manual'); }
+    if (!this.controlLocked) { if (inp.wasPressed('m')) this.env.onAction?.('map'); if (inp.wasPressed('j')) this.env.onAction?.('journal'); if (inp.wasPressed('i')) this.env.onAction?.('inventory'); if (inp.wasPressed('h')) this.env.onAction?.('manual'); }
     // camera: mouse drag, wheel, Q/R keys (for players without a mouse)
     if (!this.controlLocked) { this.yaw -= inp.dragX; this.pitch = Math.max(0.12, Math.min(1.2, this.pitch + inp.dragY)); }
     if (inp.isDown('q')) this.yaw += dt * 1.8;

@@ -239,6 +239,7 @@ export function buyItem(save: SaveData, itemId: string): Result {
   if (item.kind === 'cosmetic' && s.inventory[itemId]) return { save: s, events };
   s.stats.coins -= item.price;
   s.inventory[itemId] = (s.inventory[itemId] ?? 0) + 1;
+  if (item.kind === 'cosmetic' && item.slot) s.play.gear[item.slot] = itemId; // bought to be worn: put it on (it can be changed in the Pack)
   s.flags['bought-item'] = true;
   events.push({ type: 'item', id: itemId });
   settle(s, events);

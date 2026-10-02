@@ -36,7 +36,7 @@ export type InteractAction =
   | { type: 'terminal'; station: string }
   | { type: 'exit'; to: string; spawn?: string }
   | { type: 'vehicle'; vehicle: string }
-  | { type: 'panel'; panel: 'map' | 'training' | 'daily' | 'lineup' | 'setup' | 'spellbook' }
+  | { type: 'panel'; panel: 'map' | 'training' | 'daily' | 'lineup' | 'setup' | 'spellbook' | 'shop' }
   | { type: 'sim'; sim: 'baseball' }
   | { type: 'boss'; boss: string }
   /** A chest, toolbox or locker: opens once for a small reward (coins), and can be looked at again. */

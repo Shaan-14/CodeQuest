@@ -10,7 +10,7 @@ import type { EvidenceRecord } from '../learning/mastery';
 
 export const SAVE_KEY = 'codequest.save';
 export const BACKUP_KEY = 'codequest.save.backup';
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 export interface PlayerProfile {
   name: string;
@@ -332,8 +332,10 @@ export interface PlayState {
   seen: Record<string, string>;
   /** Player-facing settings of the 3D layer. */
   settings: { muted: boolean; reducedMotion: boolean | null; quality: 'low' | 'medium' | 'high' };
+  /** Cosmetics worn in the 3D world, by slot (item ids from content/world.ts; the item must be owned). Looks only: nothing here affects learning, Focus or rewards. */
+  gear: { head: string | null; back: string | null };
 }
-export const emptyPlay = (): PlayState => ({ scene: null, pos: null, talked: {}, seen: {}, settings: { muted: false, reducedMotion: null, quality: 'medium' } });
+export const emptyPlay = (): PlayState => ({ scene: null, pos: null, talked: {}, seen: {}, settings: { muted: false, reducedMotion: null, quality: 'medium' }, gear: { head: null, back: null } });
 export function sanitizePlay(raw: unknown): PlayState {
   const out = emptyPlay();
   if (typeof raw !== 'object' || raw === null) return out;
@@ -349,6 +351,8 @@ export function sanitizePlay(raw: unknown): PlayState {
     out.settings.reducedMotion = typeof st.reducedMotion === 'boolean' ? st.reducedMotion : null;
     out.settings.quality = st.quality === 'low' || st.quality === 'high' ? st.quality : 'medium';
   }
+  const g = r.gear as Record<string, unknown> | undefined;
+  if (g && typeof g === 'object') for (const slot of ['head', 'back'] as const) { const v = g[slot]; out.gear[slot] = typeof v === 'string' && v.length <= 40 ? v : null; }
   return out;
 }
 
@@ -447,6 +451,12 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // v8 -> v9 (Phase 6): the playable 3D world. Saves gain an empty `play` block (nobody has talked to anyone yet). Quest states, evidence and
   // lessons are untouched; the world a player's old evidence already earned is derived from that evidence, so nothing needs backfilling.
   8: (old) => ({ ...old, play: emptyPlay() }),
+  // v9 -> v10 (gear): cosmetics are now worn in the 3D world by slot. Nobody loses anything: a cape or cap a player already owns is simply put on.
+  9: (old) => {
+    const inv = (old.inventory as Record<string, number> | undefined) ?? {};
+    const play = { ...emptyPlay(), ...((old.play as Record<string, unknown> | undefined) ?? {}) };
+    return { ...old, play: { ...play, gear: { head: inv['lucky-cap'] ? 'lucky-cap' : null, back: inv['explorer-cape'] ? 'explorer-cape' : null } } };
+  },
 };
 /** Shop items that restored Focus directly. They no longer exist: Focus is earned through training. */
 const REMOVED_CONSUMABLES: Record<string, number> = { 'study-snack': 10, 'focus-tea': 25 };

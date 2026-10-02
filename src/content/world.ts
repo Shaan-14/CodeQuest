@@ -88,8 +88,10 @@ export const areas: Area[] = [
 
 /** Nothing here sells answers, hints, XP or Focus. Items only decorate the avatar (Focus is earned in the Training Grounds). */
 export const items: Item[] = [
-  { id: 'explorer-cape', name: 'Explorer’s Cape', icon: '🧣', kind: 'cosmetic', price: 80, description: 'A red cape. Purely stylish; worn automatically.' },
-  { id: 'lucky-cap', name: 'Lucky Cap', icon: '🧢', kind: 'cosmetic', price: 60, description: 'A well-worn ball cap. Purely stylish; worn automatically.' },
+  { id: 'explorer-cape', name: 'Explorer’s Cape', icon: '🧣', kind: 'cosmetic', price: 80, slot: 'back', wear: { accessory: 'cape' }, description: 'A red cape that swings as you move. Worn on your back in the 3D world. Looks only.' },
+  { id: 'wanderer-scarf', name: 'Wanderer’s Scarf', icon: '🧣', kind: 'cosmetic', price: 50, slot: 'back', wear: { accessory: 'scarf' }, description: 'A long scarf that trails behind you. Worn on your back in the 3D world, instead of the cape. Looks only.' },
+  { id: 'lucky-cap', name: 'Lucky Cap', icon: '🧢', kind: 'cosmetic', price: 60, slot: 'head', wear: { hat: 'cap' }, description: 'A well-worn ball cap. Worn on your head in the 3D world. Looks only.' },
+  { id: 'trail-visor', name: 'Trail Visor', icon: '🥽', kind: 'cosmetic', price: 70, slot: 'head', wear: { hat: 'visor' }, description: 'A tinted field visor. Worn on your head in the 3D world, instead of the cap. Looks only.' },
   { id: 'daily-medal', name: 'Daily Medal', icon: '🎖️', kind: 'quest', price: null, description: 'Earned for solving 10 Daily Challenges. Cannot be bought.' },
   { id: 'sharp-monocle', name: 'Sharp Monocle', icon: '🧐', kind: 'quest', price: null, description: 'Earned for solving 25 Daily Challenges. Cannot be bought.' },
   { id: 'golden-hourglass', name: 'Golden Hourglass', icon: '⏳', kind: 'quest', price: null, description: 'Earned for solving 50 Daily Challenges. Cannot be bought.' },

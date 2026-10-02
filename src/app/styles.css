@@ -410,3 +410,8 @@ body:has(.play) .toast { border-radius: 12px; border-width: 2px; background: rgb
 .dv-links { margin: .1rem 0 .2rem 1rem; } .dv-links span { margin-right: .8rem; }
 .dv-pre { background: #0b0d1c; border: 1px solid var(--line); border-radius: 6px; padding: .4rem .6rem; font-size: .8rem; overflow-x: auto; max-height: 14rem; margin: .25rem 0; }
 .dataview { max-height: 22rem; overflow-y: auto; }
+
+/* the Pack: what you can wear */
+.pack-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .7rem; margin: .6rem 0; }
+.pack-slot h4 { margin: 0 0 .3rem; color: var(--gold); text-transform: uppercase; font-size: .8rem; letter-spacing: .08em; }
+.pack-options { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }

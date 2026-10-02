@@ -540,6 +540,9 @@ export interface Item {
   description: string;
   price: number | null; // null = not sold
   kind: 'cosmetic' | 'quest';
+  /** A cosmetic is WORN on the player in the 3D world: which slot it fills and what it changes about the avatar. Looks only. */
+  slot?: 'head' | 'back';
+  wear?: { hat?: 'cap' | 'visor' | 'headband'; accessory?: 'cape' | 'scarf' };
 }
 
 /**

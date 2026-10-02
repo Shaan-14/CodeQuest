@@ -3,6 +3,7 @@
  * all as pure `(save, ...) => { save, events }` like every other action. Nothing here grants skill: the world a player's CODE changed is
  * derived from evidence, never stored, so none of these functions can repair a robot.
  */
+import { items } from '../content/world';
 import type { PlayState, SaveData } from '../core/save';
 import { acceptQuest, gain, settle, type Result } from './actions';
 import { getQuest, objectiveDone, questStatus } from './quests';
@@ -71,4 +72,17 @@ export function acceptWorkedQuests(save: SaveData, questIds: readonly string[]):
     cur = r.save; events.push(...r.events);
   }
   return { save: cur, events };
+}
+
+/**
+ * Wear an owned cosmetic in its slot, or take the slot's item off (`null`). Only items the player owns, in the slot they belong to: anything else
+ * is ignored. Gear changes how the avatar looks and nothing else.
+ */
+export function equipGear(save: SaveData, slot: 'head' | 'back', itemId: string | null): Result {
+  const { s, events } = draftOf(save);
+  if (itemId === null) { s.play.gear[slot] = null; return { save: s, events }; }
+  const item = items.find((i) => i.id === itemId);
+  if (!item || item.kind !== 'cosmetic' || item.slot !== slot || !s.inventory[itemId]) return { save: s, events };
+  s.play.gear[slot] = itemId;
+  return { save: s, events };
 }

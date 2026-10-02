@@ -19,6 +19,7 @@ import type { Stage } from '../engine/stage';
 import { Caption, Controls, Dialogue, Prompt } from './Overlays';
 import { TerminalOverlay } from './TerminalOverlay';
 import { TrainingOverlay } from './TrainingOverlay';
+import { ShopOverlay } from './ShopOverlay';
 import { MapOverlay } from './MapOverlay';
 import { SimOverlay } from './SimOverlay';
 import { DriveHud } from './DriveHud';
@@ -118,7 +119,9 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const [welcome, setWelcome] = useState(() => !getStore().save.play.seen['play-welcome']);
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const [reacting, setReacting] = useState(false);
+  const [shop, setShop] = useState(false);
   const trainPending = useRef(false);
+  const onPanelRef = useRef(onPanel); onPanelRef.current = onPanel;
   /** A cutaway waiting to play after the reaction's own cinematic, and the place to return to once it ends. */
   const thenRef = useRef<string | null>(null);
   const cutRef = useRef<{ scene: string; x: number; z: number; ry: number } | null>(null);
@@ -143,7 +146,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   const captionTimer = useRef<number>(0);
 
   const terminalOn = !!terminal && !reacting; // while the world answers the player's code, the terminal steps aside (it stays mounted, so the lesson is exactly where it was)
-  overlayOpen.current = !!(panelOpen || talk || terminalOn || paused || gate || training || mapOpen || sim || boss || finale || daily || manual || welcome);
+  overlayOpen.current = !!(panelOpen || talk || terminalOn || paused || gate || training || shop || mapOpen || sim || boss || finale || daily || manual || welcome);
 
   const say = useCallback((text: string) => {
     setCaption(text);
@@ -201,8 +204,8 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
             });
             return () => { cancelled = true; stop(); };
           },
-          onAction: (n) => { if (n === 'map') interactPanel('map'); if (n === 'manual') setManual((m) => !m); },
-          playerLook: playerLook(s.player?.avatar ?? 'spellwright'),
+          onAction: (n) => { if (n === 'map') interactPanel('map'); if (n === 'manual') setManual((m) => !m); if (n === 'journal') onPanelRef.current('quests'); if (n === 'inventory') onPanelRef.current('pack'); },
+          playerLook: playerLook(s.player?.avatar ?? 'spellwright', s.play.gear),
           quality: s.play.settings.quality,
           reducedMotion: reduced,
         });
@@ -303,6 +306,10 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
     else if (cutRef.current && sawCine.current) { const t = window.setTimeout(() => void endCutaway(), 500); return () => clearTimeout(t); }
     else if (reactingRef.current && sawCine.current) { const t = window.setTimeout(() => { if (thenRef.current) void startCutaway(); else endReaction(); }, 650); return () => clearTimeout(t); }
   }, [cine.active, endReaction]);
+  // putting something on (or taking it off) in the Pack changes the avatar at once
+  const gearKey = `${save.play.gear.head ?? ''}|${save.play.gear.back ?? ''}`;
+  const builtGear = useRef<string | null>(null);
+  useEffect(() => { const st = stageRef.current; if (!st || !ready) return; if (builtGear.current === null) { builtGear.current = gearKey; return; } if (builtGear.current === gearKey) return; builtGear.current = gearKey; st.setPlayerLook(playerLook(save.player?.avatar ?? 'spellwright', save.play.gear)); }, [gearKey, ready]);
   // any save change (a quest accepted, a lesson done) refreshes what the world offers
   useEffect(() => { stageRef.current?.refresh(); }, [save]);
 
@@ -321,14 +328,14 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
   // overlays take the keyboard: the world stops listening (and stops rendering behind a full-screen terminal)
   useEffect(() => {
     const s = stageRef.current; if (!s) return;
-    s.setInputEnabled(!(panelOpen || talk || terminalOn || paused || gate || training || mapOpen || sim || boss || finale || daily || manual || welcome));
+    s.setInputEnabled(!(panelOpen || talk || terminalOn || paused || gate || training || shop || mapOpen || sim || boss || finale || daily || manual || welcome));
     if (panelOpen || terminalOn || paused || training || mapOpen || boss || daily || manual || welcome) s.suspend(); else if (ready) s.start();
     if (!panelOpen && !talk && !terminalOn && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && pending.current.length) { const evs = pending.current; pending.current = []; s.react(evs); }
     // the ending: once the beacon has had its moment, the campaign-complete card appears
     if (!panelOpen && !talk && !terminalOn && !paused && !gate && !training && !mapOpen && !sim && !boss && !finale && !daily && !manual && !welcome && finalePending.current) { finalePending.current = false; window.setTimeout(() => setFinale(true), s.reduced ? 500 : 7000); }
-  }, [panelOpen, talk, terminalOn, paused, gate, training, mapOpen, sim, boss, finale, daily, manual, welcome, ready]);
+  }, [panelOpen, talk, terminalOn, paused, gate, training, shop, mapOpen, sim, boss, finale, daily, manual, welcome, ready]);
 
-  function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); else if (panel === 'daily') setDaily(true); else if (panel === 'setup') void watchLap(); }
+  function interactPanel(panel: string): void { if (panel === 'map') setMapOpen(true); else if (panel === 'training') setTraining(true); else if (panel === 'daily') setDaily(true); else if (panel === 'shop') setShop(true); else if (panel === 'setup') void watchLap(); }
 
   /** The replay lap: the car drives itself round the circuit with the setup the player's analysis earned, under a director's camera. */
   async function watchLap(): Promise<void> {
@@ -496,6 +503,7 @@ export function PlayScreen({ onClassic, onPanel, panelOpen }: { onClassic: () =>
           {boss && <BossOverlay start={boss.start} onClose={() => setBoss(null)} onGoTraining={goTraining} />}
           {finale && <Finale onClose={() => setFinale(false)} />}
           {sim && stageRef.current && <SimOverlay stage={stageRef.current} onClose={() => setSim(false)} />}
+          {shop && <ShopOverlay onClose={() => setShop(false)} />}
           {training && <TrainingOverlay onClose={() => setTraining(false)} onReturn={returnFromTraining} />}
           {mapOpen && <MapOverlay sceneId={sceneId} onClose={() => setMapOpen(false)} onTravel={(to, spawn) => { setMapOpen(false); travel(to, spawn); }} />}
           {terminal && getStation(terminal) && <TerminalOverlay station={getStation(terminal)!} hidden={reacting} start={termStart} onClose={() => { endReaction(); stageRef.current?.useStation(false); setTerminal(null); }} onGoTraining={goTraining} />}

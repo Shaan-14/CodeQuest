@@ -19,6 +19,7 @@ export const plaza: SceneDef = {
     { kind: 'archway', x: 0, z: 17.5, ry: Math.PI, p: { w: 4.4, h: 4.4, text: 'REDLINE RACEWAY', color: 0xff5d73 } },
     { kind: 'archway', x: 16.5, z: -14.5, ry: Math.PI, p: { w: 3.4, h: 3.6, text: 'SUMMIT TRAIL', color: C.yellow } },
     { kind: 'board', x: 5, z: 5, id: 'map-board', solid: { w: 2.6, d: 0.3 } },
+    { kind: 'kiosk', x: -10, z: 7.5, ry: Math.PI / 2, id: 'shop-kiosk', p: { text: 'BOLT & BARREL|GEAR FOR COINS', color: 0xffd166 }, solid: { w: 1.0, d: 0.8 } },
     { kind: 'board', x: -5, z: 6.5, id: 'daily-board', solid: { w: 2.6, d: 0.3 } },
     { kind: 'lamppost', x: -5, z: -5 }, { kind: 'lamppost', x: 5, z: -5 }, { kind: 'lamppost', x: -5, z: 5 }, { kind: 'lamppost', x: 5, z: 8 },
     { kind: 'bench', x: -8, z: 4, solid: { w: 1.6, d: 0.5 } }, { kind: 'bench', x: 8, z: -4, solid: { w: 1.6, d: 0.5 } },
@@ -30,6 +31,7 @@ export const plaza: SceneDef = {
     { id: 'talk-pip', verb: 'Talk', label: 'Pip the guide', x: 3, z: 3.5, action: { type: 'talk', npc: 'pip' } },
     { id: 'daily-board', verb: 'Read', label: 'the dispatch board', x: -5, z: 6.9, action: { type: 'panel', panel: 'daily' } },
     { id: 'map-board', verb: 'Read', label: 'the world map', x: 5, z: 3.9, action: { type: 'panel', panel: 'map' } },
+    { id: 'shop-kiosk', verb: 'Browse', label: 'the Bolt & Barrel kiosk', x: -8.7, z: 7.5, action: { type: 'panel', panel: 'shop' } },
   ],
   exits: [
     { id: 'to-robotics', label: 'the Robotics Academy', x: -20.4, z: 0, to: 'robotics-atrium', spawn: 'from-plaza' },

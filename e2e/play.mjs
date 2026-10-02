@@ -501,6 +501,38 @@ async function main() {
       await p.context().close();
     });
 
+    await test('Pack: buy gear at the plaza kiosk, it is worn at once, the I key opens the Pack to change it, and J opens the Journal', async () => {
+      const seed = structuredClone(saves.baseball); seed.stats.coins = 500;
+      const p = await newGame({ save: JSON.stringify(seed) });
+      await go(p, 'plaza');
+      await tp(p, -8.7, 8.2, Math.PI / 2);
+      await interact(p, 'shop-kiosk');
+      await tid(p, 'play-shop').waitFor();
+      await tid(p, 'buy-lucky-cap').click();
+      await p.waitForFunction(() => JSON.parse(localStorage.getItem('codequest.save')).play.gear.head === 'lucky-cap');
+      let s = await save(p);
+      eq(s.play.gear.head, 'lucky-cap', 'bought gear is worn');
+      eq(s.stats.coins, 440, 'it cost coins');
+      assert(!(await tid(p, 'buy-lucky-cap').isEnabled()), 'owned: cannot be bought twice');
+      await tid(p, 'shop-close').click();
+      await p.waitForTimeout(700);
+      await p.keyboard.press('i');
+      await tid(p, 'pack').waitFor();
+      eq(await tid(p, 'slot-head').getAttribute('data-worn'), 'lucky-cap', 'the Pack shows what is worn');
+      await p.screenshot({ path: SHOTS + 'play-13-pack.png' });
+      await tid(p, 'takeoff-head').click();
+      eq((await save(p)).play.gear.head, null, 'taken off');
+      await p.keyboard.press('i');
+      await tid(p, 'pack').waitFor({ state: 'detached' });
+      await p.keyboard.press('j');
+      await tid(p, 'quest-log').waitFor();
+      assert((await p.locator('[data-testid^=journal-toggle-]').count()) >= 6, 'the journal lists every world');
+      await p.keyboard.press('j');
+      await tid(p, 'quest-log').waitFor({ state: 'detached' });
+      assert(p.errors.length === 0, 'no page errors: ' + p.errors.join('|'));
+      await p.context().close();
+    });
+
     await test('Source data: a SQL lesson shows its own database (tables, links, real sample rows) and never a hidden twin', async () => {
       const p = await newGame();
       await go(p, 'analytics-office');
