@@ -1,11 +1,10 @@
 import { useState } from 'preact/hooks';
-import { items, quests, achievementDefs } from '../../content/world';
+import { items, achievementDefs } from '../../content/world';
 import { exportSave, importSave } from '../../core/save';
 import { resetAll } from '../../game/actions';
 import { backfillEvidence } from '../../game/backfill';
-import { questStatus } from '../../game/quests';
 import { getStore, useGame } from '../../game/store';
-import { QuestCard } from './QuestCard';
+import { QuestJournal } from './QuestJournal';
 import { Modal } from './Modal';
 import { SkillsView } from './SkillsView';
 import type { PanelTab } from './Hud';
@@ -20,26 +19,12 @@ export function Panel({ tab, onTab, onClose, onReset }: { tab: PanelTab; onTab: 
           <button key={id} role="tab" aria-selected={tab === id} class={tab === id ? 'active' : ''} onClick={() => onTab(id)} data-testid={`panel-tab-${id}`}>{label}</button>
         ))}
       </div>
-      {tab === 'quests' && <QuestLog />}
+      {tab === 'quests' && <QuestJournal />}
       {tab === 'pack' && <Pack />}
       {tab === 'skills' && <SkillsView />}
       {tab === 'trophies' && <Trophies />}
       {tab === 'menu' && <MenuTab onReset={onReset} />}
     </Modal>
-  );
-}
-
-function QuestLog() {
-  const { save } = useGame();
-  const taken = quests.filter((q) => save.quests[q.id]);
-  const open = quests.filter((q) => !save.quests[q.id] && questStatus(save, q) === 'available');
-  if (!taken.length && !open.length) return <p class="muted">No quests yet. Speak to Mentor Juno at the Academy.</p>;
-  return (
-    <div data-testid="quest-log">
-      {taken.map((q) => <QuestCard key={q.id} quest={q} />)}
-      {open.length > 0 && <h3>Waiting for you</h3>}
-      {open.map((q) => <p key={q.id} class="small muted"><strong>{q.title}</strong> (available from {q.giver})</p>)}
-    </div>
   );
 }
 
