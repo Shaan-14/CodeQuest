@@ -66,6 +66,8 @@ const st = (p) => p.evaluate(() => window.__cq3d.state());
 const save = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('codequest.save')));
 const tp = (p, x, z, ry = 0) => p.evaluate(([x, z, ry]) => window.__cq3d.teleport(x, z, ry), [x, z, ry]);
 const go = (p, scene, spawn) => p.evaluate(([s, sp]) => window.__cq3d.travel(s, sp), [scene, spawn]);
+/** Software WebGL can spend a second or two on the first frame of a new place; wait until a few real frames have been drawn so timed input (a held key) is not spent inside that stall. */
+const settle = (p, frames = 3) => p.evaluate(async (n) => { const pf = window.__cq3d.perf(); const from = pf.frames.length; const t0 = performance.now(); while (pf.frames.length < from + n && performance.now() - t0 < 15000) await new Promise((r) => setTimeout(r, 50)); }, frames);
 /** A cinematic (letterbox, subtitles) locks the controls: skip it (Space) as a player may, and wait until the world is theirs again. */
 async function skipCine(p) {
   await p.waitForTimeout(350);
@@ -203,7 +205,7 @@ async function main() {
       assert((await tid(p, 'objective-text').innerText()).includes('Repair Console'), 'the objective names the Python lesson\'s console, from the learning record');
       assert((await tid(p, 'objective-where').innerText()).includes('Maintenance Bay'), 'and where: the door to take');
       assert((await st(p)).markers.length >= 0, 'markers exist');
-      await go(p, 'maintenance-bay');
+      await go(p, 'maintenance-bay'); await settle(p);
       const a = await st(p);
       await p.keyboard.down('w'); await p.waitForTimeout(1200); await p.keyboard.up('w');
       const b = await st(p);
@@ -346,7 +348,7 @@ async function main() {
       const p = await newGame();
       await p.evaluate(() => { window.__tl = []; const t0 = performance.now(); new MutationObserver(() => { const c = document.querySelector('[data-testid=cine]'); const b = document.querySelector('[data-testid=cine-banner]'); const term = document.querySelector('[data-testid=play-terminal]'); window.__tl.push([Math.round(performance.now() - t0), c?.getAttribute('data-active'), b ? b.textContent.slice(0, 40) : '', term ? (term.hidden ? 'hid' : 'vis') : 'none']); }).observe(document.body, { subtree: true, childList: true, attributes: true }); });
       // through the Robotics gate, the guide names the Python lesson and the console, no NPC needed
-      await go(p, 'robotics-atrium', 'from-plaza'); await p.waitForTimeout(400);
+      await go(p, 'robotics-atrium', 'from-plaza'); await settle(p);
       assert((await tid(p, 'play-tracker').getAttribute('data-objective')) === 'lesson', 'the objective is the next lesson');
       assert((await tid(p, 'objective-text').innerText()).includes('Repair Console'), 'it names the console');
       await go(p, 'maintenance-bay');
